@@ -60,8 +60,42 @@ type Story = StoryObj<Cmp>;
 
 export const Basic: Story = {
   render: (args) => (
-    <LiquidGlassCanvas {...args}
-      backdropSource={document.querySelector('canvas.backdrop-source') as HTMLCanvasElement | null ?? undefined}
+    <LiquidGlassCanvas
+      {...args}
+      getBackdrop={async () => {
+        // Build a backdrop from the current Storybook background if it is an image URL
+        const style = getComputedStyle(document.body);
+        const bi = style.backgroundImage;
+        const m = /url\(["']?([^"')]+)["']?\)/.exec(bi);
+        if (m) {
+          const url = m[1];
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = url;
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('img load')); });
+          const off = document.createElement('canvas');
+          const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+          off.width = Math.floor((args.width ?? 480) * dpr);
+          off.height = Math.floor((args.height ?? 280) * dpr);
+          const ctx = off.getContext('2d')!;
+          const iw = img.width, ih = img.height;
+          const cw = off.width, ch = off.height;
+          const ir = iw / ih, cr = cw / ch;
+          let dw = cw, dh = ch, dx = 0, dy = 0;
+          if (ir > cr) { dh = ch; dw = dh * ir; dx = (cw - dw) / 2; }
+          else { dw = cw; dh = dw / ir; dy = (ch - dh) / 2; }
+          ctx.drawImage(img, dx, dy, dw, dh);
+          return off;
+        }
+        // fallback solid background
+        const off = document.createElement('canvas');
+        off.width = args.width ?? 480;
+        off.height = args.height ?? 280;
+        const ctx = off.getContext('2d')!;
+        ctx.fillStyle = style.backgroundColor || '#666';
+        ctx.fillRect(0, 0, off.width, off.height);
+        return off;
+      }}
     >
       <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontWeight: 600 }}>
         Canvas Glass

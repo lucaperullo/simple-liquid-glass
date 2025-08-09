@@ -21,6 +21,8 @@ export interface LiquidGlassCanvasProps extends React.HTMLAttributes<HTMLDivElem
 
   // Backdrop
   backdropSource?: BackdropInput;
+  // Optional async provider if you want to snapshot DOM or provide a dynamic source
+  getBackdrop?: () => Promise<HTMLCanvasElement | ImageBitmap>;
 
   // Text color controls
   autoTextColor?: boolean;
@@ -273,6 +275,7 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [effectiveTextColor, setEffectiveTextColor] = useState<string>(textOnLight);
+  const [backdrop, setBackdrop] = useState<BackdropInput | null>(null);
 
   // Text color auto-detection via computed background (DOM fallback)
   useEffect(() => {
@@ -305,6 +308,70 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     () => getResolvedGlassBackground(glassColor, frost),
     [glassColor, frost]
   );
+
+  // Try to acquire a backdrop if not provided explicitly
+  useEffect(() => {
+    let cancelled = false;
+    async function resolveBackdrop() {
+      if (backdropSource) {
+        setBackdrop(backdropSource);
+        return;
+      }
+      if (props.getBackdrop) {
+        try {
+          const bmp = await props.getBackdrop();
+          if (!cancelled) setBackdrop(bmp);
+          return;
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[LiquidGlassCanvas] getBackdrop failed', e);
+        }
+      }
+      // Fallback: try to read nearest ancestor background-image URL and draw it with object-fit: cover.
+      const root: HTMLElement | null = containerRef.current?.parentElement ?? document.body;
+      let cur: HTMLElement | null = root;
+      let bgUrl: string | null = null;
+      while (cur) {
+        const bi = getComputedStyle(cur).backgroundImage;
+        if (bi && bi !== 'none') {
+          const m = /url\(["']?([^"')]+)["']?\)/.exec(bi);
+          if (m) { bgUrl = m[1]; break; }
+        }
+        cur = cur.parentElement;
+      }
+      if (!bgUrl) { setBackdrop(null); return; }
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = bgUrl;
+        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('img load')); });
+        if (cancelled) return;
+        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        const off = document.createElement('canvas');
+        off.width = Math.max(1, Math.floor(width * dpr));
+        off.height = Math.max(1, Math.floor(height * dpr));
+        const ctx = off.getContext('2d')!;
+        // Draw cover
+        const iw = img.width; const ih = img.height;
+        const cw = off.width; const ch = off.height;
+        const ir = iw / ih; const cr = cw / ch;
+        let dw = cw, dh = ch, dx = 0, dy = 0;
+        if (ir > cr) { // image wider
+          dh = ch; dw = dh * ir; dx = (cw - dw) / 2; dy = 0;
+        } else {
+          dw = cw; dh = dw / ir; dx = 0; dy = (ch - dh) / 2;
+        }
+        ctx.drawImage(img, dx, dy, dw, dh);
+        if (!cancelled) setBackdrop(off);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[LiquidGlassCanvas] background-image fallback failed', e);
+        if (!cancelled) setBackdrop(null);
+      }
+    }
+    resolveBackdrop();
+    return () => { cancelled = true; };
+  }, [backdropSource, props.getBackdrop, width, height]);
 
   // Parse colors to vec4
   function cssColorToVec4(css: string): [number, number, number, number] {
@@ -368,7 +435,7 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     const compProg = createProgram(gl, VS, FS_COMPOSITE);
 
     // Backdrop texture
-    if (!backdropSource) {
+    if (!backdrop) {
       // Clear to transparent if no backdrop provided
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -379,7 +446,7 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
       gl.deleteProgram(compProg);
       return;
     }
-    const srcTex = createTextureFromSource(gl, backdropSource);
+    const srcTex = createTextureFromSource(gl, backdrop);
 
     // Intermediate render targets for separable blur
     const { texture: texA, fbo: fboA } = createRenderTexture(gl, renderWidth, renderHeight);
@@ -413,7 +480,7 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     gl.uniform1i(gl.getUniformLocation(compProg, 'u_blurred'), 0);
     gl.uniform2f(gl.getUniformLocation(compProg, 'u_resolution'), renderWidth, renderHeight);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_radius'), Math.max(0, Math.min(radius * dpr, Math.min(renderWidth, renderHeight) * 0.5)));
-    const borderWidthPx = Math.max(0, Math.min(1.0 * dpr, Math.min(renderWidth, renderHeight) * 0.5 * DEFAULTS.border));
+    const borderWidthPx = Math.max(0, Math.min(1.0 * dpr, Math.min(renderWidth, renderHeight) * 0.5 * (border || DEFAULTS.border)));
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_borderWidth'), borderWidthPx);
 
     const glassVec = cssColorToVec4(resolvedGlassColor);
@@ -437,7 +504,7 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     gl.deleteFramebuffer(fboB);
     gl.deleteProgram(blurProg);
     gl.deleteProgram(compProg);
-  }, [width, height, backdropSource, blur, radius, borderColor, resolvedGlassColor]);
+  }, [width, height, backdrop, blur, radius, borderColor, resolvedGlassColor, border]);
 
   const wrapperStyle: React.CSSProperties = {
     position: 'relative',

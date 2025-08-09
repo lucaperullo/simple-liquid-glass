@@ -1,6 +1,6 @@
 # Simple Liquid Glass
 
-A React component for creating stunning liquid glass morphism effects with customizable distortion, blur, and chromatic aberration.
+A tiny, zero-dependency React component that renders a beautiful “liquid” glassmorphism panel using an SVG displacement map. It supports chromatic aberration, gradient borders, a configurable semi‑transparent glass color, and automatic text color based on the surrounding background.
 
 ![npm version](https://img.shields.io/npm/v/simple-liquid-glass)
 ![license](https://img.shields.io/npm/l/simple-liquid-glass)
@@ -8,13 +8,13 @@ A React component for creating stunning liquid glass morphism effects with custo
 
 ## Features
 
-- 🎨 Beautiful glass morphism effect with liquid distortion
-- ⚡ Lightweight and performant
-- 🔧 Highly customizable with multiple parameters
-- 📱 Responsive and works with any content
-- 🎯 TypeScript support
-- 🌈 Chromatic aberration and blur effects
-- 🖼️ Border gradient support
+- **Liquid glassmorphism** with SVG displacement
+- **Auto text color**: detects dark/light backgrounds to keep text legible
+- **Custom glass color**: accepts only semi‑transparent colors (`rgba`, `hsla`, hex with alpha)
+- **Chromatic dispersion** and **blur** with fine‑grained controls
+- **Gradient border** with masking
+- **Responsive** and content‑agnostic
+- **TypeScript** and tree‑shakable builds (ESM and CJS)
 
 ## Installation
 
@@ -39,8 +39,8 @@ import { LiquidGlass } from 'simple-liquid-glass';
 function App() {
   return (
     <div style={{ width: '300px', height: '200px' }}>
-      <LiquidGlass>
-        <div style={{ padding: '20px', color: 'white' }}>
+      <LiquidGlass autoTextColor glassColor="rgba(255,255,255,0.4)">
+        <div style={{ padding: '20px' }}>
           <h2>Your Content Here</h2>
           <p>This content has a liquid glass effect!</p>
         </div>
@@ -70,6 +70,11 @@ function App() {
         blur={10}
         dispersion={30}
         frost={0.2}
+        glassColor="rgba(255,255,255,0.4)"
+        autoTextColor
+        textOnDark="#ffffff"
+        textOnLight="#111111"
+        forceTextColor
         borderColor="rgba(255, 255, 255, 0.5)"
         className="my-glass-container"
         style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}
@@ -94,6 +99,8 @@ The component comes with a beautiful preset that works out of the box:
 </LiquidGlass>
 ```
 
+Note: In `preset` mode, incoming props still override the preset defaults (e.g., `scale`, `radius`, `blur`, etc.).
+
 ## Props
 
 | Prop | Type | Default | Description |
@@ -110,6 +117,11 @@ The component comes with a beautiful preset that works out of the box:
 | `dispersion` | `number` | `50` | Chromatic dispersion amount |
 | `frost` | `number` | `0.1` | Frost effect intensity (0 to 1) |
 | `borderColor` | `string` | `'rgba(120, 120, 120, 0.7)'` | Border color in CSS format |
+| `glassColor` | `string` | – | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
+| `autoTextColor` | `boolean` | `true` | Automatically detect background luminance and set text color |
+| `textOnDark` | `string` | `'#ffffff'` | Text color used when background is detected as dark |
+| `textOnLight` | `string` | `'#111111'` | Text color used when background is detected as light |
+| `forceTextColor` | `boolean` | `false` | Force the computed text color on all descendants (`!important`) to override nested styles |
 | `className` | `string` | - | Additional CSS class names |
 | `style` | `CSSProperties` | - | Additional inline styles |
 
@@ -123,12 +135,12 @@ The component comes with a beautiful preset that works out of the box:
   height: '200px',
   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
 }}>
-  <LiquidGlass radius={15} frost={0.15}>
+  <LiquidGlass radius={15} frost={0.15} autoTextColor glassColor="rgba(255,255,255,0.35)">
     <div style={{ padding: '24px', height: '100%' }}>
-      <h3 style={{ color: 'white', marginBottom: '12px' }}>
+      <h3 style={{ marginBottom: '12px' }}>
         Glass Card
       </h3>
-      <p style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+      <p>
         This is a beautiful glass morphism card with liquid distortion effects.
       </p>
     </div>
@@ -150,8 +162,8 @@ The component comes with a beautiful preset that works out of the box:
     width: '300px',
     height: '150px'
   }}>
-    <LiquidGlass>
-      <div style={{ padding: '20px', textAlign: 'center', color: 'white' }}>
+    <LiquidGlass autoTextColor glassColor="rgba(255,255,255,0.4)">
+      <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>Overlay Content</h2>
         <p>Glass effect over image</p>
       </div>
@@ -167,7 +179,7 @@ The component comes with a beautiful preset that works out of the box:
 - Safari (latest)
 - Edge (latest)
 
-The component uses modern CSS features like `backdrop-filter` and SVG filters. Older browsers may not support all effects.
+The component leverages modern CSS (`backdrop-filter`) and SVG filters. Older browsers may not support all effects.
 
 ## Performance Tips
 
@@ -175,6 +187,20 @@ The component uses modern CSS features like `backdrop-filter` and SVG filters. O
 2. SVG filters are hardware-accelerated in modern browsers
 3. For best performance, avoid animating the glass parameters rapidly
 4. Use the `preset` mode for optimal default settings
+
+## Accessibility
+
+- `autoTextColor` uses computed styles from the nearest opaque ancestor to decide between `textOnDark` and `textOnLight`. This helps maintain readable contrast automatically. You can set `forceTextColor` to enforce the computed color on deeply nested content.
+
+## Storybook
+
+Run a live playground:
+
+```bash
+npm run storybook
+```
+
+Switch the Backgrounds toolbar between light/dark to see text color adapt in real time.
 
 ## License
 
@@ -193,5 +219,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Support
 
 If you find this package helpful, please consider giving it a star on GitHub!
+
+## Keywords
+
+react, react component, react ui, glassmorphism, glass morphism, liquid glass, liquid-glass, glass effect,
+frosted glass, frosted-glass, blur, blur effect, backdrop-filter, svg filter, displacement, displacement map,
+chromatic aberration, ui effects, card, overlay, glass ui, glass card, glass panel, glassmorphism react
 
 For issues and feature requests, please [create an issue](https://github.com/lucaperullo/simple-liquid-glass/issues).

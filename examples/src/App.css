@@ -1,0 +1,17 @@
+:root { color: #111; }
+
+.panel {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  backdrop-filter: blur(6px);
+}
+
+.control { display: grid; gap: 8px; margin-bottom: 12px; }
+.radio-group { display: flex; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.grid2 label { display: grid; gap: 6px; font-size: 14px; }
+
+.reset { margin-top: 8px; }

@@ -1,0 +1,49 @@
+# Source files (only publish dist)
+src/
+examples/
+.storybook/
+
+# Config files
+rollup.config.js
+.babelrc
+.eslintrc*
+.prettierrc*
+jest.config.js
+tsconfig.json
+
+# Development files
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+__tests__/
+coverage/
+
+# Documentation source
+docs/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CI
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Package managers
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Other
+.DS_Store
+*.log
+tmp/
+temp/

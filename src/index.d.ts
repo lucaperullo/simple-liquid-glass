@@ -117,3 +117,31 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
 
 export default LiquidGlass;
+
+// Canvas variant
+export interface LiquidGlassCanvasProps extends HTMLAttributes<HTMLDivElement> {
+  width: number;
+  height: number;
+  mode?: 'preset' | 'custom';
+  scale?: number;
+  radius?: number;
+  border?: number;
+  lightness?: number;
+  displace?: number;
+  alpha?: number;
+  blur?: number;
+  dispersion?: number;
+  frost?: number;
+  borderColor?: string;
+  glassColor?: string;
+  backdropSource?: HTMLImageElement | HTMLCanvasElement | ImageBitmap;
+  autoTextColor?: boolean;
+  textOnDark?: string;
+  textOnLight?: string;
+  forceTextColor?: boolean;
+  className?: string;
+  style?: CSSProperties;
+  children?: ReactNode;
+}
+
+export declare function LiquidGlassCanvas(props: LiquidGlassCanvasProps): JSX.Element;

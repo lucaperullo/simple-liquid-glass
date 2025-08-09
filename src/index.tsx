@@ -485,3 +485,5 @@ export function LiquidGlass({
 LiquidGlass.displayName = "LiquidGlass";
 
 export default LiquidGlass;
+
+export { default as LiquidGlassCanvas } from './canvas/LiquidGlassCanvas';

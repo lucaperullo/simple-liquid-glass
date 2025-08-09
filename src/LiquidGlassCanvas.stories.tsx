@@ -15,6 +15,18 @@ const meta: Meta<Cmp> = {
         { name: 'light', value: '#ffffff' },
         { name: 'dark', value: '#111111' },
         { name: 'gradient', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' as unknown as string },
+        {
+          name: 'Image: Forest',
+          value: 'url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
+        },
+        {
+          name: 'Image: City',
+          value: 'url("https://images.unsplash.com/photo-1508057198894-247b23fe5ade?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
+        },
+        {
+          name: 'Image: Beach',
+          value: 'url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
+        },
       ],
     },
   },

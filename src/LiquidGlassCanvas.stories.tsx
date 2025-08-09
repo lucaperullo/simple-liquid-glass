@@ -39,6 +39,8 @@ const meta: Meta<Cmp> = {
     glassColor: { control: 'color' },
     autoTextColor: { control: 'boolean' },
     forceTextColor: { control: 'boolean' },
+    quality: { control: { type: 'range', min: 0.5, max: 1, step: 0.05 } },
+    debugPass: { control: 'select', options: ['source', 'blurH', 'blurV', 'composite'] },
   },
   args: {
     width: 480,
@@ -51,6 +53,8 @@ const meta: Meta<Cmp> = {
     glassColor: 'rgba(255,255,255,0.35)',
     autoTextColor: true,
     forceTextColor: true,
+    quality: 1,
+    debugPass: 'composite',
   },
 };
 

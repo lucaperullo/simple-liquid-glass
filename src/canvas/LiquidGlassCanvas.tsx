@@ -23,6 +23,9 @@ export interface LiquidGlassCanvasProps extends React.HTMLAttributes<HTMLDivElem
   backdropSource?: BackdropInput;
   // Optional async provider if you want to snapshot DOM or provide a dynamic source
   getBackdrop?: () => Promise<HTMLCanvasElement | ImageBitmap>;
+  // Rendering controls
+  quality?: number; // 0.5..1, multiplies devicePixelRatio
+  debugPass?: 'source' | 'blurH' | 'blurV' | 'composite';
 
   // Text color controls
   autoTextColor?: boolean;
@@ -127,7 +130,8 @@ function createTextureFromSource(gl: WebGL2RenderingContext, source: BackdropInp
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, (source as any).width, (source as any).height, 0, gl.RGBA, gl.UNSIGNED_BYTE, source as any);
+  // Upload as standard RGBA and handle sRGB in shader
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source as any);
   gl.bindTexture(gl.TEXTURE_2D, null);
   return tex;
 }
@@ -168,6 +172,10 @@ uniform sampler2D u_tex;
 uniform vec2 u_texelSize; // 1/width, 1/height
 uniform vec2 u_direction; // (1,0) or (0,1)
 
+vec3 srgbToLinear(vec3 c){
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
 void main(){
   // 9-tap Gaussian-like weights
   float w0 = 0.2270270270;
@@ -176,16 +184,16 @@ void main(){
   float w3 = 0.0540540541;
   float w4 = 0.0162162162;
   vec2 off = u_direction * u_texelSize;
-  vec3 col = texture(u_tex, v_uv).rgb * w0;
-  col += texture(u_tex, v_uv + off * 1.3846154).rgb * w1;
-  col += texture(u_tex, v_uv - off * 1.3846154).rgb * w1;
-  col += texture(u_tex, v_uv + off * 3.2307692).rgb * w2;
-  col += texture(u_tex, v_uv - off * 3.2307692).rgb * w2;
+  vec3 col = srgbToLinear(texture(u_tex, v_uv).rgb) * w0;
+  col += srgbToLinear(texture(u_tex, v_uv + off * 1.3846154).rgb) * w1;
+  col += srgbToLinear(texture(u_tex, v_uv - off * 1.3846154).rgb) * w1;
+  col += srgbToLinear(texture(u_tex, v_uv + off * 3.2307692).rgb) * w2;
+  col += srgbToLinear(texture(u_tex, v_uv - off * 3.2307692).rgb) * w2;
   // extra taps for smoother blur
-  col += texture(u_tex, v_uv + off * 5.0).rgb * w3;
-  col += texture(u_tex, v_uv - off * 5.0).rgb * w3;
-  col += texture(u_tex, v_uv + off * 7.0).rgb * w4;
-  col += texture(u_tex, v_uv - off * 7.0).rgb * w4;
+  col += srgbToLinear(texture(u_tex, v_uv + off * 5.0).rgb) * w3;
+  col += srgbToLinear(texture(u_tex, v_uv - off * 5.0).rgb) * w3;
+  col += srgbToLinear(texture(u_tex, v_uv + off * 7.0).rgb) * w4;
+  col += srgbToLinear(texture(u_tex, v_uv - off * 7.0).rgb) * w4;
   fragColor = vec4(col, 1.0);
 }`;
 
@@ -201,6 +209,13 @@ uniform float u_borderWidth;
 uniform vec4 u_glassColor;
 uniform vec4 u_borderColorA; // start
 uniform vec4 u_borderColorB; // end
+
+vec3 linearToSrgb(vec3 c){
+  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(vec3(0.0031308), c));
+}
+vec3 srgbToLinear(vec3 c){
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
 
 // SDF for rounded rect in pixel space
 float sdRoundRect(vec2 p, vec2 b, float r){
@@ -225,18 +240,20 @@ void main(){
   // Inside mask
   float inside = step(d, 0.0);
 
-  vec4 scene = texture(u_blurred, uv);
+  vec3 sceneLin = texture(u_blurred, uv).rgb; // already linear from blur pass
   // Simple diagonal gradient for border
   float t = dot(normalize(vec2(1.0, -1.0)), (px / u_resolution) - 0.5) * 0.5 + 0.5;
   vec4 borderCol = mix(u_borderColorA, u_borderColorB, clamp(t, 0.0, 1.0));
 
   // Glass overlay
   vec4 glass = u_glassColor;
-  vec4 inner = mix(scene, glass, glass.a);
+  vec3 glassLin = srgbToLinear(glass.rgb);
+  vec3 innerLin = mix(sceneLin, glassLin, glass.a);
 
   vec4 color = vec4(0.0);
-  color = mix(color, scene, 1.0 - inside); // outside: scene (no draw), but we actually want it transparent
-  color = mix(color, inner, inside);
+  // inside content in sRGB
+  vec3 insideSrgb = linearToSrgb(innerLin);
+  color = mix(color, vec4(insideSrgb, 1.0), inside);
   color.rgb = mix(color.rgb, borderCol.rgb, borderMask);
   color.a = max(inside, borderMask);
 
@@ -393,7 +410,8 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const q = Math.min(1, Math.max(0.5, props.quality ?? 1));
+    const dpr = Math.max(1, Math.min(2, (window.devicePixelRatio || 1) * q));
     const renderWidth = Math.max(1, Math.floor(width * dpr));
     const renderHeight = Math.max(1, Math.floor(height * dpr));
     canvas.width = renderWidth;
@@ -452,23 +470,22 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     const { texture: texA, fbo: fboA } = createRenderTexture(gl, renderWidth, renderHeight);
     const { texture: texB, fbo: fboB } = createRenderTexture(gl, renderWidth, renderHeight);
 
-    // 1) Copy source to texA
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+    // 1) Copy + blur passes
     gl.useProgram(blurProg);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, srcTex);
     gl.uniform1i(gl.getUniformLocation(blurProg, 'u_tex'), 0);
     gl.uniform2f(gl.getUniformLocation(blurProg, 'u_texelSize'), 1 / renderWidth, 1 / renderHeight);
     const blurPx = Math.max(0, blur);
-    // Horizontal blur
+
+    // Horizontal: src -> A
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
     gl.uniform2f(gl.getUniformLocation(blurProg, 'u_direction'), blurPx, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Vertical blur
+    // Vertical: A -> B
     gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
     gl.bindTexture(gl.TEXTURE_2D, texA);
-    gl.uniform1i(gl.getUniformLocation(blurProg, 'u_tex'), 0);
-    gl.uniform2f(gl.getUniformLocation(blurProg, 'u_texelSize'), 1 / renderWidth, 1 / renderHeight);
     gl.uniform2f(gl.getUniformLocation(blurProg, 'u_direction'), 0, blurPx);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -476,7 +493,16 @@ export default function LiquidGlassCanvas(props: LiquidGlassCanvasProps) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.useProgram(compProg);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texB);
+    // Select texture based on debug pass
+    if ((props.debugPass ?? 'composite') === 'source') {
+      gl.bindTexture(gl.TEXTURE_2D, srcTex);
+    } else if (props.debugPass === 'blurH') {
+      gl.bindTexture(gl.TEXTURE_2D, texA);
+    } else if (props.debugPass === 'blurV') {
+      gl.bindTexture(gl.TEXTURE_2D, texB);
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, texB);
+    }
     gl.uniform1i(gl.getUniformLocation(compProg, 'u_blurred'), 0);
     gl.uniform2f(gl.getUniformLocation(compProg, 'u_resolution'), renderWidth, renderHeight);
     gl.uniform1f(gl.getUniformLocation(compProg, 'u_radius'), Math.max(0, Math.min(radius * dpr, Math.min(renderWidth, renderHeight) * 0.5)));

@@ -112,6 +112,10 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * @default false
    */
   forceTextColor?: boolean;
+  /** Minimum blur (px) to apply on iOS even when blur is 0. Default: 2 */
+  iosMinBlur?: number;
+  /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
+  iosBlurMode?: 'auto' | 'off';
   
   /**
    * Additional CSS class names

@@ -102,6 +102,7 @@ The component comes with a beautiful preset that works out of the box:
 ```
 
 Note: In `preset` mode, incoming props still override the preset defaults (e.g., `scale`, `radius`, `blur`, etc.).
+On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 2px) is applied even if `blur` is 0 to ensure a visible fallback effect.
 
 ## Props
 

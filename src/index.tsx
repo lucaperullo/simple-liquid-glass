@@ -24,6 +24,9 @@ interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   forceTextColor?: boolean; // enforce text color on descendants
   className?: string;
   style?: React.CSSProperties;
+  // iOS fallback controls
+  iosMinBlur?: number; // minimum blur on iOS even when blur=0
+  iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -104,6 +107,8 @@ export function LiquidGlass({
   forceTextColor = false,
   className = "",
   style = {},
+  iosMinBlur = 2,
+  iosBlurMode = 'auto',
   ...props
 }: LiquidGlassProps) {
   // Configuration based on mode
@@ -333,6 +338,18 @@ export function LiquidGlass({
     );
   }
 
+  // detect iOS (WebKit on iPhone/iPad or Mac with touch)
+  const isIOS = typeof navigator !== 'undefined' && (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1)
+  );
+
+  // Build backdrop-filter string with iOS fallback
+  const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
+  const backdropFilterValue = isIOS && iosBlurMode === 'auto'
+    ? `blur(${cssBlur}px) saturate(${config.saturation}%)`
+    : `saturate(${config.saturation}%) url(#${filterId})`;
+
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
@@ -340,8 +357,8 @@ export function LiquidGlass({
     position: "absolute",
     zIndex: 1,
     background: resolvedGlassBackground,
-    backdropFilter: `saturate(${config.saturation}%) url(#${filterId})`,
-    WebkitBackdropFilter: `saturate(${config.saturation}%) url(#${filterId})`,
+    backdropFilter: backdropFilterValue,
+    WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden'
   };
 

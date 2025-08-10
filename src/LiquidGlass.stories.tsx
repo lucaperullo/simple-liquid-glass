@@ -75,6 +75,8 @@ const meta: Meta<LiquidGlassComponent> = {
     textOnDark: '#ffffff',
     textOnLight: '#111111',
     forceTextColor: true,
+    iosMinBlur: 2,
+    iosBlurMode: 'auto',
   },
 };
 

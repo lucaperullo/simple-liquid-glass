@@ -113,9 +113,9 @@ Note: In `preset` mode, incoming props still override the preset defaults (e.g.,
 | `radius` | `number` | `50` | Border radius of the glass effect |
 | `border` | `number` | `0.05` | Border thickness (0 to 0.5) |
 | `lightness` | `number` | `53` | Lightness of the glass (0 to 100) |
-| `displace` | `number` | `0.38` | Displacement blur amount (0 to 10) |
+| `displace` | `number` | `5` | Displacement blur amount (0 to 10) |
 | `alpha` | `number` | `0.9` | Alpha transparency (0 to 1) |
-| `blur` | `number` | `5` | Blur amount for the glass effect |
+| `blur` | `number` | `0` | Blur amount for the glass effect |
 | `dispersion` | `number` | `50` | Chromatic dispersion amount |
 | `saturation` | `number` | `140` | Color saturation multiplier (%) applied via CSS `saturate()` |
 | `aberrationIntensity` | `number` | `2` | Multiplier for chromatic aberration (red/blue separation) |

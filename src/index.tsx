@@ -13,6 +13,8 @@ interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   alpha?: number;
   blur?: number;
   dispersion?: number;
+  saturation?: number; // percent, 100 = normal
+  aberrationIntensity?: number; // multiplier for chromatic separation
   frost?: number;
   borderColor?: string;
   glassColor?: string; // must be semi-transparent
@@ -74,6 +76,8 @@ const preset = {
   alpha: 0.9,
   blur: 5,
   dispersion: 50,
+  saturation: 140,
+  aberrationIntensity: 2,
   frost: 0.1,
   borderColor: "rgba(120, 120, 120, 0.7)"
 };
@@ -89,6 +93,8 @@ export function LiquidGlass({
   alpha = 0.9,
   blur = 5,
   dispersion = 50,
+  saturation = 140,
+  aberrationIntensity = 2,
   frost = 0.1,
   borderColor = "rgba(120, 120, 120, 0.7)",
   glassColor,
@@ -111,6 +117,8 @@ export function LiquidGlass({
     alpha: number;
     blur: number;
     dispersion: number;
+    saturation: number;
+    aberrationIntensity: number;
     frost: number;
     borderColor: string;
     blend: 'difference';
@@ -129,6 +137,8 @@ export function LiquidGlass({
       alpha,
       blur,
       dispersion,
+      saturation,
+      aberrationIntensity,
       frost,
       borderColor,
       mode: "preset",
@@ -147,6 +157,8 @@ export function LiquidGlass({
       alpha,
       blur,
       dispersion,
+      saturation,
+      aberrationIntensity,
       frost,
       borderColor,
       blend: "difference",
@@ -325,7 +337,7 @@ export function LiquidGlass({
     position: "absolute",
     zIndex: 1,
     background: resolvedGlassBackground,
-    backdropFilter: `url(#${filterId})`
+    backdropFilter: `saturate(${config.saturation}%) url(#${filterId})`
   };
 
   // Gradient border styles
@@ -386,7 +398,7 @@ export function LiquidGlass({
               <feDisplacementMap 
                 in="SourceGraphic"
                 in2="map"
-                scale={config.scale + config.dispersion}
+                scale={config.scale + config.dispersion * config.aberrationIntensity}
                 xChannelSelector={config.x}
                 yChannelSelector={config.y}
                 result="dispRed"
@@ -416,7 +428,7 @@ export function LiquidGlass({
               <feDisplacementMap 
                 in="SourceGraphic"
                 in2="map"
-                scale={config.scale - config.dispersion}
+                scale={config.scale - config.dispersion * config.aberrationIntensity}
                 xChannelSelector={config.x}
                 yChannelSelector={config.y}
                 result="dispBlue"
@@ -486,4 +498,4 @@ LiquidGlass.displayName = "LiquidGlass";
 
 export default LiquidGlass;
 
-export { default as LiquidGlassCanvas } from './canvas/LiquidGlassCanvas';
+// Removed non-working experimental components per user request

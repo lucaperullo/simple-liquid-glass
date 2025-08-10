@@ -44,6 +44,8 @@ const meta: Meta<LiquidGlassComponent> = {
     alpha: { control: { type: 'range', min: 0, max: 1, step: 0.01 } },
     blur: { control: { type: 'range', min: 0, max: 20, step: 1 } },
     dispersion: { control: { type: 'range', min: 0, max: 200, step: 1 } },
+    saturation: { control: { type: 'range', min: 0, max: 300, step: 1 } },
+    aberrationIntensity: { control: { type: 'range', min: 0, max: 4, step: 0.1 } },
     frost: { control: { type: 'range', min: 0, max: 1, step: 0.01 } },
     borderColor: { control: 'color' },
     glassColor: {
@@ -60,6 +62,8 @@ const meta: Meta<LiquidGlassComponent> = {
     radius: 50,
     scale: 160,
     dispersion: 50,
+    saturation: 140,
+    aberrationIntensity: 2,
     lightness: 53,
     alpha: 0.9,
     blur: 5,

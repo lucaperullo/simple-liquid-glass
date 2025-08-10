@@ -1,6 +1,6 @@
 # Simple Liquid Glass
 
-A tiny, zero-dependency React component that renders a beautiful “liquid” glassmorphism panel using an SVG displacement map. It supports chromatic aberration, gradient borders, a configurable semi‑transparent glass color, and automatic text color based on the surrounding background.
+A tiny, zero-dependency React component that renders a beautiful “liquid” glassmorphism panel using an SVG displacement map. It supports chromatic aberration, adjustable saturation, gradient borders, a configurable semi‑transparent glass color, and automatic text color based on the surrounding background.
 
 ![npm version](https://img.shields.io/npm/v/simple-liquid-glass)
 ![license](https://img.shields.io/npm/l/simple-liquid-glass)
@@ -12,6 +12,8 @@ A tiny, zero-dependency React component that renders a beautiful “liquid” gl
 - **Auto text color**: detects dark/light backgrounds to keep text legible
 - **Custom glass color**: accepts only semi‑transparent colors (`rgba`, `hsla`, hex with alpha)
 - **Chromatic dispersion** and **blur** with fine‑grained controls
+- **Adjustable saturation** to boost or tame color vibrancy
+- **Chromatic aberration intensity** control to tune the vividness of the edge colors
 - **Gradient border** with masking
 - **Responsive** and content‑agnostic
 - **TypeScript** and tree‑shakable builds (ESM and CJS)
@@ -115,6 +117,8 @@ Note: In `preset` mode, incoming props still override the preset defaults (e.g.,
 | `alpha` | `number` | `0.9` | Alpha transparency (0 to 1) |
 | `blur` | `number` | `5` | Blur amount for the glass effect |
 | `dispersion` | `number` | `50` | Chromatic dispersion amount |
+| `saturation` | `number` | `140` | Color saturation multiplier (%) applied via CSS `saturate()` |
+| `aberrationIntensity` | `number` | `2` | Multiplier for chromatic aberration (red/blue separation) |
 | `frost` | `number` | `0.1` | Frost effect intensity (0 to 1) |
 | `borderColor` | `string` | `'rgba(120, 120, 120, 0.7)'` | Border color in CSS format |
 | `glassColor` | `string` | – | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |

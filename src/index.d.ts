@@ -59,6 +59,16 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * @default 50
    */
   dispersion?: number;
+  /**
+   * Color saturation multiplier (%). 100 = no change
+   * @default 140
+   */
+  saturation?: number;
+  /**
+   * Chromatic aberration intensity multiplier
+   * @default 2
+   */
+  aberrationIntensity?: number;
   
   /**
    * Frost effect intensity (0-1)
@@ -117,31 +127,3 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
 
 export default LiquidGlass;
-
-// Canvas variant
-export interface LiquidGlassCanvasProps extends HTMLAttributes<HTMLDivElement> {
-  width: number;
-  height: number;
-  mode?: 'preset' | 'custom';
-  scale?: number;
-  radius?: number;
-  border?: number;
-  lightness?: number;
-  displace?: number;
-  alpha?: number;
-  blur?: number;
-  dispersion?: number;
-  frost?: number;
-  borderColor?: string;
-  glassColor?: string;
-  backdropSource?: HTMLImageElement | HTMLCanvasElement | ImageBitmap;
-  autoTextColor?: boolean;
-  textOnDark?: string;
-  textOnLight?: string;
-  forceTextColor?: boolean;
-  className?: string;
-  style?: CSSProperties;
-  children?: ReactNode;
-}
-
-export declare function LiquidGlassCanvas(props: LiquidGlassCanvasProps): JSX.Element;

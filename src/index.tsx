@@ -339,10 +339,20 @@ export function LiquidGlass({
   }
 
   // detect iOS (WebKit on iPhone/iPad or Mac with touch)
-  const isIOS = typeof navigator !== 'undefined' && (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1)
-  );
+  const isIOS = (() => {
+    if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const vendor = navigator.vendor || '';
+    const isAndroid = /Android/i.test(ua);
+    const isAppleUA = /(iPad|iPhone|iPod)/i.test(ua);
+    const isIPadOS13Plus = /Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1;
+    const vendorIsApple = /Apple/i.test(vendor);
+    const hasWK = typeof (window as any).webkit !== 'undefined';
+    const hasMobileToken = /Mobile/i.test(ua);
+    // Strict: real iOS or iPadOS WebKit on Apple device, exclude Android and most desktop emulation
+    return !isAndroid && (isAppleUA || isIPadOS13Plus) && vendorIsApple && hasWK && hasMobileToken;
+  })();
 
   // Build backdrop-filter string with iOS fallback
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;

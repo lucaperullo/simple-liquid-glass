@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "description": "A React component for creating liquid glass morphism effects with customizable distortion and blur",
   "main": "dist/index.cjs",
@@ -81,9 +81,7 @@
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
     "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0"
   },
-  "dependencies": {
-    
-  },
+  "dependencies": {},
   "devDependencies": {
     "@babel/core": "^7.23.0",
     "@babel/preset-env": "^7.23.0",

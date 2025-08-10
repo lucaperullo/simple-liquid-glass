@@ -306,7 +306,7 @@ export function LiquidGlass({
         <rect x="0" y="0" width="${newwidth}" height="${newheight}" fill="black"/>
         <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
         <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${config.blend}" />
-        <rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.blur}px)" />
+        <rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.displace}px)" />
       </svg>
     `;
     
@@ -454,7 +454,7 @@ export function LiquidGlass({
               />
               <feGaussianBlur 
                 in="output"
-                stdDeviation={config.displace}
+                stdDeviation={config.blur}
               />
             </filter>
           </defs>

@@ -281,6 +281,9 @@ export function LiquidGlass({
     setEffectiveTextColor(dark ? textOnDark : textOnLight);
   }, [autoTextColor, textOnDark, textOnLight]);
 
+  // Effective radius in px clamped to box (prevents mismatch when radius > half size)
+  const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
+
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
     const { width, height } = dimensions;
@@ -289,7 +292,7 @@ export function LiquidGlass({
     const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
     
     // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
-    const effectiveRadius = Math.min(config.radius, width / 2, height / 2);
+    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / 2; // scaled to half-res viewBox
     
     const svgContent = `
       <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
@@ -333,18 +336,20 @@ export function LiquidGlass({
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
-    borderRadius: config.radius,
+    borderRadius: effectiveRadiusPx,
     position: "absolute",
     zIndex: 1,
     background: resolvedGlassBackground,
-    backdropFilter: `saturate(${config.saturation}%) url(#${filterId})`
+    backdropFilter: `saturate(${config.saturation}%) url(#${filterId})`,
+    WebkitBackdropFilter: `saturate(${config.saturation}%) url(#${filterId})`,
+    overflow: 'hidden'
   };
 
   // Gradient border styles
   const gradientBorderStyle: React.CSSProperties = {
     position: "absolute",
     inset: 0,
-    borderRadius: config.radius,
+    borderRadius: effectiveRadiusPx,
     zIndex: 2,
     pointerEvents: "none",
     background: `linear-gradient(315deg, ${config.borderColor} 0%, rgba(120, 120, 120, 0) 30%, rgba(120, 120, 120, 0) 70%, ${config.borderColor} 100%) border-box`,

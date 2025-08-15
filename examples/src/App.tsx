@@ -218,7 +218,7 @@ function App() {
       <section style={{ display: 'grid', placeItems: 'center' }}>
         <Draggable width={520} height={300}>
           <div style={{ width: 520, height: 300 }}>
-            <LiquidGlass {...controls}>
+            <LiquidGlass {...controls} autoTextColor={false} autoTextColorMode="perPixel" perPixelTargetSelector='[data-lg-autotext]'>
               <div style={{
                 width: '100%',
                 height: '100%',
@@ -227,7 +227,7 @@ function App() {
                 color: '#111',
                 fontWeight: 700,
               }}>
-                Drag me
+                <span data-lg-autotext style={{ fontSize: 24, fontWeight: 800 }}>Drag me</span>
               </div>
             </LiquidGlass>
           </div>

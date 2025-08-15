@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useRef, useState, useId } from 'react';
 
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 
-interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   mode?: string;
   scale?: number;
@@ -22,6 +22,8 @@ interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   textOnDark?: string; // text color when background is dark
   textOnLight?: string; // text color when background is light
   forceTextColor?: boolean; // enforce text color on descendants
+  autoTextColorMode?: 'global' | 'perPixel'; // strategy for auto text color
+  perPixelTargetSelector?: string; // CSS selector for elements to adapt in perPixel mode
   className?: string;
   style?: React.CSSProperties;
   // iOS fallback controls
@@ -101,7 +103,9 @@ export function LiquidGlass({
   frost = 0.1,
   borderColor = "rgba(120, 120, 120, 0.7)",
   glassColor,
-  autoTextColor = true,
+  autoTextColor = false,
+  autoTextColorMode = 'global',
+  perPixelTargetSelector = '[data-lg-autotext]',
   textOnDark = '#ffffff',
   textOnLight = '#111111',
   forceTextColor = false,
@@ -173,6 +177,9 @@ export function LiquidGlass({
   }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const glassRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const mirrorsRef = useRef<HTMLElement[]>([]);
   const [dimensions, setDimensions] = useState({
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
@@ -181,6 +188,10 @@ export function LiquidGlass({
   const textClassNameRef = useRef<string | null>(null);
   if (!textClassNameRef.current) {
     textClassNameRef.current = `lg-text-${Math.random().toString(36).slice(2, 9)}`;
+  }
+  const perPixelClassNameRef = useRef<string | null>(null);
+  if (!perPixelClassNameRef.current) {
+    perPixelClassNameRef.current = `lg-perpixel-${Math.random().toString(36).slice(2, 9)}`;
   }
 
   function parseCssColorToRgba(color: string): { r: number; g: number; b: number; a: number } | null {
@@ -272,19 +283,279 @@ export function LiquidGlass({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Auto-detect background and set text color for children
+  // Auto-detect background and set text color for children; updates on resize/scroll/mutations
   useEffect(() => {
     if (!autoTextColor) return;
-    const target = containerRef.current?.parentElement ?? null;
-    if (!target) return;
-    const bg = findNearestOpaqueBackground(target);
-    if (!bg) {
-      setEffectiveTextColor(textOnLight);
-      return;
+    if (autoTextColorMode === 'perPixel') return; // CSS-only in perPixel mode
+
+    const update = () => {
+      const target = containerRef.current?.parentElement ?? null;
+      if (!target) return;
+      const bg = findNearestOpaqueBackground(target);
+      if (!bg) {
+        setEffectiveTextColor(textOnLight);
+        return;
+      }
+      const dark = isRgbColorDark({ r: bg.r, g: bg.g, b: bg.b });
+      setEffectiveTextColor(dark ? textOnDark : textOnLight);
+    };
+
+    update();
+
+    const onWindowChange = () => update();
+    window.addEventListener('resize', onWindowChange);
+    window.addEventListener('scroll', onWindowChange, true);
+
+    const observers: MutationObserver[] = [];
+    const observedNodes: HTMLElement[] = [];
+    let el: HTMLElement | null = containerRef.current?.parentElement ?? null;
+    while (el) {
+      observedNodes.push(el);
+      el = el.parentElement;
     }
-    const dark = isRgbColorDark({ r: bg.r, g: bg.g, b: bg.b });
-    setEffectiveTextColor(dark ? textOnDark : textOnLight);
-  }, [autoTextColor, textOnDark, textOnLight]);
+    observedNodes.push(document.body);
+
+    for (const node of observedNodes) {
+      if (!node) continue;
+      const obs = new MutationObserver(update);
+      obs.observe(node, { attributes: true, attributeFilter: ['class', 'style'] });
+      observers.push(obs);
+    }
+
+    return () => {
+      window.removeEventListener('resize', onWindowChange);
+      window.removeEventListener('scroll', onWindowChange, true);
+      observers.forEach(o => o.disconnect());
+    };
+  }, [autoTextColor, autoTextColorMode, textOnDark, textOnLight]);
+
+  // Automatically tag text-bearing descendants for perPixel mode
+  useEffect(() => {
+    if (!autoTextColor || autoTextColorMode !== 'perPixel') return;
+    const root = contentRef.current;
+    if (!root) return;
+
+    const shouldTag = (el: HTMLElement): boolean => {
+      if (el.hasAttribute('data-lg-no-autotext')) return false;
+      if (el.hasAttribute('data-lg-autotext') || el.hasAttribute('data-lg-autotext-auto')) return false;
+      const style = getComputedStyle(el);
+      if (style.visibility === 'hidden' || style.display === 'none') return false;
+      // Must contain a non-empty text node
+      const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && !!n.textContent && n.textContent.trim().length > 0);
+      return hasText;
+    };
+
+    const tagAll = () => {
+      const all = root.querySelectorAll('*');
+      for (const node of Array.from(all)) {
+        const el = node as HTMLElement;
+        if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
+      }
+    };
+
+    tagAll();
+
+    const mo = new MutationObserver((records) => {
+      for (const rec of records) {
+        if (rec.type === 'childList') {
+          rec.addedNodes.forEach(n => {
+            if (n.nodeType === 1) {
+              const el = n as HTMLElement;
+              if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
+              el.querySelectorAll('*').forEach(child => {
+                const c = child as HTMLElement;
+                if (shouldTag(c)) c.setAttribute('data-lg-autotext-auto', '');
+              });
+            }
+          });
+        } else if (rec.type === 'attributes') {
+          const el = rec.target as HTMLElement;
+          if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
+        }
+      }
+    });
+    mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+    return () => {
+      mo.disconnect();
+      root.querySelectorAll('[data-lg-autotext-auto]').forEach(n => (n as HTMLElement).removeAttribute('data-lg-autotext-auto'));
+    };
+  }, [autoTextColor, autoTextColorMode, perPixelTargetSelector]);
+
+  // Per-pixel mode: punch holes in the glass behind targeted text so blending sees the real background
+  useEffect(() => {
+    if (!autoTextColor || autoTextColorMode !== 'perPixel') return;
+    if (!containerRef.current || !glassRef.current) return;
+
+    let rafId = 0;
+    const ensureMirrors = () => {
+      const searchRoot = contentRef.current ?? containerRef.current!;
+      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
+      const targets = Array.from(searchRoot.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
+      // remove mirrors for removed targets
+      mirrorsRef.current = mirrorsRef.current.filter(m => {
+        const targetId = m.getAttribute('data-lg-mirror-for');
+        const stillExists = targets.some(t => t.dataset.lgMirrorId === targetId);
+        if (!stillExists) {
+          m.remove();
+          return false;
+        }
+        return true;
+      });
+      // add mirrors for new targets
+      for (const t of targets) {
+        if (!t.dataset.lgMirrorId) {
+          t.dataset.lgMirrorId = Math.random().toString(36).slice(2, 9);
+        }
+        const already = mirrorsRef.current.find(m => m.getAttribute('data-lg-mirror-for') === t.dataset.lgMirrorId);
+        if (already) continue;
+        const mirror = document.createElement('span');
+        mirror.setAttribute('data-lg-mirror', '');
+        mirror.setAttribute('data-lg-mirror-for', t.dataset.lgMirrorId);
+        mirror.style.position = 'fixed';
+        mirror.style.pointerEvents = 'none';
+        mirror.style.mixBlendMode = 'difference';
+        mirror.style.color = '#fff';
+        mirror.style.whiteSpace = 'pre-wrap';
+        mirror.style.zIndex = '2147483647';
+        document.body.appendChild(mirror);
+        mirrorsRef.current.push(mirror);
+      }
+    };
+    const updateMask = () => {
+      if (!containerRef.current || !glassRef.current) return;
+      ensureMirrors();
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const searchRoot = contentRef.current ?? containerRef.current;
+      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
+      const targets = Array.from(searchRoot!.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
+
+      const baseImage = 'linear-gradient(#fff 0 0)';
+      const images: string[] = [baseImage];
+      const positions: string[] = ['0 0'];
+      const sizes: string[] = ['100% 100%'];
+      const repeats: string[] = ['no-repeat'];
+
+      for (const t of targets) {
+        const r = t.getBoundingClientRect();
+        const left = Math.max(0, r.left - containerRect.left);
+        const top = Math.max(0, r.top - containerRect.top);
+        const width = Math.max(0, Math.min(containerRect.right, r.right) - Math.max(containerRect.left, r.left));
+        const height = Math.max(0, Math.min(containerRect.bottom, r.bottom) - Math.max(containerRect.top, r.top));
+        if (width <= 0 || height <= 0) continue;
+        images.push('linear-gradient(#000 0 0)');
+        positions.push(`${left}px ${top}px`);
+        sizes.push(`${width}px ${height}px`);
+        repeats.push('no-repeat');
+      }
+
+      const imgList = images.join(',');
+      const posList = positions.join(',');
+      const sizeList = sizes.join(',');
+      const repList = repeats.join(',');
+      const composites = new Array(Math.max(0, images.length - 1)).fill('exclude').join(',');
+      const webkitComposites = new Array(Math.max(0, images.length - 1)).fill('xor').join(',');
+
+      const el = glassRef.current;
+      el.style.setProperty('mask-image', imgList);
+      el.style.setProperty('mask-position', posList);
+      el.style.setProperty('mask-size', sizeList);
+      el.style.setProperty('mask-repeat', repList);
+      if (composites) el.style.setProperty('mask-composite', composites);
+      if (webkitComposites) el.style.setProperty('-webkit-mask-composite', webkitComposites);
+
+      // Sync mirrors to targets
+      for (const t of targets) {
+        const id = t.dataset.lgMirrorId!;
+        const mirror = mirrorsRef.current.find(m => m.getAttribute('data-lg-mirror-for') === id);
+        if (!mirror) continue;
+        const r = t.getBoundingClientRect();
+        const cs = getComputedStyle(t);
+        mirror.textContent = t.textContent || '';
+        mirror.style.left = `${r.left}px`;
+        mirror.style.top = `${r.top}px`;
+        mirror.style.width = `${r.width}px`;
+        mirror.style.height = `${r.height}px`;
+        mirror.style.font = cs.font;
+        mirror.style.lineHeight = cs.lineHeight;
+        mirror.style.letterSpacing = cs.letterSpacing as string;
+        mirror.style.textTransform = cs.textTransform as string;
+        mirror.style.textShadow = 'none';
+        mirror.style.textAlign = cs.textAlign as string;
+        mirror.style.display = 'flex';
+        mirror.style.alignItems = cs.display.includes('flex') ? (cs.alignItems as string) : 'center';
+        mirror.style.justifyContent = cs.display.includes('flex') ? (cs.justifyContent as string) : 'center';
+      }
+      // Hide original text color to avoid double render glow
+      for (const t of targets) {
+        (t as HTMLElement).style.setProperty('color', 'transparent', 'important');
+      }
+    };
+
+    const schedule = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        updateMask();
+      });
+    };
+
+    updateMask();
+
+    const ro = new ResizeObserver(() => schedule());
+    ro.observe(containerRef.current);
+    const targetsObserve = () => {
+      const searchRoot = contentRef.current ?? containerRef.current!;
+      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
+      const targets = Array.from(searchRoot.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
+      for (const t of targets) ro.observe(t);
+    };
+    targetsObserve();
+
+    const mo = new MutationObserver((records) => {
+      // Ignore self-updates caused by setting styles on the glass layer
+      const relevant = records.some(r => {
+        const isSelf = glassRef.current && r.target === glassRef.current && r.attributeName === 'style';
+        return !isSelf;
+      });
+      if (relevant) {
+        schedule();
+        targetsObserve();
+      }
+    });
+    mo.observe(containerRef.current, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+    const onScroll = () => schedule();
+    const onMove = () => schedule();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('resize', onMove);
+
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('resize', onMove);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (glassRef.current) {
+        glassRef.current.style.removeProperty('mask-image');
+        glassRef.current.style.removeProperty('mask-position');
+        glassRef.current.style.removeProperty('mask-size');
+        glassRef.current.style.removeProperty('mask-repeat');
+        glassRef.current.style.removeProperty('mask-composite');
+        glassRef.current.style.removeProperty('-webkit-mask-composite');
+      }
+      // Remove mirrors and restore text colors
+      const container = containerRef.current;
+      if (container) {
+        const targets = Array.from(container.querySelectorAll(perPixelTargetSelector)) as HTMLElement[];
+        for (const t of targets) t.style.removeProperty('color');
+      }
+      for (const m of mirrorsRef.current) m.remove();
+      mirrorsRef.current = [];
+    };
+  }, [autoTextColor, autoTextColorMode, perPixelTargetSelector]);
 
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
   const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
@@ -342,7 +613,6 @@ export function LiquidGlass({
   const isIOS = (() => {
     if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
     const ua = navigator.userAgent || '';
-    const platform = navigator.platform || '';
     const vendor = navigator.vendor || '';
     const isAndroid = /Android/i.test(ua);
     const isAppleUA = /(iPad|iPhone|iPod)/i.test(ua);
@@ -366,7 +636,7 @@ export function LiquidGlass({
     borderRadius: effectiveRadiusPx,
     position: "absolute",
     zIndex: 1,
-    background: resolvedGlassBackground,
+    background: autoTextColor && autoTextColorMode === 'perPixel' ? 'transparent' : resolvedGlassBackground,
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden'
@@ -401,7 +671,7 @@ export function LiquidGlass({
       style={containerStyle}
       {...props}
     >
-      <div style={glassMorphismStyle}>
+      <div style={glassMorphismStyle} ref={glassRef}>
         <svg 
           className="liquid-glass-filter"
           style={{
@@ -506,16 +776,37 @@ export function LiquidGlass({
             zIndex: 3,
             width: "100%",
             height: "100%",
-            color: autoTextColor ? effectiveTextColor : undefined,
-            transition: 'color 150ms ease'
+            color: autoTextColor && autoTextColorMode !== 'perPixel' ? effectiveTextColor : undefined,
+            transition: 'color 300ms ease'
           }}
-          className={forceTextColor ? textClassNameRef.current ?? undefined : undefined}
+          ref={contentRef}
+          className={[
+            forceTextColor && autoTextColor && autoTextColorMode !== 'perPixel' ? (textClassNameRef.current ?? '') : '',
+            autoTextColor && autoTextColorMode === 'perPixel' ? (perPixelClassNameRef.current ?? '') : ''
+          ].filter(Boolean).join(' ') || undefined}
         >
-          {forceTextColor && autoTextColor && (
+          {forceTextColor && autoTextColor && autoTextColorMode !== 'perPixel' && (
             <style>
               {`
+                .${textClassNameRef.current}, .${textClassNameRef.current} * { transition: color 300ms ease; }
                 .${textClassNameRef.current} { color: ${effectiveTextColor} !important; }
                 .${textClassNameRef.current} * { color: ${effectiveTextColor} !important; }
+              `}
+            </style>
+          )}
+          {autoTextColor && autoTextColorMode === 'perPixel' && (
+            <style>
+              {`
+                .${perPixelClassNameRef.current} ${perPixelTargetSelector},
+                .${perPixelClassNameRef.current} [data-lg-autotext],
+                .${perPixelClassNameRef.current} [data-lg-autotext-auto] {
+                  position: relative;
+                  z-index: 4;
+                  color: #fff !important;
+                  mix-blend-mode: difference !important;
+                  filter: grayscale(1) contrast(1000) !important;
+                  transition: filter 200ms ease, color 200ms ease;
+                }
               `}
             </style>
           )}

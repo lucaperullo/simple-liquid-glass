@@ -90,9 +90,23 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 
   /**
    * Automatically adapt text color based on surrounding background
-   * @default true
+   * @default false
    */
   autoTextColor?: boolean;
+
+  /**
+   * Strategy for automatic text color.
+   * - 'global': detect luminance once and apply to the container
+   * - 'perPixel': adapt text per-pixel using CSS blend and filters (no JS sampling)
+   * @default 'global'
+   */
+  autoTextColorMode?: 'global' | 'perPixel';
+
+  /**
+   * When using 'perPixel' mode, apply the adaptive style only to elements matching this selector.
+   * Default: '[data-lg-autotext]'
+   */
+  perPixelTargetSelector?: string;
 
   /**
    * Text color when detected background is dark

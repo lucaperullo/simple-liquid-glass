@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "type": "module",
   "description": "A React component for creating liquid glass morphism effects with customizable distortion and blur",
   "main": "dist/index.cjs",

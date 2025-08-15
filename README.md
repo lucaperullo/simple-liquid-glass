@@ -4,7 +4,7 @@ A tiny, zero-dependency React component that renders a beautiful “liquid” gl
 
 ![npm version](https://img.shields.io/npm/v/simple-liquid-glass)
 ![license](https://img.shields.io/npm/l/simple-liquid-glass)
-![size](https://img.shields.io/bundlephobia/minzip/simple-liquid-glass)
+![bundle size](https://deno.bundlejs.com/badge?q=simple-liquid-glass)
 
 ## Features
 

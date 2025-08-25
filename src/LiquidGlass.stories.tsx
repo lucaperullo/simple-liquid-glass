@@ -52,9 +52,11 @@ const meta: Meta<LiquidGlassComponent> = {
       control: 'color',
       description: 'Semi-transparent color for the glass background (must include alpha)'
     },
+    background: { 
+      control: 'text',
+      description: 'Background color or gradient (will be made semi-transparent automatically)'
+    },
     autoTextColor: { control: 'boolean' },
-    autoTextColorMode: { control: { type: 'radio', options: ['global', 'perPixel'] } },
-    perPixelTargetSelector: { control: 'text' },
     textOnDark: { control: 'color' },
     textOnLight: { control: 'color' },
     forceTextColor: { control: 'boolean' },
@@ -65,7 +67,7 @@ const meta: Meta<LiquidGlassComponent> = {
     scale: 160,
     dispersion: 50,
     saturation: 140,
-    aberrationIntensity: 2,
+    aberrationIntensity: 0,
     lightness: 53,
     alpha: 0.9,
     blur: 0,
@@ -73,13 +75,12 @@ const meta: Meta<LiquidGlassComponent> = {
     border: 0.05,
     borderColor: 'rgba(120, 120, 120, 0.7)',
     glassColor: 'rgba(255, 255, 255, 0.4)',
+    background: undefined,
     autoTextColor: false,
-    autoTextColorMode: 'perPixel',
-    perPixelTargetSelector: '[data-lg-autotext]',
     textOnDark: '#ffffff',
     textOnLight: '#111111',
     forceTextColor: false,
-    iosMinBlur: 2,
+    iosMinBlur: 7,
     iosBlurMode: 'auto',
   },
 };
@@ -192,7 +193,7 @@ export const Draggable: Story = {
           fontWeight: 600,
         }}
       >
-        <span data-lg-autotext style={{ fontSize: 24, fontWeight: 800 }}>Drag me</span>
+        Drag me
       </div>
     ),
   },

@@ -16,6 +16,7 @@ type Controls = Pick<
   | 'dispersion'
   | 'frost'
   | 'borderColor'
+  | 'background'
 >
 
 const BACKGROUNDS: { name: string; css: string }[] = [
@@ -24,9 +25,12 @@ const BACKGROUNDS: { name: string; css: string }[] = [
   { name: 'Checkerboard', css: 'repeating-conic-gradient(#e0e0e0 0% 25%, #ffffff 0% 50%) 50% / 16px 16px' },
   { name: 'Blue', css: '#0e7490' },
   { name: 'Gradient', css: 'linear-gradient(135deg, #111827 0%, #0ea5e9 100%)' },
+  { name: 'Rainbow', css: 'linear-gradient(45deg, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080)' },
+  { name: 'Sunset', css: 'linear-gradient(to right, #ff512f, #f09819)' },
+  { name: 'Ocean', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
   { name: 'Mountains', css: 'url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
   { name: 'City Night', css: 'url("https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
-  { name: 'Ocean', css: 'url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
+  { name: 'Ocean Image', css: 'url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
   { name: 'Forest', css: 'url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
   { name: 'Abstract', css: 'url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1920&q=80") center / cover no-repeat fixed' },
 ]
@@ -218,7 +222,7 @@ function App() {
       <section style={{ display: 'grid', placeItems: 'center' }}>
         <Draggable width={520} height={300}>
           <div style={{ width: 520, height: 300 }}>
-            <LiquidGlass {...controls} autoTextColor={false} autoTextColorMode="perPixel" perPixelTargetSelector='[data-lg-autotext]'>
+            <LiquidGlass {...controls} background={background.css}>
               <div style={{
                 width: '100%',
                 height: '100%',
@@ -227,7 +231,7 @@ function App() {
                 color: '#111',
                 fontWeight: 700,
               }}>
-                <span data-lg-autotext style={{ fontSize: 24, fontWeight: 800 }}>Drag me</span>
+                Drag me
               </div>
             </LiquidGlass>
           </div>

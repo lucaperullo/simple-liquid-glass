@@ -66,7 +66,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   saturation?: number;
   /**
    * Chromatic aberration intensity multiplier
-   * @default 2
+   * @default 0
    */
   aberrationIntensity?: number;
   
@@ -89,24 +89,17 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   glassColor?: string;
 
   /**
+   * Background color or gradient for the container
+   * Solid colors and gradients will automatically be made semi-transparent (30% opacity)
+   * Examples: "#ff0000", "linear-gradient(45deg, #ff0000, #00ff00)", "radial-gradient(circle, #ff0000, #00ff00)"
+   */
+  background?: string;
+
+  /**
    * Automatically adapt text color based on surrounding background
    * @default false
    */
   autoTextColor?: boolean;
-
-  /**
-   * Strategy for automatic text color.
-   * - 'global': detect luminance once and apply to the container
-   * - 'perPixel': adapt text per-pixel using CSS blend and filters (no JS sampling)
-   * @default 'global'
-   */
-  autoTextColorMode?: 'global' | 'perPixel';
-
-  /**
-   * When using 'perPixel' mode, apply the adaptive style only to elements matching this selector.
-   * Default: '[data-lg-autotext]'
-   */
-  perPixelTargetSelector?: string;
 
   /**
    * Text color when detected background is dark
@@ -126,7 +119,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * @default false
    */
   forceTextColor?: boolean;
-  /** Minimum blur (px) to apply on iOS even when blur is 0. Default: 2 */
+  /** Minimum blur (px) to apply on iOS even when blur is 0. Default: 7 */
   iosMinBlur?: number;
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';

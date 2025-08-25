@@ -11,6 +11,7 @@ A tiny, zero-dependency React component that renders a beautiful “liquid” gl
 - **Liquid glassmorphism** with SVG displacement
 - **Auto text color**: detects dark/light backgrounds to keep text legible
 - **Custom glass color**: accepts only semi‑transparent colors (`rgba`, `hsla`, hex with alpha)
+- **Background support**: solid colors and gradients with automatic transparency conversion
 - **Chromatic dispersion** and **blur** with fine‑grained controls
 - **Adjustable saturation** to boost or tame color vibrancy
 - **Chromatic aberration intensity** control to tune the vividness of the edge colors
@@ -41,7 +42,7 @@ import { LiquidGlass } from 'simple-liquid-glass';
 function App() {
   return (
     <div style={{ width: '300px', height: '200px' }}>
-      <LiquidGlass autoTextColor glassColor="rgba(255,255,255,0.4)">
+      <LiquidGlass autoTextColor background="rgba(255,255,255,0.4)">
         <div style={{ padding: '20px' }}>
           <h2>Your Content Here</h2>
           <p>This content has a liquid glass effect!</p>
@@ -72,7 +73,7 @@ function App() {
         blur={10}
         dispersion={30}
         frost={0.2}
-        glassColor="rgba(255,255,255,0.4)"
+        background="linear-gradient(45deg, #ff6b6b, #4ecdc4)"
         autoTextColor
         textOnDark="#ffffff"
         textOnLight="#111111"
@@ -83,7 +84,7 @@ function App() {
       >
         <div style={{ padding: '30px' }}>
           <h1>Custom Glass Effect</h1>
-          <p>Fully customized liquid glass morphism</p>
+          <p>Fully customized liquid glass morphism with gradient background</p>
         </div>
       </LiquidGlass>
     </div>
@@ -102,7 +103,9 @@ The component comes with a beautiful preset that works out of the box:
 ```
 
 Note: In `preset` mode, incoming props still override the preset defaults (e.g., `scale`, `radius`, `blur`, etc.).
-On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 2px) is applied even if `blur` is 0 to ensure a visible fallback effect.
+On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 7px) is applied even if `blur` is 0 to ensure a visible fallback effect.
+
+The `background` prop automatically converts solid colors and gradients to semi-transparent (30% opacity) for better glass effects. Images (URLs) are left unchanged.
 
 ## Props
 
@@ -119,11 +122,12 @@ On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 2p
 | `blur` | `number` | `0` | Blur amount for the glass effect |
 | `dispersion` | `number` | `50` | Chromatic dispersion amount |
 | `saturation` | `number` | `140` | Color saturation multiplier (%) applied via CSS `saturate()` |
-| `aberrationIntensity` | `number` | `2` | Multiplier for chromatic aberration (red/blue separation) |
+| `aberrationIntensity` | `number` | `0` | Multiplier for chromatic aberration (red/blue separation) |
 | `frost` | `number` | `0.1` | Frost effect intensity (0 to 1) |
 | `borderColor` | `string` | `'rgba(120, 120, 120, 0.7)'` | Border color in CSS format |
 | `glassColor` | `string` | – | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
-| `autoTextColor` | `boolean` | `true` | Automatically detect background luminance and set text color |
+| `background` | `string` | - | Background color or gradient (automatically made semi-transparent) |
+| `autoTextColor` | `boolean` | `false` | Automatically detect background luminance and set text color |
 | `textOnDark` | `string` | `'#ffffff'` | Text color used when background is detected as dark |
 | `textOnLight` | `string` | `'#111111'` | Text color used when background is detected as light |
 | `forceTextColor` | `boolean` | `false` | Force the computed text color on all descendants (`!important`) to override nested styles |
@@ -132,21 +136,39 @@ On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 2p
 
 ## Examples
 
+### Background with Gradient
+
+```jsx
+<LiquidGlass 
+  background="linear-gradient(45deg, #ff6b6b, #4ecdc4)"
+  autoTextColor
+>
+  <div style={{ padding: '20px' }}>
+    <h2>Gradient Background</h2>
+    <p>This uses a gradient background that's automatically made semi-transparent!</p>
+  </div>
+</LiquidGlass>
+```
+
 ### Card with Glass Effect
 
 ```jsx
 <div className="card-container" style={{ 
   width: '350px', 
-  height: '200px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+  height: '200px'
 }}>
-  <LiquidGlass radius={15} frost={0.15} autoTextColor glassColor="rgba(255,255,255,0.35)">
+  <LiquidGlass 
+    radius={15} 
+    frost={0.15} 
+    autoTextColor 
+    background="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+  >
     <div style={{ padding: '24px', height: '100%' }}>
       <h3 style={{ marginBottom: '12px' }}>
         Glass Card
       </h3>
       <p>
-        This is a beautiful glass morphism card with liquid distortion effects.
+        This is a beautiful glass morphism card with liquid distortion effects and gradient background.
       </p>
     </div>
   </LiquidGlass>
@@ -167,7 +189,7 @@ On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 2p
     width: '300px',
     height: '150px'
   }}>
-    <LiquidGlass autoTextColor glassColor="rgba(255,255,255,0.4)">
+    <LiquidGlass autoTextColor background="rgba(255,255,255,0.4)">
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>Overlay Content</h2>
         <p>Glass effect over image</p>

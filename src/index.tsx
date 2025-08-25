@@ -18,12 +18,11 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   frost?: number;
   borderColor?: string;
   glassColor?: string; // must be semi-transparent
+  background?: string; // background color or gradient (CSS background value)
   autoTextColor?: boolean; // auto-detect background and set text color
   textOnDark?: string; // text color when background is dark
   textOnLight?: string; // text color when background is light
   forceTextColor?: boolean; // enforce text color on descendants
-  autoTextColorMode?: 'global' | 'perPixel'; // strategy for auto text color
-  perPixelTargetSelector?: string; // CSS selector for elements to adapt in perPixel mode
   className?: string;
   style?: React.CSSProperties;
   // iOS fallback controls
@@ -69,6 +68,107 @@ function isSemiTransparentColor(input: string | undefined | null): boolean {
   return false;
 }
 
+function addTransparencyToColor(color: string, alpha: number = 0.3): string {
+  const trimmed = color.trim();
+  
+  // Handle hex colors
+  const hex3 = /^#([0-9a-f]{3})$/i.exec(trimmed);
+  if (hex3) {
+    const r = parseInt(hex3[1][0] + hex3[1][0], 16);
+    const g = parseInt(hex3[1][1] + hex3[1][1], 16);
+    const b = parseInt(hex3[1][2] + hex3[1][2], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  
+  const hex6 = /^#([0-9a-f]{6})$/i.exec(trimmed);
+  if (hex6) {
+    const r = parseInt(hex6[1].slice(0, 2), 16);
+    const g = parseInt(hex6[1].slice(2, 4), 16);
+    const b = parseInt(hex6[1].slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  
+  // Handle rgb colors
+  const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i.exec(trimmed);
+  if (rgb) {
+    const r = parseInt(rgb[1], 10);
+    const g = parseInt(rgb[2], 10);
+    const b = parseInt(rgb[3], 10);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  
+  // Handle hsl colors
+  const hsl = /^hsl\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i.exec(trimmed);
+  if (hsl) {
+    const h = hsl[1].trim();
+    const s = hsl[2].trim();
+    const l = hsl[3].trim();
+    return `hsla(${h}, ${s}, ${l}, ${alpha})`;
+  }
+  
+  // If we can't parse it, return as is
+  return trimmed;
+}
+
+function addTransparencyToGradient(gradient: string, alpha: number = 0.3): string {
+  // Handle linear-gradient, radial-gradient, conic-gradient, etc.
+  const gradientMatch = /^(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i.exec(gradient);
+  if (!gradientMatch) return gradient;
+  
+  const gradientType = gradientMatch[1];
+  const content = gradient.substring(gradientType.length + 1, gradient.length - 1);
+  
+  // Split by commas, but be careful with nested parentheses
+  const parts: string[] = [];
+  let current = '';
+  let parenCount = 0;
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    if (char === '(') parenCount++;
+    else if (char === ')') parenCount--;
+    else if (char === ',' && parenCount === 0) {
+      parts.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  parts.push(current.trim());
+  
+  // Process each color stop
+  const processedParts = parts.map(part => {
+    // Check if this part contains a color
+    const colorMatch = /(#[0-9a-f]{3,6}|rgb\([^)]+\)|hsl\([^)]+\)|rgba\([^)]+\)|hsla\([^)]+\))/i.exec(part);
+    if (colorMatch) {
+      const color = colorMatch[1];
+      const transparentColor = addTransparencyToColor(color, alpha);
+      return part.replace(color, transparentColor);
+    }
+    return part;
+  });
+  
+  return `${gradientType}(${processedParts.join(', ')})`;
+}
+
+function processBackground(background: string | undefined, alpha: number = 0.3): string | undefined {
+  if (!background) return undefined;
+  
+  // Check if it's already semi-transparent
+  if (isSemiTransparentColor(background)) return background;
+  
+  // Check if it's a gradient
+  if (background.includes('gradient')) {
+    return addTransparencyToGradient(background, alpha);
+  }
+  
+  // Check if it's a URL (image)
+  if (background.includes('url(')) return background;
+  
+  // Treat as solid color
+  return addTransparencyToColor(background, alpha);
+}
+
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 200;
 
@@ -82,7 +182,7 @@ const preset = {
   blur: 0,
   dispersion: 50,
   saturation: 140,
-  aberrationIntensity: 2,
+  aberrationIntensity: 0,
   frost: 0.1,
   borderColor: "rgba(120, 120, 120, 0.7)"
 };
@@ -99,19 +199,18 @@ export function LiquidGlass({
   blur = 0,
   dispersion = 50,
   saturation = 140,
-  aberrationIntensity = 2,
+  aberrationIntensity = 0,
   frost = 0.1,
   borderColor = "rgba(120, 120, 120, 0.7)",
   glassColor,
+  background,
   autoTextColor = false,
-  autoTextColorMode = 'global',
-  perPixelTargetSelector = '[data-lg-autotext]',
   textOnDark = '#ffffff',
   textOnLight = '#111111',
   forceTextColor = false,
   className = "",
   style = {},
-  iosMinBlur = 2,
+  iosMinBlur = 7,
   iosBlurMode = 'auto',
   ...props
 }: LiquidGlassProps) {
@@ -177,9 +276,6 @@ export function LiquidGlass({
   }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const glassRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const mirrorsRef = useRef<HTMLElement[]>([]);
   const [dimensions, setDimensions] = useState({
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
@@ -188,10 +284,6 @@ export function LiquidGlass({
   const textClassNameRef = useRef<string | null>(null);
   if (!textClassNameRef.current) {
     textClassNameRef.current = `lg-text-${Math.random().toString(36).slice(2, 9)}`;
-  }
-  const perPixelClassNameRef = useRef<string | null>(null);
-  if (!perPixelClassNameRef.current) {
-    perPixelClassNameRef.current = `lg-perpixel-${Math.random().toString(36).slice(2, 9)}`;
   }
 
   function parseCssColorToRgba(color: string): { r: number; g: number; b: number; a: number } | null {
@@ -286,7 +378,6 @@ export function LiquidGlass({
   // Auto-detect background and set text color for children; updates on resize/scroll/mutations
   useEffect(() => {
     if (!autoTextColor) return;
-    if (autoTextColorMode === 'perPixel') return; // CSS-only in perPixel mode
 
     const update = () => {
       const target = containerRef.current?.parentElement ?? null;
@@ -327,235 +418,7 @@ export function LiquidGlass({
       window.removeEventListener('scroll', onWindowChange, true);
       observers.forEach(o => o.disconnect());
     };
-  }, [autoTextColor, autoTextColorMode, textOnDark, textOnLight]);
-
-  // Automatically tag text-bearing descendants for perPixel mode
-  useEffect(() => {
-    if (!autoTextColor || autoTextColorMode !== 'perPixel') return;
-    const root = contentRef.current;
-    if (!root) return;
-
-    const shouldTag = (el: HTMLElement): boolean => {
-      if (el.hasAttribute('data-lg-no-autotext')) return false;
-      if (el.hasAttribute('data-lg-autotext') || el.hasAttribute('data-lg-autotext-auto')) return false;
-      const style = getComputedStyle(el);
-      if (style.visibility === 'hidden' || style.display === 'none') return false;
-      // Must contain a non-empty text node
-      const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && !!n.textContent && n.textContent.trim().length > 0);
-      return hasText;
-    };
-
-    const tagAll = () => {
-      const all = root.querySelectorAll('*');
-      for (const node of Array.from(all)) {
-        const el = node as HTMLElement;
-        if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
-      }
-    };
-
-    tagAll();
-
-    const mo = new MutationObserver((records) => {
-      for (const rec of records) {
-        if (rec.type === 'childList') {
-          rec.addedNodes.forEach(n => {
-            if (n.nodeType === 1) {
-              const el = n as HTMLElement;
-              if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
-              el.querySelectorAll('*').forEach(child => {
-                const c = child as HTMLElement;
-                if (shouldTag(c)) c.setAttribute('data-lg-autotext-auto', '');
-              });
-            }
-          });
-        } else if (rec.type === 'attributes') {
-          const el = rec.target as HTMLElement;
-          if (shouldTag(el)) el.setAttribute('data-lg-autotext-auto', '');
-        }
-      }
-    });
-    mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
-
-    return () => {
-      mo.disconnect();
-      root.querySelectorAll('[data-lg-autotext-auto]').forEach(n => (n as HTMLElement).removeAttribute('data-lg-autotext-auto'));
-    };
-  }, [autoTextColor, autoTextColorMode, perPixelTargetSelector]);
-
-  // Per-pixel mode: punch holes in the glass behind targeted text so blending sees the real background
-  useEffect(() => {
-    if (!autoTextColor || autoTextColorMode !== 'perPixel') return;
-    if (!containerRef.current || !glassRef.current) return;
-
-    let rafId = 0;
-    const ensureMirrors = () => {
-      const searchRoot = contentRef.current ?? containerRef.current!;
-      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
-      const targets = Array.from(searchRoot.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
-      // remove mirrors for removed targets
-      mirrorsRef.current = mirrorsRef.current.filter(m => {
-        const targetId = m.getAttribute('data-lg-mirror-for');
-        const stillExists = targets.some(t => t.dataset.lgMirrorId === targetId);
-        if (!stillExists) {
-          m.remove();
-          return false;
-        }
-        return true;
-      });
-      // add mirrors for new targets
-      for (const t of targets) {
-        if (!t.dataset.lgMirrorId) {
-          t.dataset.lgMirrorId = Math.random().toString(36).slice(2, 9);
-        }
-        const already = mirrorsRef.current.find(m => m.getAttribute('data-lg-mirror-for') === t.dataset.lgMirrorId);
-        if (already) continue;
-        const mirror = document.createElement('span');
-        mirror.setAttribute('data-lg-mirror', '');
-        mirror.setAttribute('data-lg-mirror-for', t.dataset.lgMirrorId);
-        mirror.style.position = 'fixed';
-        mirror.style.pointerEvents = 'none';
-        mirror.style.mixBlendMode = 'difference';
-        mirror.style.color = '#fff';
-        mirror.style.whiteSpace = 'pre-wrap';
-        mirror.style.zIndex = '2147483647';
-        document.body.appendChild(mirror);
-        mirrorsRef.current.push(mirror);
-      }
-    };
-    const updateMask = () => {
-      if (!containerRef.current || !glassRef.current) return;
-      ensureMirrors();
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const searchRoot = contentRef.current ?? containerRef.current;
-      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
-      const targets = Array.from(searchRoot!.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
-
-      const baseImage = 'linear-gradient(#fff 0 0)';
-      const images: string[] = [baseImage];
-      const positions: string[] = ['0 0'];
-      const sizes: string[] = ['100% 100%'];
-      const repeats: string[] = ['no-repeat'];
-
-      for (const t of targets) {
-        const r = t.getBoundingClientRect();
-        const left = Math.max(0, r.left - containerRect.left);
-        const top = Math.max(0, r.top - containerRect.top);
-        const width = Math.max(0, Math.min(containerRect.right, r.right) - Math.max(containerRect.left, r.left));
-        const height = Math.max(0, Math.min(containerRect.bottom, r.bottom) - Math.max(containerRect.top, r.top));
-        if (width <= 0 || height <= 0) continue;
-        images.push('linear-gradient(#000 0 0)');
-        positions.push(`${left}px ${top}px`);
-        sizes.push(`${width}px ${height}px`);
-        repeats.push('no-repeat');
-      }
-
-      const imgList = images.join(',');
-      const posList = positions.join(',');
-      const sizeList = sizes.join(',');
-      const repList = repeats.join(',');
-      const composites = new Array(Math.max(0, images.length - 1)).fill('exclude').join(',');
-      const webkitComposites = new Array(Math.max(0, images.length - 1)).fill('xor').join(',');
-
-      const el = glassRef.current;
-      el.style.setProperty('mask-image', imgList);
-      el.style.setProperty('mask-position', posList);
-      el.style.setProperty('mask-size', sizeList);
-      el.style.setProperty('mask-repeat', repList);
-      if (composites) el.style.setProperty('mask-composite', composites);
-      if (webkitComposites) el.style.setProperty('-webkit-mask-composite', webkitComposites);
-
-      // Sync mirrors to targets
-      for (const t of targets) {
-        const id = t.dataset.lgMirrorId!;
-        const mirror = mirrorsRef.current.find(m => m.getAttribute('data-lg-mirror-for') === id);
-        if (!mirror) continue;
-        const r = t.getBoundingClientRect();
-        const cs = getComputedStyle(t);
-        mirror.textContent = t.textContent || '';
-        mirror.style.left = `${r.left}px`;
-        mirror.style.top = `${r.top}px`;
-        mirror.style.width = `${r.width}px`;
-        mirror.style.height = `${r.height}px`;
-        mirror.style.font = cs.font;
-        mirror.style.lineHeight = cs.lineHeight;
-        mirror.style.letterSpacing = cs.letterSpacing as string;
-        mirror.style.textTransform = cs.textTransform as string;
-        mirror.style.textShadow = 'none';
-        mirror.style.textAlign = cs.textAlign as string;
-        mirror.style.display = 'flex';
-        mirror.style.alignItems = cs.display.includes('flex') ? (cs.alignItems as string) : 'center';
-        mirror.style.justifyContent = cs.display.includes('flex') ? (cs.justifyContent as string) : 'center';
-      }
-      // Hide original text color to avoid double render glow
-      for (const t of targets) {
-        (t as HTMLElement).style.setProperty('color', 'transparent', 'important');
-      }
-    };
-
-    const schedule = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        updateMask();
-      });
-    };
-
-    updateMask();
-
-    const ro = new ResizeObserver(() => schedule());
-    ro.observe(containerRef.current);
-    const targetsObserve = () => {
-      const searchRoot = contentRef.current ?? containerRef.current!;
-      const effectiveTargetSelector = `${perPixelTargetSelector}, [data-lg-autotext], [data-lg-autotext-auto]`;
-      const targets = Array.from(searchRoot.querySelectorAll(effectiveTargetSelector)) as HTMLElement[];
-      for (const t of targets) ro.observe(t);
-    };
-    targetsObserve();
-
-    const mo = new MutationObserver((records) => {
-      // Ignore self-updates caused by setting styles on the glass layer
-      const relevant = records.some(r => {
-        const isSelf = glassRef.current && r.target === glassRef.current && r.attributeName === 'style';
-        return !isSelf;
-      });
-      if (relevant) {
-        schedule();
-        targetsObserve();
-      }
-    });
-    mo.observe(containerRef.current, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
-
-    const onScroll = () => schedule();
-    const onMove = () => schedule();
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('pointermove', onMove, true);
-    window.addEventListener('resize', onMove);
-
-    return () => {
-      ro.disconnect();
-      mo.disconnect();
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('pointermove', onMove, true);
-      window.removeEventListener('resize', onMove);
-      if (rafId) cancelAnimationFrame(rafId);
-      if (glassRef.current) {
-        glassRef.current.style.removeProperty('mask-image');
-        glassRef.current.style.removeProperty('mask-position');
-        glassRef.current.style.removeProperty('mask-size');
-        glassRef.current.style.removeProperty('mask-repeat');
-        glassRef.current.style.removeProperty('mask-composite');
-        glassRef.current.style.removeProperty('-webkit-mask-composite');
-      }
-      // Remove mirrors and restore text colors
-      const container = containerRef.current;
-      if (container) {
-        const targets = Array.from(container.querySelectorAll(perPixelTargetSelector)) as HTMLElement[];
-        for (const t of targets) t.style.removeProperty('color');
-      }
-      for (const m of mirrorsRef.current) m.remove();
-      mirrorsRef.current = [];
-    };
-  }, [autoTextColor, autoTextColorMode, perPixelTargetSelector]);
+  }, [autoTextColor, textOnDark, textOnLight]);
 
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
   const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
@@ -597,8 +460,9 @@ export function LiquidGlass({
   const uniqueFilterId = useId();
   const filterId = `liquid-glass-filter-${uniqueFilterId}`;
 
-  const resolvedGlassBackground =
-    glassColor && isSemiTransparentColor(glassColor)
+  const resolvedGlassBackground = background
+    ? 'transparent' // Use transparent when background is provided
+    : glassColor && isSemiTransparentColor(glassColor)
       ? glassColor
       : `hsl(0 0% 100% / ${config.frost})`;
 
@@ -636,7 +500,7 @@ export function LiquidGlass({
     borderRadius: effectiveRadiusPx,
     position: "absolute",
     zIndex: 1,
-    background: autoTextColor && autoTextColorMode === 'perPixel' ? 'transparent' : resolvedGlassBackground,
+    background: resolvedGlassBackground,
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden'
@@ -661,6 +525,8 @@ export function LiquidGlass({
     width: "100%",
     height: "100%",
     position: "relative",
+    borderRadius: effectiveRadiusPx,
+    background: processBackground(background),
     ...style
   };
 
@@ -671,7 +537,7 @@ export function LiquidGlass({
       style={containerStyle}
       {...props}
     >
-      <div style={glassMorphismStyle} ref={glassRef}>
+      <div style={glassMorphismStyle}>
         <svg 
           className="liquid-glass-filter"
           style={{
@@ -776,37 +642,17 @@ export function LiquidGlass({
             zIndex: 3,
             width: "100%",
             height: "100%",
-            color: autoTextColor && autoTextColorMode !== 'perPixel' ? effectiveTextColor : undefined,
+            color: autoTextColor ? effectiveTextColor : undefined,
             transition: 'color 300ms ease'
           }}
-          ref={contentRef}
-          className={[
-            forceTextColor && autoTextColor && autoTextColorMode !== 'perPixel' ? (textClassNameRef.current ?? '') : '',
-            autoTextColor && autoTextColorMode === 'perPixel' ? (perPixelClassNameRef.current ?? '') : ''
-          ].filter(Boolean).join(' ') || undefined}
+          className={forceTextColor ? textClassNameRef.current ?? undefined : undefined}
         >
-          {forceTextColor && autoTextColor && autoTextColorMode !== 'perPixel' && (
+          {forceTextColor && autoTextColor && (
             <style>
               {`
                 .${textClassNameRef.current}, .${textClassNameRef.current} * { transition: color 300ms ease; }
                 .${textClassNameRef.current} { color: ${effectiveTextColor} !important; }
                 .${textClassNameRef.current} * { color: ${effectiveTextColor} !important; }
-              `}
-            </style>
-          )}
-          {autoTextColor && autoTextColorMode === 'perPixel' && (
-            <style>
-              {`
-                .${perPixelClassNameRef.current} ${perPixelTargetSelector},
-                .${perPixelClassNameRef.current} [data-lg-autotext],
-                .${perPixelClassNameRef.current} [data-lg-autotext-auto] {
-                  position: relative;
-                  z-index: 4;
-                  color: #fff !important;
-                  mix-blend-mode: difference !important;
-                  filter: grayscale(1) contrast(1000) !important;
-                  transition: filter 200ms ease, color 200ms ease;
-                }
               `}
             </style>
           )}

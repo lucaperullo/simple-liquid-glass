@@ -7,6 +7,7 @@ export interface WebGLLiquidGlassProps extends React.HTMLAttributes<HTMLDivEleme
   width?: number;
   height?: number;
   dpi?: number;
+  renderScale?: number; // 0.5..1 internal scaling for performance
   captureBackground?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -21,6 +22,7 @@ export default function WebGLLiquidGlass({
   width = 512,
   height = 512,
   dpi = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
+  renderScale = 1,
   captureBackground = true,
   className,
   style,
@@ -55,11 +57,13 @@ export default function WebGLLiquidGlass({
       depthBuffer: false,
       stencilBuffer: false,
     };
-    const rtA = new THREE.WebGLRenderTarget(width * dpi, height * dpi, rtOpts);
-    const rtB = new THREE.WebGLRenderTarget(width * dpi, height * dpi, rtOpts);
+    const scaledW = Math.max(1, Math.floor(width * dpi * renderScale));
+    const scaledH = Math.max(1, Math.floor(height * dpi * renderScale));
+    const rtA = new THREE.WebGLRenderTarget(scaledW, scaledH, rtOpts);
+    const rtB = new THREE.WebGLRenderTarget(scaledW, scaledH, rtOpts);
 
     const mouse = new THREE.Vector2(0.5, 0.5);
-    const resolution = new THREE.Vector2(width * dpi, height * dpi);
+    const resolution = new THREE.Vector2(scaledW, scaledH);
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -371,9 +375,11 @@ export default function WebGLLiquidGlass({
       const h = height;
       renderer.setPixelRatio(dpi);
       renderer.setSize(w, h, false);
-      rtA.setSize(w * dpi, h * dpi);
-      rtB.setSize(w * dpi, h * dpi);
-      resolution.set(w * dpi, h * dpi);
+      const sW = Math.max(1, Math.floor(w * dpi * renderScale));
+      const sH = Math.max(1, Math.floor(h * dpi * renderScale));
+      rtA.setSize(sW, sH);
+      rtB.setSize(sW, sH);
+      resolution.set(sW, sH);
     };
     onResize();
 
@@ -395,7 +401,7 @@ export default function WebGLLiquidGlass({
       sdfMat.dispose();
       renderer.dispose();
     };
-  }, [imageSrc, width, height, dpi]);
+  }, [imageSrc, width, height, dpi, renderScale]);
 
   return (
     <div

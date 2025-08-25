@@ -79,6 +79,15 @@ export default function LiquidGlass({
   }, []);
 
   const dpi = mapQualityToDpr(quality);
+  const renderScale = useMemo(() => {
+    switch (quality) {
+      case 'low': return 0.5;
+      case 'med': return 0.75;
+      case 'high': return 1.0;
+      case 'ultra': return 1.0;
+      default: return 1.0;
+    }
+  }, [quality]);
 
   const containerStyle: React.CSSProperties = {
     position: 'relative',
@@ -95,6 +104,7 @@ export default function LiquidGlass({
           width={size.width || 1}
           height={size.height || 1}
           dpi={dpi}
+          renderScale={renderScale}
           captureBackground={true}
           className={undefined}
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}

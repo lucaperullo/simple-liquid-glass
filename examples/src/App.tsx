@@ -225,8 +225,8 @@ function App() {
       </section>
 
       <section style={{ display: 'grid', placeItems: 'center' }}>
-        <Draggable width={520} height={300}>
-          <div style={{ width: 520, height: 300 }}>
+        <Draggable width={640} height={380}>
+          <div style={{ width: 640, height: 380 }}>
             <LiquidGlass {...controls} background={background.css}>
               <div style={{
                 width: '100%',

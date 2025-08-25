@@ -158,6 +158,8 @@ export interface LiquidGlassThreeProps extends HTMLAttributes<HTMLDivElement> {
   lensEnabled?: boolean;
   lensRadius?: number;
   lensDispersion?: number;
+  /** When true, modulate lens opacity by the foreground image alpha */
+  lensMaskFromImageAlpha?: boolean;
   className?: string;
   style?: CSSProperties;
 }

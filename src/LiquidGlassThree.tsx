@@ -22,6 +22,7 @@ export interface LiquidGlassThreeProps extends React.HTMLAttributes<HTMLDivEleme
   lensEnabled?: boolean;
   lensRadius?: number; // normalized scale factor for falloff mapping
   lensDispersion?: number; // chromatic dispersion base
+  lensMaskFromImageAlpha?: boolean; // modulate lens opacity by image alpha
   className?: string;
   style?: React.CSSProperties;
 }
@@ -53,6 +54,7 @@ export function LiquidGlassThree({
   lensEnabled = true,
   lensRadius = 0.492,
   lensDispersion = 0.01,
+  lensMaskFromImageAlpha = true,
   className,
   style,
   ...rest
@@ -230,8 +232,12 @@ export function LiquidGlassThree({
           vec3 col = texture2D(uTexture, vUv).rgb;
           // Aspect-aware distance
           vec2 ar = vec2(uResolution.x/uResolution.y, 1.0);
-          vec2 p = vUv * ar;
-          vec2 c = uCenter * ar;
+          // Small rotation to better match reference (~0.0054 * TWO_PI)
+          float ang = 0.0339;
+          float s = sin(ang), c0 = cos(ang);
+          mat2 rot = mat2(c0, -s, s, c0);
+          vec2 p = (vUv * ar) * rot;
+          vec2 c = (uCenter * ar) * rot;
           float d = distance(p, c);
           float inner = uRadius * 0.5;
           float outer = uRadius * 1.5;
@@ -272,8 +278,12 @@ export function LiquidGlassThree({
         void main(){
           vec3 col = texture2D(uTexture, vUv).rgb;
           vec2 ar = vec2(uResolution.x/uResolution.y, 1.0);
-          vec2 p = vUv * ar;
-          vec2 c = uCenter * ar;
+          // Opposite small rotation (~-0.0054 * TWO_PI)
+          float ang = -0.0339;
+          float s = sin(ang), c0 = cos(ang);
+          mat2 rot = mat2(c0, -s, s, c0);
+          vec2 p = (vUv * ar) * rot;
+          vec2 c = (uCenter * ar) * rot;
           float d = distance(p, c);
           float inner = uRadius * 0.5;
           float outer = uRadius * 1.5;
@@ -296,6 +306,9 @@ export function LiquidGlassThree({
       uEnabled: { value: lensEnabled ? 1 : 0 },
       uLensRadius: { value: lensRadius },
       uDispersion: { value: lensDispersion },
+      uImage: { value: imageTex },
+      uUseImage: { value: imageTex ? 1 : 0 },
+      uMaskFromAlpha: { value: lensMaskFromImageAlpha ? 1 : 0 },
     } as const;
     const lensMaterial = new THREE.ShaderMaterial({
       uniforms: lensUniforms as any,
@@ -312,6 +325,9 @@ export function LiquidGlassThree({
         uniform int uEnabled;
         uniform float uLensRadius;
         uniform float uDispersion;
+        uniform sampler2D uImage;
+        uniform int uUseImage;
+        uniform int uMaskFromAlpha;
 
         vec2 rotate2D(vec2 p, float a){
           float s = sin(a), c = cos(a);
@@ -350,6 +366,20 @@ export function LiquidGlassThree({
 
           // Soft opacity at lens boundary
           float opacity = smoothstep(0.0, 0.0025, -d);
+
+          // Optional masking by foreground image alpha (parallax-matched)
+          if (uMaskFromAlpha == 1 && uUseImage == 1) {
+            vec2 centerUV = vec2(0.5);
+            vec2 delta = (uMouse - centerUV);
+            float angleX = (uMouse.y * 0.5 - 0.25);
+            vec2 tuv = uv - centerUV;
+            tuv = rotate2D(tuv, angleX * 0.2);
+            tuv += delta * -0.03;
+            tuv += centerUV;
+            float a = texture2D(uImage, tuv).a;
+            opacity *= a * a;
+          }
+
           vec3 finalCol = mix(base, refr, opacity);
           gl_FragColor = vec4(finalCol, 1.0);
         }
@@ -440,7 +470,7 @@ export function LiquidGlassThree({
       if (canvas.parentElement) canvas.parentElement.removeChild(canvas);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [width, height, dpr, backgroundColor, backgroundSrc, imageSrc, trackMouse, mouseMomentum, darkenAmount, darkenRadius, darkenPos.x, darkenPos.y, lightenAmount, lightenRadius, lightenPos.x, lightenPos.y, lightenColor, lensEnabled, lensRadius, lensDispersion]);
+  }, [width, height, dpr, backgroundColor, backgroundSrc, imageSrc, trackMouse, mouseMomentum, darkenAmount, darkenRadius, darkenPos.x, darkenPos.y, lightenAmount, lightenRadius, lightenPos.x, lightenPos.y, lightenColor, lensEnabled, lensRadius, lensDispersion, lensMaskFromImageAlpha]);
 
   return (
     <div
@@ -453,4 +483,3 @@ export function LiquidGlassThree({
 }
 
 export default LiquidGlassThree;
-

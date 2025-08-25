@@ -36,6 +36,7 @@ const meta: Meta<C> = {
     lensEnabled: true,
     lensRadius: 0.492,
     lensDispersion: 0.01,
+    lensMaskFromImageAlpha: true,
   },
 };
 

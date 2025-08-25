@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import LiquidGlass, { type LiquidGlassProps } from 'simple-liquid-glass'
+import { LiquidGlass, type LiquidGlassProps } from 'simple-liquid-glass'
 
 type Mode = 'preset' | 'custom'
 type Controls = Pick<

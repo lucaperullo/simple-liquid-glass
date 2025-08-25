@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import html2canvas from 'html2canvas';
 
 export interface WebGLLiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
-  imageSrc: string;
+  imageSrc?: string;
   width?: number;
   height?: number;
   dpi?: number;
+  captureBackground?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -19,6 +21,7 @@ export default function WebGLLiquidGlass({
   width = 512,
   height = 512,
   dpi = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
+  captureBackground = true,
   className,
   style,
   ...rest
@@ -64,11 +67,89 @@ export default function WebGLLiquidGlass({
     renderer.domElement.addEventListener('pointermove', onPointerMove);
 
     const textureLoader = new THREE.TextureLoader();
-    const imageTexture = textureLoader.load(imageSrc);
+    const imageTexture = new THREE.Texture();
     imageTexture.minFilter = THREE.LinearFilter;
     imageTexture.magFilter = THREE.LinearFilter;
     imageTexture.wrapS = THREE.ClampToEdgeWrapping;
     imageTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+    const assignCanvasToTexture = (canvas: HTMLCanvasElement) => {
+      // Resize canvas to desired resolution to avoid extra sampling in shaders
+      if (canvas.width !== width * dpi || canvas.height !== height * dpi) {
+        const resized = document.createElement('canvas');
+        resized.width = Math.max(1, Math.floor(width * dpi));
+        resized.height = Math.max(1, Math.floor(height * dpi));
+        const ctx = resized.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(canvas, 0, 0, resized.width, resized.height);
+        }
+        imageTexture.image = resized;
+      } else {
+        imageTexture.image = canvas;
+      }
+      imageTexture.needsUpdate = true;
+    };
+
+    const captureAreaToTexture = async () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      try {
+        const canvas = await html2canvas(document.body, {
+          backgroundColor: null,
+          useCORS: true,
+          logging: false,
+          scale: dpi,
+          x: Math.max(0, Math.floor(rect.left + window.scrollX)),
+          y: Math.max(0, Math.floor(rect.top + window.scrollY)),
+          width: Math.max(1, Math.floor(rect.width)),
+          height: Math.max(1, Math.floor(rect.height)),
+          windowWidth: document.documentElement.clientWidth,
+          windowHeight: document.documentElement.clientHeight,
+        });
+        assignCanvasToTexture(canvas);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[WebGLLiquidGlass] Background capture failed, falling back to solid color.', err);
+        const fallback = document.createElement('canvas');
+        fallback.width = Math.max(1, Math.floor(width * dpi));
+        fallback.height = Math.max(1, Math.floor(height * dpi));
+        const ctx = fallback.getContext('2d');
+        if (ctx) {
+          const bg = getComputedStyle(container).backgroundColor || 'rgba(0,0,0,0)';
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, fallback.width, fallback.height);
+        }
+        assignCanvasToTexture(fallback);
+      }
+    };
+
+    if (imageSrc) {
+      const tex = textureLoader.load(imageSrc, () => {
+        imageTexture.image = (tex as any).image;
+        imageTexture.needsUpdate = true;
+      });
+    } else if (captureBackground) {
+      // initial capture
+      captureAreaToTexture();
+      const recapture = () => captureAreaToTexture();
+      window.addEventListener('resize', recapture);
+      window.addEventListener('scroll', recapture, true);
+      // also observe style/attribute changes up the DOM tree to refresh background captures
+      const observers: MutationObserver[] = [];
+      let el: HTMLElement | null = container.parentElement;
+      while (el) {
+        const obs = new MutationObserver(recapture);
+        obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+        observers.push(obs);
+        el = el.parentElement;
+      }
+      // store cleanup into container for later disposal
+      (container as any).__lg_cleanup = () => {
+        window.removeEventListener('resize', recapture);
+        window.removeEventListener('scroll', recapture, true);
+        observers.forEach(o => o.disconnect());
+      };
+    }
 
     const fullScreenVS = `
       varying vec2 vUv;
@@ -213,7 +294,7 @@ export default function WebGLLiquidGlass({
         uMousePos: { value: mouse },
         uTexture: { value: imageTexture },
         uBgTexture: { value: rtA.texture },
-        uSampleBg: { value: 1 },
+        uSampleBg: { value: 0 },
       },
       transparent: true,
     });
@@ -263,7 +344,7 @@ export default function WebGLLiquidGlass({
     const animate = () => {
       // 1) gradient -> rtA
       renderPass(rtA, gradientMat);
-      // 2) image(bg=rtA, img=image) -> rtB
+      // 2) image(bg=rtA, img=imageTexture or captured background) -> rtB
       imageMat.uniforms.uBgTexture.value = rtA.texture;
       imageMat.uniforms.uTexture.value = imageTexture;
       renderPass(rtB, imageMat);
@@ -297,6 +378,10 @@ export default function WebGLLiquidGlass({
       cancelAnimationFrame(rafId);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       container.removeChild(renderer.domElement);
+      // cleanup recapture listeners if any
+      if ((container as any).__lg_cleanup) {
+        try { (container as any).__lg_cleanup(); } catch {}
+      }
       rtA.dispose();
       rtB.dispose();
       quad.geometry.dispose();

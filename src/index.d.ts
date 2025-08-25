@@ -137,13 +137,15 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
 
-export default LiquidGlass;
 export interface WebGLLiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
-  imageSrc: string;
+  imageSrc?: string;
   width?: number;
   height?: number;
   dpi?: number;
+  captureBackground?: boolean;
   className?: string;
   style?: CSSProperties;
 }
+
 export declare function WebGLLiquidGlass(props: WebGLLiquidGlassProps): JSX.Element;
+export default WebGLLiquidGlass;

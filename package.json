@@ -82,7 +82,8 @@
     "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0"
   },
   "dependencies": {
-    "three": "^0.165.0"
+    "three": "^0.165.0",
+    "html2canvas": "^1.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

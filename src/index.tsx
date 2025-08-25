@@ -665,7 +665,7 @@ export function LiquidGlass({
 
 LiquidGlass.displayName = "LiquidGlass";
 
-export default LiquidGlass;
 export { default as WebGLLiquidGlass } from './webgl/WebGLLiquidGlass';
+export { default } from './webgl/WebGLLiquidGlass';
 
 // Removed non-working experimental components per user request

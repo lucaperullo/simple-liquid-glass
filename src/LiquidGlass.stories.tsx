@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { LiquidGlass, WebGLLiquidGlass } from './index';
+import LiquidGlass, { WebGLLiquidGlass } from './index';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 

@@ -667,4 +667,5 @@ LiquidGlass.displayName = "LiquidGlass";
 
 export default LiquidGlass;
 
-// Removed non-working experimental components per user request
+export { default as LiquidGlassThree } from './LiquidGlassThree';
+export type { LiquidGlassThreeProps } from './LiquidGlassThree';

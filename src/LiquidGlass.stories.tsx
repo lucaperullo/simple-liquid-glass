@@ -182,7 +182,7 @@ export const Draggable: Story = {
     ),
   },
   render: (args) => (
-    <DraggableWrapper width={520} height={360}>
+    <DraggableWrapper width={640} height={420}>
       <LiquidGlass {...args} />
     </DraggableWrapper>
   ),

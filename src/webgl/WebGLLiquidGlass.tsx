@@ -41,13 +41,18 @@ export default function WebGLLiquidGlass({
     if (!containerRef.current) return;
 
     const container = containerRef.current;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' as any });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance' as any,
+      premultipliedAlpha: false,
+      depth: false,
+      stencil: false,
+    });
     rendererRef.current = renderer;
     renderer.setPixelRatio(dpi);
     renderer.setSize(width, height, false);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    // Keep defaults minimal to reduce GPU work
     container.appendChild(renderer.domElement);
 
     const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -297,7 +302,8 @@ export default function WebGLLiquidGlass({
 
     const circle2Mat = new THREE.ShaderMaterial({
       vertexShader: fullScreenVS,
-      fragmentShader: circleFS(1, 0.2080 * 0.5, 0.37, 0.35, -1),
+      // reduce cost of second pass for low scales
+      fragmentShader: circleFS(1, 0.2080 * 0.5, 0.37, 0.25, -1),
       uniforms: {
         uMousePos: { value: mouse },
         uTexture: { value: rtA.texture },
@@ -329,6 +335,7 @@ export default function WebGLLiquidGlass({
     let dynamicScale = Math.max(minRenderScale, Math.min(1, renderScale));
     let lastTime = performance.now();
     let emaFrameMs = 16.7; // start ~60fps
+    let frameDecimator = 0; // skip expensive passes intermittently under heavy load
 
     let rafId = 0;
     const animate = () => {
@@ -357,6 +364,11 @@ export default function WebGLLiquidGlass({
           rtA.setSize(sW, sH);
           rtB.setSize(sW, sH);
           resolution.set(sW, sH);
+        } else if (fps < decreaseThreshold - 10) {
+          // If still struggling, enable temporal decimation for circle2 pass
+          frameDecimator = 2; // run circle2 every 2nd frame
+        } else if (fps > increaseThreshold && frameDecimator > 0) {
+          frameDecimator = Math.max(0, frameDecimator - 1);
         }
       }
 
@@ -366,9 +378,14 @@ export default function WebGLLiquidGlass({
       // 2) circle1(input=rtB) -> rtA
       circle1Mat.uniforms.uTexture.value = rtB.texture;
       renderPass(rtA, circle1Mat);
-      // 3) circle2(input=rtA) -> rtB
-      circle2Mat.uniforms.uTexture.value = rtA.texture;
-      renderPass(rtB, circle2Mat);
+      // 3) circle2(input=rtA) -> rtB (optionally decimated)
+      if (frameDecimator <= 0 || (Math.floor(now / 16) % (frameDecimator + 1) === 0)) {
+        circle2Mat.uniforms.uTexture.value = rtA.texture;
+        renderPass(rtB, circle2Mat);
+      } else {
+        // If skipped, just forward rtA to rtB to maintain pipeline
+        renderPass(rtB, circle1Mat); // cheap re-use, preserves flow
+      }
       // 4) sdf refract(input=rtB, mask=rtB) -> screen
       sdfMat.uniforms.uTexture.value = rtB.texture;
       sdfMat.uniforms.uMaskTexture.value = rtB.texture;

@@ -137,7 +137,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
 
-export default LiquidGlass;
+export default LiquidGlassThree;
 
 export interface LiquidGlassThreeProps extends HTMLAttributes<HTMLDivElement> {
   width?: number;

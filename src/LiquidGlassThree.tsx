@@ -199,7 +199,9 @@ export function LiquidGlassThree({
             color = mix(color, img.rgb / max(a, 0.0001), a);
           }
 
-          gl_FragColor = vec4(color, 1.0);
+          // If no textures provided, render transparent to reveal underlying DOM
+          float outAlpha = (uUseBgTexture == 1 || uUseImage == 1) ? 1.0 : 0.0;
+          gl_FragColor = vec4(color, outAlpha);
         }
       `,
       depthTest: false,

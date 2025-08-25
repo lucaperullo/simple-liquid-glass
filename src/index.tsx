@@ -664,8 +664,6 @@ export function LiquidGlass({
 }
 
 LiquidGlass.displayName = "LiquidGlass";
-
-export default LiquidGlass;
-
 export { default as LiquidGlassThree } from './LiquidGlassThree';
 export type { LiquidGlassThreeProps } from './LiquidGlassThree';
+export default LiquidGlassThree;

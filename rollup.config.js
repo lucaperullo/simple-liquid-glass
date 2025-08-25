@@ -40,7 +40,7 @@ export default [
       }),
       terser()
     ],
-    external: ['react', 'react-dom']
+    external: ['react', 'react-dom', 'three']
   },
   {
     input: 'src/index.d.ts',

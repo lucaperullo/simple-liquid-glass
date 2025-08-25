@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import LiquidGlass from './index';
+import LiquidGlass, { WebGLLiquidGlass } from './index';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -209,4 +209,21 @@ export const Draggable: Story = {
   },
 };
 
+
+export const WebGLDemo: Story = {
+  name: 'WebGL/Unicorn Replica',
+  args: {
+    children: undefined,
+  },
+  render: () => (
+    <div style={{ width: 512, height: 512 }}>
+      <WebGLLiquidGlass imageSrc="https://firebasestorage.googleapis.com/v0/b/unicorn-studio.appspot.com/o/Zz28X5RDkvcGGVYLr9X6QdTIhxy1%2FTulips%20in%20dreamy%20light%20blue%20sky.png?alt=media&token=ac293af7-9939-45e6-afa1-0c9b2028e096" />
+    </div>
+  ),
+  parameters: {
+    backgrounds: {
+      default: 'light',
+    },
+  },
+};
 

@@ -1,11 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import html2canvas from 'html2canvas';
 
 export interface WebGLLiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
-  imageSrc: string;
+  imageSrc?: string;
   width?: number;
   height?: number;
   dpi?: number;
+  renderScale?: number; // 0.5..1 internal scaling for performance
+  autoScale?: boolean; // dynamically adjust renderScale to maintain FPS
+  minRenderScale?: number; // lower bound for autoScale
+  targetFps?: number; // desired FPS target
+  captureBackground?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -19,6 +25,11 @@ export default function WebGLLiquidGlass({
   width = 512,
   height = 512,
   dpi = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
+  renderScale = 1,
+  autoScale = true,
+  minRenderScale = 0.6,
+  targetFps = 58,
+  captureBackground = true,
   className,
   style,
   ...rest
@@ -30,10 +41,18 @@ export default function WebGLLiquidGlass({
     if (!containerRef.current) return;
 
     const container = containerRef.current;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance' as any,
+      premultipliedAlpha: false,
+      depth: false,
+      stencil: false,
+    });
     rendererRef.current = renderer;
     renderer.setPixelRatio(dpi);
     renderer.setSize(width, height, false);
+    // Keep defaults minimal to reduce GPU work
     container.appendChild(renderer.domElement);
 
     const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -49,11 +68,13 @@ export default function WebGLLiquidGlass({
       depthBuffer: false,
       stencilBuffer: false,
     };
-    const rtA = new THREE.WebGLRenderTarget(width * dpi, height * dpi, rtOpts);
-    const rtB = new THREE.WebGLRenderTarget(width * dpi, height * dpi, rtOpts);
+    const scaledW = Math.max(1, Math.floor(width * dpi * renderScale));
+    const scaledH = Math.max(1, Math.floor(height * dpi * renderScale));
+    const rtA = new THREE.WebGLRenderTarget(scaledW, scaledH, rtOpts);
+    const rtB = new THREE.WebGLRenderTarget(scaledW, scaledH, rtOpts);
 
     const mouse = new THREE.Vector2(0.5, 0.5);
-    const resolution = new THREE.Vector2(width * dpi, height * dpi);
+    const resolution = new THREE.Vector2(scaledW, scaledH);
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -64,11 +85,89 @@ export default function WebGLLiquidGlass({
     renderer.domElement.addEventListener('pointermove', onPointerMove);
 
     const textureLoader = new THREE.TextureLoader();
-    const imageTexture = textureLoader.load(imageSrc);
+    const imageTexture = new THREE.Texture();
     imageTexture.minFilter = THREE.LinearFilter;
     imageTexture.magFilter = THREE.LinearFilter;
     imageTexture.wrapS = THREE.ClampToEdgeWrapping;
     imageTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+    const assignCanvasToTexture = (canvas: HTMLCanvasElement) => {
+      // Resize canvas to desired resolution to avoid extra sampling in shaders
+      if (canvas.width !== width * dpi || canvas.height !== height * dpi) {
+        const resized = document.createElement('canvas');
+        resized.width = Math.max(1, Math.floor(width * dpi));
+        resized.height = Math.max(1, Math.floor(height * dpi));
+        const ctx = resized.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(canvas, 0, 0, resized.width, resized.height);
+        }
+        imageTexture.image = resized;
+      } else {
+        imageTexture.image = canvas;
+      }
+      imageTexture.needsUpdate = true;
+    };
+
+    const captureAreaToTexture = async () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      try {
+        const canvas = await html2canvas(document.body, {
+          backgroundColor: null,
+          useCORS: true,
+          logging: false,
+          scale: dpi,
+          x: Math.max(0, Math.floor(rect.left + window.scrollX)),
+          y: Math.max(0, Math.floor(rect.top + window.scrollY)),
+          width: Math.max(1, Math.floor(rect.width)),
+          height: Math.max(1, Math.floor(rect.height)),
+          windowWidth: document.documentElement.clientWidth,
+          windowHeight: document.documentElement.clientHeight,
+        });
+        assignCanvasToTexture(canvas);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[WebGLLiquidGlass] Background capture failed, falling back to solid color.', err);
+        const fallback = document.createElement('canvas');
+        fallback.width = Math.max(1, Math.floor(width * dpi));
+        fallback.height = Math.max(1, Math.floor(height * dpi));
+        const ctx = fallback.getContext('2d');
+        if (ctx) {
+          const bg = getComputedStyle(container).backgroundColor || 'rgba(0,0,0,0)';
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, fallback.width, fallback.height);
+        }
+        assignCanvasToTexture(fallback);
+      }
+    };
+
+    if (imageSrc) {
+      const tex = textureLoader.load(imageSrc, () => {
+        imageTexture.image = (tex as any).image;
+        imageTexture.needsUpdate = true;
+      });
+    } else if (captureBackground) {
+      // initial capture
+      captureAreaToTexture();
+      const recapture = () => captureAreaToTexture();
+      window.addEventListener('resize', recapture);
+      window.addEventListener('scroll', recapture, true);
+      // also observe style/attribute changes up the DOM tree to refresh background captures
+      const observers: MutationObserver[] = [];
+      let el: HTMLElement | null = container.parentElement;
+      while (el) {
+        const obs = new MutationObserver(recapture);
+        obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+        observers.push(obs);
+        el = el.parentElement;
+      }
+      // store cleanup into container for later disposal
+      (container as any).__lg_cleanup = () => {
+        window.removeEventListener('resize', recapture);
+        window.removeEventListener('scroll', recapture, true);
+        observers.forEach(o => o.disconnect());
+      };
+    }
 
     const fullScreenVS = `
       varying vec2 vUv;
@@ -78,33 +177,16 @@ export default function WebGLLiquidGlass({
       }
     `;
 
-    const gradientFS = `
-      precision highp float;
-      varying vec2 vUv;
-      uniform vec2 uMousePos;
-      vec3 getColor(vec2 uv) { return vec3(0.8156863); }
-      void main() {
-        gl_FragColor = vec4(getColor(vUv), 1.0);
-      }
-    `;
-
     const imageFS = `
       precision highp float;
       varying vec2 vUv;
-      uniform sampler2D uBgTexture;
       uniform sampler2D uTexture;
       uniform vec2 uMousePos;
-      uniform int uSampleBg;
       void main() {
         vec2 uv = vUv;
         vec2 pos = mix(vec2(0.0), (uMousePos - 0.5), 0.0);
         uv -= pos;
         vec4 color = texture2D(uTexture, uv);
-        vec4 background = vec4(0.0);
-        if (uSampleBg == 1) {
-          background = texture2D(uBgTexture, vUv);
-        }
-        color = mix(background, color / max(color.a, 0.0001), color.a * 1.0);
         gl_FragColor = color;
       }
     `;
@@ -197,23 +279,12 @@ export default function WebGLLiquidGlass({
       }
     `;
 
-    // Materials
-    const gradientMat = new THREE.ShaderMaterial({
-      vertexShader: fullScreenVS,
-      fragmentShader: gradientFS,
-      uniforms: {
-        uMousePos: { value: mouse },
-      },
-    });
-
     const imageMat = new THREE.ShaderMaterial({
       vertexShader: fullScreenVS,
       fragmentShader: imageFS,
       uniforms: {
         uMousePos: { value: mouse },
         uTexture: { value: imageTexture },
-        uBgTexture: { value: rtA.texture },
-        uSampleBg: { value: 1 },
       },
       transparent: true,
     });
@@ -231,7 +302,8 @@ export default function WebGLLiquidGlass({
 
     const circle2Mat = new THREE.ShaderMaterial({
       vertexShader: fullScreenVS,
-      fragmentShader: circleFS(1, 0.2080 * 0.5, 0.37, 0.35, -1),
+      // reduce cost of second pass for low scales
+      fragmentShader: circleFS(1, 0.2080 * 0.5, 0.37, 0.25, -1),
       uniforms: {
         uMousePos: { value: mouse },
         uTexture: { value: rtA.texture },
@@ -259,21 +331,62 @@ export default function WebGLLiquidGlass({
       renderer.setRenderTarget(null);
     }
 
+    // Dynamic scaling
+    let dynamicScale = Math.max(minRenderScale, Math.min(1, renderScale));
+    let lastTime = performance.now();
+    let emaFrameMs = 16.7; // start ~60fps
+    let frameDecimator = 0; // skip expensive passes intermittently under heavy load
+
     let rafId = 0;
     const animate = () => {
-      // 1) gradient -> rtA
-      renderPass(rtA, gradientMat);
-      // 2) image(bg=rtA, img=image) -> rtB
-      imageMat.uniforms.uBgTexture.value = rtA.texture;
+      const now = performance.now();
+      const dt = now - lastTime;
+      lastTime = now;
+      // Exponential moving average of frame time
+      emaFrameMs = emaFrameMs * 0.9 + dt * 0.1;
+      const fps = 1000 / Math.max(1, emaFrameMs);
+
+      // Auto scale to keep FPS near target
+      if (autoScale) {
+        const decreaseThreshold = targetFps - 6;
+        const increaseThreshold = targetFps + 6;
+        if (fps < decreaseThreshold && dynamicScale > minRenderScale + 0.01) {
+          dynamicScale = Math.max(minRenderScale, dynamicScale - 0.05);
+          const sW = Math.max(1, Math.floor(width * dpi * dynamicScale));
+          const sH = Math.max(1, Math.floor(height * dpi * dynamicScale));
+          rtA.setSize(sW, sH);
+          rtB.setSize(sW, sH);
+          resolution.set(sW, sH);
+        } else if (fps > increaseThreshold && dynamicScale < 0.99) {
+          dynamicScale = Math.min(1, dynamicScale + 0.05);
+          const sW = Math.max(1, Math.floor(width * dpi * dynamicScale));
+          const sH = Math.max(1, Math.floor(height * dpi * dynamicScale));
+          rtA.setSize(sW, sH);
+          rtB.setSize(sW, sH);
+          resolution.set(sW, sH);
+        } else if (fps < decreaseThreshold - 10) {
+          // If still struggling, enable temporal decimation for circle2 pass
+          frameDecimator = 2; // run circle2 every 2nd frame
+        } else if (fps > increaseThreshold && frameDecimator > 0) {
+          frameDecimator = Math.max(0, frameDecimator - 1);
+        }
+      }
+
+      // 1) image(img=imageTexture) -> rtB
       imageMat.uniforms.uTexture.value = imageTexture;
       renderPass(rtB, imageMat);
-      // 3) circle1(input=rtB) -> rtA
+      // 2) circle1(input=rtB) -> rtA
       circle1Mat.uniforms.uTexture.value = rtB.texture;
       renderPass(rtA, circle1Mat);
-      // 4) circle2(input=rtA) -> rtB
-      circle2Mat.uniforms.uTexture.value = rtA.texture;
-      renderPass(rtB, circle2Mat);
-      // 5) sdf refract(input=rtB, mask=rtB) -> screen
+      // 3) circle2(input=rtA) -> rtB (optionally decimated)
+      if (frameDecimator <= 0 || (Math.floor(now / 16) % (frameDecimator + 1) === 0)) {
+        circle2Mat.uniforms.uTexture.value = rtA.texture;
+        renderPass(rtB, circle2Mat);
+      } else {
+        // If skipped, just forward rtA to rtB to maintain pipeline
+        renderPass(rtB, circle1Mat); // cheap re-use, preserves flow
+      }
+      // 4) sdf refract(input=rtB, mask=rtB) -> screen
       sdfMat.uniforms.uTexture.value = rtB.texture;
       sdfMat.uniforms.uMaskTexture.value = rtB.texture;
       renderPass(null, sdfMat);
@@ -287,9 +400,11 @@ export default function WebGLLiquidGlass({
       const h = height;
       renderer.setPixelRatio(dpi);
       renderer.setSize(w, h, false);
-      rtA.setSize(w * dpi, h * dpi);
-      rtB.setSize(w * dpi, h * dpi);
-      resolution.set(w * dpi, h * dpi);
+      const sW = Math.max(1, Math.floor(w * dpi * renderScale));
+      const sH = Math.max(1, Math.floor(h * dpi * renderScale));
+      rtA.setSize(sW, sH);
+      rtB.setSize(sW, sH);
+      resolution.set(sW, sH);
     };
     onResize();
 
@@ -297,17 +412,20 @@ export default function WebGLLiquidGlass({
       cancelAnimationFrame(rafId);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       container.removeChild(renderer.domElement);
+      // cleanup recapture listeners if any
+      if ((container as any).__lg_cleanup) {
+        try { (container as any).__lg_cleanup(); } catch {}
+      }
       rtA.dispose();
       rtB.dispose();
       quad.geometry.dispose();
-      gradientMat.dispose();
       imageMat.dispose();
       circle1Mat.dispose();
       circle2Mat.dispose();
       sdfMat.dispose();
       renderer.dispose();
     };
-  }, [imageSrc, width, height, dpi]);
+  }, [imageSrc, width, height, dpi, renderScale, autoScale, minRenderScale, targetFps]);
 
   return (
     <div

@@ -8,6 +8,9 @@ export interface WebGLLiquidGlassProps extends React.HTMLAttributes<HTMLDivEleme
   height?: number;
   dpi?: number;
   renderScale?: number; // 0.5..1 internal scaling for performance
+  autoScale?: boolean; // dynamically adjust renderScale to maintain FPS
+  minRenderScale?: number; // lower bound for autoScale
+  targetFps?: number; // desired FPS target
   captureBackground?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -23,6 +26,9 @@ export default function WebGLLiquidGlass({
   height = 512,
   dpi = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
   renderScale = 1,
+  autoScale = true,
+  minRenderScale = 0.6,
+  targetFps = 58,
   captureBackground = true,
   className,
   style,
@@ -166,33 +172,16 @@ export default function WebGLLiquidGlass({
       }
     `;
 
-    const gradientFS = `
-      precision highp float;
-      varying vec2 vUv;
-      uniform vec2 uMousePos;
-      vec3 getColor(vec2 uv) { return vec3(0.8156863); }
-      void main() {
-        gl_FragColor = vec4(getColor(vUv), 1.0);
-      }
-    `;
-
     const imageFS = `
       precision highp float;
       varying vec2 vUv;
-      uniform sampler2D uBgTexture;
       uniform sampler2D uTexture;
       uniform vec2 uMousePos;
-      uniform int uSampleBg;
       void main() {
         vec2 uv = vUv;
         vec2 pos = mix(vec2(0.0), (uMousePos - 0.5), 0.0);
         uv -= pos;
         vec4 color = texture2D(uTexture, uv);
-        vec4 background = vec4(0.0);
-        if (uSampleBg == 1) {
-          background = texture2D(uBgTexture, vUv);
-        }
-        color = mix(background, color / max(color.a, 0.0001), color.a * 1.0);
         gl_FragColor = color;
       }
     `;
@@ -285,23 +274,12 @@ export default function WebGLLiquidGlass({
       }
     `;
 
-    // Materials
-    const gradientMat = new THREE.ShaderMaterial({
-      vertexShader: fullScreenVS,
-      fragmentShader: gradientFS,
-      uniforms: {
-        uMousePos: { value: mouse },
-      },
-    });
-
     const imageMat = new THREE.ShaderMaterial({
       vertexShader: fullScreenVS,
       fragmentShader: imageFS,
       uniforms: {
         uMousePos: { value: mouse },
         uTexture: { value: imageTexture },
-        uBgTexture: { value: rtA.texture },
-        uSampleBg: { value: 0 },
       },
       transparent: true,
     });
@@ -347,21 +325,51 @@ export default function WebGLLiquidGlass({
       renderer.setRenderTarget(null);
     }
 
+    // Dynamic scaling
+    let dynamicScale = Math.max(minRenderScale, Math.min(1, renderScale));
+    let lastTime = performance.now();
+    let emaFrameMs = 16.7; // start ~60fps
+
     let rafId = 0;
     const animate = () => {
-      // 1) gradient -> rtA
-      renderPass(rtA, gradientMat);
-      // 2) image(bg=rtA, img=imageTexture or captured background) -> rtB
-      imageMat.uniforms.uBgTexture.value = rtA.texture;
+      const now = performance.now();
+      const dt = now - lastTime;
+      lastTime = now;
+      // Exponential moving average of frame time
+      emaFrameMs = emaFrameMs * 0.9 + dt * 0.1;
+      const fps = 1000 / Math.max(1, emaFrameMs);
+
+      // Auto scale to keep FPS near target
+      if (autoScale) {
+        const decreaseThreshold = targetFps - 6;
+        const increaseThreshold = targetFps + 6;
+        if (fps < decreaseThreshold && dynamicScale > minRenderScale + 0.01) {
+          dynamicScale = Math.max(minRenderScale, dynamicScale - 0.05);
+          const sW = Math.max(1, Math.floor(width * dpi * dynamicScale));
+          const sH = Math.max(1, Math.floor(height * dpi * dynamicScale));
+          rtA.setSize(sW, sH);
+          rtB.setSize(sW, sH);
+          resolution.set(sW, sH);
+        } else if (fps > increaseThreshold && dynamicScale < 0.99) {
+          dynamicScale = Math.min(1, dynamicScale + 0.05);
+          const sW = Math.max(1, Math.floor(width * dpi * dynamicScale));
+          const sH = Math.max(1, Math.floor(height * dpi * dynamicScale));
+          rtA.setSize(sW, sH);
+          rtB.setSize(sW, sH);
+          resolution.set(sW, sH);
+        }
+      }
+
+      // 1) image(img=imageTexture) -> rtB
       imageMat.uniforms.uTexture.value = imageTexture;
       renderPass(rtB, imageMat);
-      // 3) circle1(input=rtB) -> rtA
+      // 2) circle1(input=rtB) -> rtA
       circle1Mat.uniforms.uTexture.value = rtB.texture;
       renderPass(rtA, circle1Mat);
-      // 4) circle2(input=rtA) -> rtB
+      // 3) circle2(input=rtA) -> rtB
       circle2Mat.uniforms.uTexture.value = rtA.texture;
       renderPass(rtB, circle2Mat);
-      // 5) sdf refract(input=rtB, mask=rtB) -> screen
+      // 4) sdf refract(input=rtB, mask=rtB) -> screen
       sdfMat.uniforms.uTexture.value = rtB.texture;
       sdfMat.uniforms.uMaskTexture.value = rtB.texture;
       renderPass(null, sdfMat);
@@ -394,14 +402,13 @@ export default function WebGLLiquidGlass({
       rtA.dispose();
       rtB.dispose();
       quad.geometry.dispose();
-      gradientMat.dispose();
       imageMat.dispose();
       circle1Mat.dispose();
       circle2Mat.dispose();
       sdfMat.dispose();
       renderer.dispose();
     };
-  }, [imageSrc, width, height, dpi, renderScale]);
+  }, [imageSrc, width, height, dpi, renderScale, autoScale, minRenderScale, targetFps]);
 
   return (
     <div

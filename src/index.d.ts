@@ -27,6 +27,9 @@ export interface WebGLLiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   height?: number;
   dpi?: number;
   renderScale?: number;
+  autoScale?: boolean;
+  minRenderScale?: number;
+  targetFps?: number;
   captureBackground?: boolean;
   className?: string;
   style?: CSSProperties;

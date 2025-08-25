@@ -105,6 +105,9 @@ export default function LiquidGlass({
           height={size.height || 1}
           dpi={dpi}
           renderScale={renderScale}
+          autoScale={true}
+          minRenderScale={quality === 'ultra' ? 0.75 : quality === 'high' ? 0.6 : 0.5}
+          targetFps={58}
           captureBackground={true}
           className={undefined}
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}

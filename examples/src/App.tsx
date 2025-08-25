@@ -39,53 +39,57 @@ function Draggable({ width, height, children }: { width: number; height: number;
   const draggableRef = useRef<HTMLDivElement | null>(null)
   const pointerIdRef = useRef<number | null>(null)
   const startRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const [withTransition, setWithTransition] = useState(false)
+  const currentOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const pendingRef = useRef<boolean>(false)
+
+  const applyTransform = useCallback(() => {
+    pendingRef.current = false
+    const el = draggableRef.current
+    if (!el) return
+    const { x, y } = currentOffsetRef.current
+    el.style.transform = `translate(${x}px, ${y}px)`
+  }, [])
 
   const onPointerMove = useCallback((e: PointerEvent) => {
     if (pointerIdRef.current === null) return
-    const dx = e.clientX - startRef.current.x
-    const dy = e.clientY - startRef.current.y
-    setOffset({ x: dx, y: dy })
-  }, [])
+    currentOffsetRef.current = { x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y }
+    if (!pendingRef.current) {
+      pendingRef.current = true
+      requestAnimationFrame(applyTransform)
+    }
+  }, [applyTransform])
 
   const endDrag = useCallback(() => {
     pointerIdRef.current = null
-    setWithTransition(true)
-    setOffset({ x: 0, y: 0 })
-    const timeout = setTimeout(() => setWithTransition(false), 300)
+    const el = draggableRef.current
+    if (!el) return
+    el.style.transition = 'transform 300ms cubic-bezier(0.2, 0, 0, 1)'
+    currentOffsetRef.current = { x: 0, y: 0 }
+    requestAnimationFrame(applyTransform)
+    const timeout = setTimeout(() => { if (el) el.style.transition = 'none' }, 320)
     return () => clearTimeout(timeout)
-  }, [])
+  }, [applyTransform])
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!draggableRef.current) return
     draggableRef.current.setPointerCapture(e.pointerId)
     pointerIdRef.current = e.pointerId
     startRef.current = { x: e.clientX, y: e.clientY }
-    setWithTransition(false)
+    draggableRef.current.style.transition = 'none'
   }, [])
 
   useEffect(() => {
-    const handleUp = () => {
-      if (pointerIdRef.current === null) return
-      endDrag()
-    }
-    const handleCancel = () => {
-      if (pointerIdRef.current === null) return
-      endDrag()
-    }
+    const handleUp = () => { if (pointerIdRef.current !== null) endDrag() }
+    const handleCancel = () => { if (pointerIdRef.current !== null) endDrag() }
     window.addEventListener('pointerup', handleUp)
     window.addEventListener('pointercancel', handleCancel)
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
     return () => {
       window.removeEventListener('pointerup', handleUp)
       window.removeEventListener('pointercancel', handleCancel)
+      window.removeEventListener('pointermove', onPointerMove as any)
     }
-  }, [endDrag])
-
-  useEffect(() => {
-    window.addEventListener('pointermove', onPointerMove)
-    return () => window.removeEventListener('pointermove', onPointerMove)
-  }, [onPointerMove])
+  }, [endDrag, onPointerMove])
 
   return (
     <div
@@ -95,9 +99,10 @@ function Draggable({ width, height, children }: { width: number; height: number;
         position: 'relative',
         width,
         height,
-        transform: `translate(${offset.x}px, ${offset.y}px)`,
-        transition: withTransition ? 'transform 300ms cubic-bezier(0.2, 0, 0, 1)' : 'none',
+        transform: 'translate(0px, 0px)',
+        transition: 'none',
         cursor: 'grab',
+        willChange: 'transform',
       }}
     >
       {children}

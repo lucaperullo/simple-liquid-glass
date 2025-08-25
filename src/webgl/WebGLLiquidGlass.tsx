@@ -33,10 +33,13 @@ export default function WebGLLiquidGlass({
     if (!containerRef.current) return;
 
     const container = containerRef.current;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' as any });
     rendererRef.current = renderer;
     renderer.setPixelRatio(dpi);
     renderer.setSize(width, height, false);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     container.appendChild(renderer.domElement);
 
     const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);

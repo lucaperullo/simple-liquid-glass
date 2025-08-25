@@ -80,55 +80,60 @@ function DraggableWrapper({
   const draggableRef = useRef<HTMLDivElement | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const startRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [withTransition, setWithTransition] = useState(false);
+  const pendingRef = useRef<boolean>(false);
+  const currentOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const applyTransform = useCallback(() => {
+    pendingRef.current = false;
+    const el = draggableRef.current;
+    if (!el) return;
+    const { x, y } = currentOffsetRef.current;
+    el.style.transform = `translate(${x}px, ${y}px)`;
+  }, []);
 
   const onPointerMove = useCallback((e: PointerEvent) => {
     if (pointerIdRef.current === null) return;
-    const dx = e.clientX - startRef.current.x;
-    const dy = e.clientY - startRef.current.y;
-    setOffset({ x: dx, y: dy });
-  }, []);
+    currentOffsetRef.current = { x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y };
+    if (!pendingRef.current) {
+      pendingRef.current = true;
+      requestAnimationFrame(applyTransform);
+    }
+  }, [applyTransform]);
 
   const endDrag = useCallback(() => {
     pointerIdRef.current = null;
-    // Snap back to origin with a transition
-    setWithTransition(true);
-    setOffset({ x: 0, y: 0 });
-    // Remove transition after it finishes to not affect subsequent drags
-    const timeout = setTimeout(() => setWithTransition(false), 300);
+    const el = draggableRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 300ms cubic-bezier(0.2, 0, 0, 1)';
+    currentOffsetRef.current = { x: 0, y: 0 };
+    requestAnimationFrame(applyTransform);
+    const timeout = setTimeout(() => {
+      if (!el) return;
+      el.style.transition = 'none';
+    }, 320);
     return () => clearTimeout(timeout);
-  }, []);
+  }, [applyTransform]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!draggableRef.current) return;
     draggableRef.current.setPointerCapture(e.pointerId);
     pointerIdRef.current = e.pointerId;
     startRef.current = { x: e.clientX, y: e.clientY };
-    setWithTransition(false);
+    draggableRef.current.style.transition = 'none';
   }, []);
 
   useEffect(() => {
-    const handlePointerUp = (e: PointerEvent) => {
-      if (pointerIdRef.current === null) return;
-      endDrag();
-    };
-    const handlePointerCancel = (e: PointerEvent) => {
-      if (pointerIdRef.current === null) return;
-      endDrag();
-    };
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerCancel);
+    const up = (e: PointerEvent) => { if (pointerIdRef.current !== null) endDrag(); };
+    const cancel = (e: PointerEvent) => { if (pointerIdRef.current !== null) endDrag(); };
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
     return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerCancel);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('pointermove', onPointerMove as any);
     };
-  }, [endDrag]);
-
-  useEffect(() => {
-    window.addEventListener('pointermove', onPointerMove);
-    return () => window.removeEventListener('pointermove', onPointerMove);
-  }, [onPointerMove]);
+  }, [endDrag, onPointerMove]);
 
   return (
     <div
@@ -147,9 +152,10 @@ function DraggableWrapper({
         style={{
           position: 'absolute',
           inset: 0,
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
-          transition: withTransition ? 'transform 300ms cubic-bezier(0.2, 0, 0, 1)' : 'none',
+          transform: 'translate(0px, 0px)',
+          transition: 'none',
           cursor: 'grab',
+          willChange: 'transform',
         }}
       >
         {children}

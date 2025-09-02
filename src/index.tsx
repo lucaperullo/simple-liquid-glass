@@ -48,6 +48,7 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   // iOS fallback controls
   iosMinBlur?: number; // minimum blur on iOS even when blur=0
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
+  mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -234,6 +235,7 @@ export function LiquidGlass({
   autodetectquality = false,
   iosMinBlur = 7,
   iosBlurMode = 'auto',
+  mobileFallback,
   ...props
 }: LiquidGlassProps) {
   // Configuration based on mode
@@ -614,7 +616,13 @@ export function LiquidGlass({
   // Build backdrop-filter string with mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
   // Prefer CSS-only on iOS and all mobile to reduce lag
-  const useSvgFilter = !(isIOS && iosBlurMode === 'auto') && !isMobile;
+  const useSvgFilter = (() => {
+    // Explicit override if provided
+    if (mobileFallback === 'css-only') return !(isIOS && iosBlurMode === 'auto') && false;
+    if (mobileFallback === 'svg') return !(isIOS && iosBlurMode === 'auto') && true;
+    // Default behavior: disable SVG on mobile and when iOS auto blur is active
+    return !(isIOS && iosBlurMode === 'auto') && !isMobile;
+  })();
   const cssOnlyBlurPx = (resolvedQuality === 'low' || isMobile) ? Math.min(cssBlur, 2) : cssBlur;
   const backdropFilterValue = useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`

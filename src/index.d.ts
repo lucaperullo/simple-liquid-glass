@@ -123,6 +123,11 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number;
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
+  /**
+   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop.
+   * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
+   */
+  mobileFallback?: 'css-only' | 'svg';
   
   /**
    * Additional CSS class names

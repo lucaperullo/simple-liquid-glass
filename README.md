@@ -135,6 +135,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `style` | `CSSProperties` | - | Additional inline styles |
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'standard'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
+| `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 
 ## Examples
 
@@ -169,6 +170,19 @@ The `background` prop automatically converts solid colors and gradients to semi-
 // - Default quality is 'standard'.
 // - 'extreme' produces the same visual fidelity as previous versions of this component.
 // - For many instances on the same page, prefer quality='low' or autodetectquality.
+```
+
+### Mobile Fallback Control
+
+```jsx
+// Force CSS-only (strongest performance) even on desktop
+<LiquidGlass mobileFallback="css-only" />
+
+// Force SVG filter on mobile (may impact performance)
+<LiquidGlass mobileFallback="svg" />
+
+// Default behavior: CSS-only on mobile, SVG on desktop
+<LiquidGlass />
 ```
 
 ### Card with Glass Effect

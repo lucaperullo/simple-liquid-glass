@@ -28,6 +28,93 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   // iOS fallback controls
   iosMinBlur?: number; // minimum blur on iOS even when blur=0
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
+  // Quality controls
+  qualityPreset?: 'auto' | 'mobile' | 'desktop' | 'low' | 'medium' | 'high';
+  qualityOverrides?: Partial<QualityOptions>;
+  maxFps?: number; // target max FPS for runtime considerations
+  preferPerformance?: boolean; // bias auto toward lower cost
+  instanceGroup?: string; // coordinate multiple components on page
+  onQualityChanged?: (e: { preset: QualityPreset; options: QualityOptions; reason: 'init' | 'capability' | 'group' }) => void;
+}
+
+type QualityPreset = 'auto' | 'mobile' | 'desktop' | 'low' | 'medium' | 'high';
+
+type QualityOptions = {
+  // Displacement map internal render resolution relative to element size.
+  // 0.5 equals the previous hard-coded width/2,height/2 behavior.
+  resolutionScale: number; // 0.3 - 0.8
+  // Multipliers applied to key effect costs
+  scaleMultiplier: number; // 0.6 - 1.2
+  blurMultiplier: number; // 0.6 - 1.2
+  fpsCap: number; // 30 - 60
+};
+
+const QUALITY_PRESETS: Record<Exclude<QualityPreset, 'auto'>, QualityOptions> = {
+  low:    { resolutionScale: 0.35, scaleMultiplier: 0.75, blurMultiplier: 0.9, fpsCap: 45 },
+  mobile: { resolutionScale: 0.40, scaleMultiplier: 0.85, blurMultiplier: 1.0, fpsCap: 55 },
+  medium: { resolutionScale: 0.50, scaleMultiplier: 1.00, blurMultiplier: 1.0, fpsCap: 60 },
+  desktop:{ resolutionScale: 0.60, scaleMultiplier: 1.00, blurMultiplier: 1.0, fpsCap: 60 },
+  high:   { resolutionScale: 0.70, scaleMultiplier: 1.10, blurMultiplier: 1.0, fpsCap: 60 }
+};
+
+// Simple cross-instance coordinator keyed by group name
+const __LG_GROUPS: Map<string, { count: number; listeners: Set<(m:number)=>void> }> = new Map();
+
+function registerInstance(group: string, cb: (multiplier: number) => void): () => void {
+  let g = __LG_GROUPS.get(group);
+  if (!g) {
+    g = { count: 0, listeners: new Set() };
+    __LG_GROUPS.set(group, g);
+  }
+  g.count++;
+  g.listeners.add(cb);
+  recomputeAndNotify(group);
+  return () => {
+    const gg = __LG_GROUPS.get(group);
+    if (!gg) return;
+    gg.count = Math.max(0, gg.count - 1);
+    gg.listeners.delete(cb);
+    recomputeAndNotify(group);
+  };
+}
+
+function recomputeAndNotify(group: string) {
+  const g = __LG_GROUPS.get(group);
+  if (!g) return;
+  const count = Math.max(1, g.count);
+  // Reduce workload as more instances mount; clamp to ~0.7 minimum
+  const multiplier = Math.max(0.7, 1 / Math.sqrt(count));
+  g.listeners.forEach(l => {
+    try { l(multiplier); } catch {}
+  });
+}
+
+function detectDevicePreset(preferPerformance: boolean): Exclude<QualityPreset, 'auto'> {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return preferPerformance ? 'low' : 'medium';
+  }
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return 'low';
+    }
+  } catch {}
+
+  const width = window.innerWidth || 0;
+  const dpr = (window.devicePixelRatio || 1);
+  const cores = (navigator as any).hardwareConcurrency || 2;
+  const mem = (navigator as any).deviceMemory || 2;
+
+  let score = 50;
+  score += dpr <= 2 ? 10 : (dpr > 2.5 ? -10 : 0);
+  score += cores >= 8 ? 10 : (cores >= 4 ? 5 : (cores <= 2 ? -10 : 0));
+  score += mem >= 8 ? 10 : (mem >= 4 ? 5 : (mem <= 2 ? -10 : 0));
+  score += width >= 1024 ? 10 : (width < 768 ? -10 : 0);
+
+  if (preferPerformance) score -= 5;
+
+  if (score <= 35) return 'low';
+  if (score <= 60) return width < 900 || dpr > 2 ? 'mobile' : 'medium';
+  return 'desktop';
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -212,6 +299,12 @@ export function LiquidGlass({
   style = {},
   iosMinBlur = 7,
   iosBlurMode = 'auto',
+  qualityPreset = 'auto',
+  qualityOverrides,
+  maxFps = 60,
+  preferPerformance = true,
+  instanceGroup = 'default',
+  onQualityChanged,
   ...props
 }: LiquidGlassProps) {
   // Configuration based on mode
@@ -276,6 +369,72 @@ export function LiquidGlass({
   }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [groupMultiplier, setGroupMultiplier] = useState<number>(1);
+
+  // Register with group coordinator
+  useEffect(() => {
+    return registerInstance(instanceGroup, setGroupMultiplier);
+  }, [instanceGroup]);
+
+  // Resolve initial quality preset and options
+  const [quality, setQuality] = useState<{ preset: Exclude<QualityPreset, 'auto'>; options: QualityOptions }>(() => {
+    const basePreset = qualityPreset === 'auto' ? detectDevicePreset(preferPerformance) : qualityPreset;
+    const base = QUALITY_PRESETS[basePreset] || QUALITY_PRESETS.medium;
+    const merged: QualityOptions = {
+      resolutionScale: Math.min(0.8, Math.max(0.3, qualityOverrides?.resolutionScale ?? base.resolutionScale)),
+      scaleMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.scaleMultiplier ?? base.scaleMultiplier)),
+      blurMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.blurMultiplier ?? base.blurMultiplier)),
+      fpsCap: Math.min(60, Math.max(30, qualityOverrides?.fpsCap ?? base.fpsCap))
+    };
+    return { preset: basePreset as Exclude<QualityPreset, 'auto'>, options: merged };
+  });
+
+  // Recompute on mount and when dependencies change
+  useEffect(() => {
+    const newPreset = qualityPreset === 'auto' ? detectDevicePreset(preferPerformance) : (qualityPreset as Exclude<QualityPreset, 'auto'>);
+    const base = QUALITY_PRESETS[newPreset] || QUALITY_PRESETS.medium;
+    const merged: QualityOptions = {
+      resolutionScale: Math.min(0.8, Math.max(0.3, qualityOverrides?.resolutionScale ?? base.resolutionScale)),
+      scaleMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.scaleMultiplier ?? base.scaleMultiplier)),
+      blurMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.blurMultiplier ?? base.blurMultiplier)),
+      fpsCap: Math.min(60, Math.max(30, qualityOverrides?.fpsCap ?? base.fpsCap))
+    };
+    setQuality(prev => {
+      if (prev.preset !== newPreset || JSON.stringify(prev.options) !== JSON.stringify(merged)) {
+        onQualityChanged?.({ preset: newPreset, options: merged, reason: 'capability' });
+        return { preset: newPreset, options: merged };
+      }
+      return prev;
+    });
+    // Re-evaluate on resize/DPR changes
+    const onWindow = () => {
+      const p = detectDevicePreset(preferPerformance);
+      const b = QUALITY_PRESETS[p] || QUALITY_PRESETS.medium;
+      const m: QualityOptions = {
+        resolutionScale: Math.min(0.8, Math.max(0.3, qualityOverrides?.resolutionScale ?? b.resolutionScale)),
+        scaleMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.scaleMultiplier ?? b.scaleMultiplier)),
+        blurMultiplier: Math.min(1.2, Math.max(0.6, qualityOverrides?.blurMultiplier ?? b.blurMultiplier)),
+        fpsCap: Math.min(60, Math.max(30, qualityOverrides?.fpsCap ?? b.fpsCap))
+      };
+      setQuality(prev => {
+        if (prev.preset !== p || JSON.stringify(prev.options) !== JSON.stringify(m)) {
+          onQualityChanged?.({ preset: p, options: m, reason: 'capability' });
+          return { preset: p, options: m };
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('resize', onWindow);
+    // DPR changes can be observed via resize or media query
+    const mq = window.matchMedia('(resolution: 2dppx)');
+    try {
+      mq.addEventListener?.('change', onWindow as any);
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', onWindow);
+      try { mq.removeEventListener?.('change', onWindow as any); } catch {}
+    };
+  }, [qualityPreset, preferPerformance, qualityOverrides, onQualityChanged]);
   const [dimensions, setDimensions] = useState({
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
@@ -426,8 +585,11 @@ export function LiquidGlass({
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
     const { width, height } = dimensions;
-    const newwidth = width / 2;
-    const newheight = height / 2;
+    // Base resolution derived from quality settings and instance group multiplier
+    const baseResolutionScale = quality.options.resolutionScale * groupMultiplier;
+    const resScale = Math.max(0.3, Math.min(0.8, baseResolutionScale));
+    const newwidth = Math.max(1, Math.floor(width * resScale));
+    const newheight = Math.max(1, Math.floor(height * resScale));
     const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
     
     // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
@@ -454,7 +616,7 @@ export function LiquidGlass({
     
     const encoded = encodeURIComponent(svgContent);
     return `data:image/svg+xml,${encoded}`;
-  }, [dimensions, config]);
+  }, [dimensions, config, quality.options.resolutionScale, groupMultiplier]);
 
   // Generate a unique ID for the SVG filter
   const uniqueFilterId = useId();
@@ -489,7 +651,8 @@ export function LiquidGlass({
   })();
 
   // Build backdrop-filter string with iOS fallback
-  const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
+  const effectiveBlur = Math.max(0, (config.blur ?? 0) * (quality.options.blurMultiplier));
+  const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(effectiveBlur, iosMinBlur) : effectiveBlur;
   const backdropFilterValue = isIOS && iosBlurMode === 'auto'
     ? `blur(${cssBlur}px) saturate(${config.saturation}%)`
     : `saturate(${config.saturation}%) url(#${filterId})`;
@@ -566,7 +729,7 @@ export function LiquidGlass({
               <feDisplacementMap 
                 in="SourceGraphic"
                 in2="map"
-                scale={config.scale + config.dispersion * config.aberrationIntensity}
+                scale={(config.scale * quality.options.scaleMultiplier) + config.dispersion * config.aberrationIntensity}
                 xChannelSelector={config.x}
                 yChannelSelector={config.y}
                 result="dispRed"
@@ -581,7 +744,7 @@ export function LiquidGlass({
               <feDisplacementMap 
                 in="SourceGraphic"
                 in2="map"
-                scale={config.scale}
+                scale={config.scale * quality.options.scaleMultiplier}
                 xChannelSelector={config.x}
                 yChannelSelector={config.y}
                 result="dispGreen"
@@ -596,7 +759,7 @@ export function LiquidGlass({
               <feDisplacementMap 
                 in="SourceGraphic"
                 in2="map"
-                scale={config.scale - config.dispersion * config.aberrationIntensity}
+                scale={(config.scale * quality.options.scaleMultiplier) - config.dispersion * config.aberrationIntensity}
                 xChannelSelector={config.x}
                 yChannelSelector={config.y}
                 result="dispBlue"
@@ -622,7 +785,7 @@ export function LiquidGlass({
               />
               <feGaussianBlur 
                 in="output"
-                stdDeviation={config.blur}
+                stdDeviation={effectiveBlur}
               />
             </filter>
           </defs>

@@ -123,6 +123,18 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number;
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
+  /** Quality preset to control effect cost. Default: 'auto' */
+  qualityPreset?: 'auto' | 'mobile' | 'desktop' | 'low' | 'medium' | 'high';
+  /** Overrides for quality preset options */
+  qualityOverrides?: Partial<{ resolutionScale: number; scaleMultiplier: number; blurMultiplier: number; fpsCap: number }>;
+  /** Target maximum frames-per-second for runtime considerations. Default: 60 */
+  maxFps?: number;
+  /** Bias auto preset selection toward performance. Default: true */
+  preferPerformance?: boolean;
+  /** Instance group to coordinate quality across multiple components. Default: 'default' */
+  instanceGroup?: string;
+  /** Callback fired when effective quality changes */
+  onQualityChanged?: (e: { preset: 'mobile' | 'desktop' | 'low' | 'medium' | 'high'; options: { resolutionScale: number; scaleMultiplier: number; blurMultiplier: number; fpsCap: number }; reason: 'init' | 'capability' | 'group' }) => void;
   
   /**
    * Additional CSS class names

@@ -5,11 +5,20 @@ type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 type LiquidQuality = 'low' | 'standard' | 'high' | 'extreme';
 
 const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
-  low: 4,
+  low: 5,
   standard: 3,
   high: 2.5,
   extreme: 2
 };
+
+const QUALITY_QUANTIZATION_STEPS: Record<LiquidQuality, number> = {
+  low: 32,
+  standard: 24,
+  high: 16,
+  extreme: 8
+};
+
+const DISPLACEMENT_CACHE: Map<string, string> = new Map();
 
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
@@ -523,12 +532,20 @@ export function LiquidGlass({
   const displacementDataUri = useMemo(() => {
     const { width, height } = dimensions;
     const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
-    const newwidth = width / divisor;
-    const newheight = height / divisor;
+    const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
+    const rawW = width / divisor;
+    const rawH = height / divisor;
+    const newwidth = Math.max(8, Math.round(rawW / quantStep) * quantStep);
+    const newheight = Math.max(8, Math.round(rawH / quantStep) * quantStep);
     const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
     
     // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
     const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / (QUALITY_DIVISORS[resolvedQuality] || 3); // scale to viewBox resolution
+
+    // Shared cache key across instances to reuse identical displacement maps
+    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
+    const cached = DISPLACEMENT_CACHE.get(cacheKey);
+    if (cached) return cached;
     
     const svgContent = `
       <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
@@ -550,7 +567,9 @@ export function LiquidGlass({
     `;
     
     const encoded = encodeURIComponent(svgContent);
-    return `data:image/svg+xml,${encoded}`;
+    const uri = `data:image/svg+xml,${encoded}`;
+    DISPLACEMENT_CACHE.set(cacheKey, uri);
+    return uri;
   }, [dimensions, config, resolvedQuality]);
 
   // Generate a unique ID for the SVG filter
@@ -590,6 +609,9 @@ export function LiquidGlass({
   const backdropFilterValue = isIOS && iosBlurMode === 'auto'
     ? `blur(${cssBlur}px) saturate(${config.saturation}%)`
     : `saturate(${config.saturation}%) url(#${filterId})`;
+
+  // Cap SVG blur in low quality to reduce GPU cost
+  const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
 
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
@@ -659,68 +681,86 @@ export function LiquidGlass({
                 height="100%"
                 result="map"
               />
-              
-              <feDisplacementMap 
-                in="SourceGraphic"
-                in2="map"
-                scale={config.scale + config.dispersion * config.aberrationIntensity}
-                xChannelSelector={config.x}
-                yChannelSelector={config.y}
-                result="dispRed"
-              />
-              <feColorMatrix 
-                in="dispRed"
-                type="matrix"
-                values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"
-                result="red"
-              />
-              
-              <feDisplacementMap 
-                in="SourceGraphic"
-                in2="map"
-                scale={config.scale}
-                xChannelSelector={config.x}
-                yChannelSelector={config.y}
-                result="dispGreen"
-              />
-              <feColorMatrix 
-                in="dispGreen"
-                type="matrix"
-                values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0"
-                result="green"
-              />
-              
-              <feDisplacementMap 
-                in="SourceGraphic"
-                in2="map"
-                scale={config.scale - config.dispersion * config.aberrationIntensity}
-                xChannelSelector={config.x}
-                yChannelSelector={config.y}
-                result="dispBlue"
-              />
-              <feColorMatrix 
-                in="dispBlue"
-                type="matrix"
-                values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0"
-                result="blue"
-              />
-              
-              <feBlend 
-                in="red"
-                in2="green"
-                mode="screen"
-                result="rg"
-              />
-              <feBlend 
-                in="rg"
-                in2="blue"
-                mode="screen"
-                result="output"
-              />
-              <feGaussianBlur 
-                in="output"
-                stdDeviation={config.blur}
-              />
+              {resolvedQuality === 'low' ? (
+                <>
+                  <feDisplacementMap 
+                    in="SourceGraphic"
+                    in2="map"
+                    scale={config.scale}
+                    xChannelSelector={config.x}
+                    yChannelSelector={config.y}
+                    result="output"
+                  />
+                  <feGaussianBlur 
+                    in="output"
+                    stdDeviation={feBlurStdDev}
+                  />
+                </>
+              ) : (
+                <>
+                  <feDisplacementMap 
+                    in="SourceGraphic"
+                    in2="map"
+                    scale={config.scale + config.dispersion * config.aberrationIntensity}
+                    xChannelSelector={config.x}
+                    yChannelSelector={config.y}
+                    result="dispRed"
+                  />
+                  <feColorMatrix 
+                    in="dispRed"
+                    type="matrix"
+                    values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"
+                    result="red"
+                  />
+                  
+                  <feDisplacementMap 
+                    in="SourceGraphic"
+                    in2="map"
+                    scale={config.scale}
+                    xChannelSelector={config.x}
+                    yChannelSelector={config.y}
+                    result="dispGreen"
+                  />
+                  <feColorMatrix 
+                    in="dispGreen"
+                    type="matrix"
+                    values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0"
+                    result="green"
+                  />
+                  
+                  <feDisplacementMap 
+                    in="SourceGraphic"
+                    in2="map"
+                    scale={config.scale - config.dispersion * config.aberrationIntensity}
+                    xChannelSelector={config.x}
+                    yChannelSelector={config.y}
+                    result="dispBlue"
+                  />
+                  <feColorMatrix 
+                    in="dispBlue"
+                    type="matrix"
+                    values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0"
+                    result="blue"
+                  />
+                  
+                  <feBlend 
+                    in="red"
+                    in2="green"
+                    mode="screen"
+                    result="rg"
+                  />
+                  <feBlend 
+                    in="rg"
+                    in2="blue"
+                    mode="screen"
+                    result="output"
+                  />
+                  <feGaussianBlur 
+                    in="output"
+                    stdDeviation={feBlurStdDev}
+                  />
+                </>
+              )}
             </filter>
           </defs>
         </svg>

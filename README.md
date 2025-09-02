@@ -168,6 +168,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 // Note:
 // - Default quality is 'standard'.
 // - 'extreme' produces the same visual fidelity as previous versions of this component.
+// - For many instances on the same page, prefer quality='low' or autodetectquality.
 ```
 
 ### Card with Glass Effect

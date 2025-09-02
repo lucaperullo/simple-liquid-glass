@@ -604,11 +604,23 @@ export function LiquidGlass({
     return !isAndroid && (isAppleUA || isIPadOS13Plus) && vendorIsApple && hasWK && hasMobileToken;
   })();
 
-  // Build backdrop-filter string with iOS fallback
+  // detect generic mobile (Android/iOS phones/tablets)
+  const isMobile = (() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  })();
+
+  // Build backdrop-filter string with mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
-  const backdropFilterValue = isIOS && iosBlurMode === 'auto'
-    ? `blur(${cssBlur}px) saturate(${config.saturation}%)`
-    : `saturate(${config.saturation}%) url(#${filterId})`;
+  // Prefer CSS-only on iOS and all mobile to reduce lag
+  const useSvgFilter = !(isIOS && iosBlurMode === 'auto') && !isMobile;
+  const cssOnlyBlurPx = (resolvedQuality === 'low' || isMobile) ? Math.min(cssBlur, 2) : cssBlur;
+  const backdropFilterValue = useSvgFilter
+    ? `saturate(${config.saturation}%) url(#${filterId})`
+    : (cssOnlyBlurPx > 0
+        ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
+        : `saturate(${config.saturation}%)`);
 
   // Cap SVG blur in low quality to reduce GPU cost
   const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
@@ -622,7 +634,8 @@ export function LiquidGlass({
     background: resolvedGlassBackground,
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    willChange: 'backdrop-filter, filter'
   };
 
   // Gradient border styles
@@ -657,6 +670,7 @@ export function LiquidGlass({
       {...props}
     >
       <div style={glassMorphismStyle}>
+        {useSvgFilter && (
         <svg 
           className="liquid-glass-filter"
           style={{
@@ -764,6 +778,7 @@ export function LiquidGlass({
             </filter>
           </defs>
         </svg>
+        )}
       </div>
       
       <div 

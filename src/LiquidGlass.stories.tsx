@@ -36,6 +36,19 @@ const meta: Meta<LiquidGlassComponent> = {
       control: 'radio',
       options: ['preset', 'custom'],
     },
+    quality: {
+      control: 'radio',
+      options: ['low', 'standard', 'high', 'extreme'],
+    },
+    autodetectquality: { control: 'boolean' },
+    mobileFallback: {
+      control: 'radio',
+      options: ['css-only', 'svg'],
+    },
+    effectMode: {
+      control: 'radio',
+      options: ['auto', 'svg', 'blur', 'off'],
+    },
     scale: { control: { type: 'range', min: 0, max: 400, step: 1 } },
     radius: { control: { type: 'range', min: 0, max: 200, step: 1 } },
     border: { control: { type: 'range', min: 0, max: 0.5, step: 0.01 } },
@@ -63,6 +76,9 @@ const meta: Meta<LiquidGlassComponent> = {
   },
   args: {
     mode: 'preset',
+    quality: 'low',
+    effectMode: 'auto',
+    autodetectquality: false,
     radius: 50,
     scale: 160,
     dispersion: 50,
@@ -209,4 +225,130 @@ export const Draggable: Story = {
   },
 };
 
+
+export const AutodetectQuality: Story = {
+  args: {
+    autodetectquality: true,
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Autodetect Quality
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
+export const ExtremeQuality: Story = {
+  args: {
+    quality: 'extreme',
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Extreme Quality
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
+export const BlurOnly: Story = {
+  args: {
+    effectMode: 'blur',
+    blur: 2,
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        CSS Blur Only
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
+export const EffectOff: Story = {
+  args: {
+    effectMode: 'off',
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Effect Off
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
+export const MobileCSSOnly: Story = {
+  args: {
+    mobileFallback: 'css-only',
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Force CSS-only
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
 

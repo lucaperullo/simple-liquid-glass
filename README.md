@@ -168,7 +168,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 </LiquidGlass>
 
 // Note:
-// - Default quality is 'standard'.
+// - Default quality is 'low'.
 // - 'extreme' produces the same visual fidelity as previous versions of this component.
 // - For many instances on the same page, prefer quality='low' or autodetectquality.
 ```
@@ -184,6 +184,24 @@ The `background` prop automatically converts solid colors and gradients to semi-
 
 // Default behavior: CSS-only on mobile, SVG on desktop
 <LiquidGlass />
+```
+
+## Performance and Fallbacks
+
+- **Default behavior**: on mobile devices the component uses a CSS-only effect to avoid jank; on desktop it uses the SVG filter.
+- **Quality presets**: `'low'` is the default and optimized for many instances; `'extreme'` matches previous visuals.
+- **Autodetection**: set `autodetectquality` to let the component choose a preset based on device performance.
+- **Effect Mode**: use `effectMode` to force the strategy.
+
+```jsx
+// Force CSS-only blur (no SVG) — recommended on very low-end devices
+<LiquidGlass effectMode="blur" />
+
+// Disable all filter effects (keeps border/frost/background)
+<LiquidGlass effectMode="off" />
+
+// Force SVG filter everywhere
+<LiquidGlass effectMode="svg" />
 ```
 
 ### Effect Mode Control

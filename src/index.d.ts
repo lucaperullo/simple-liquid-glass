@@ -38,7 +38,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   
   /**
    * Displacement blur amount
-   * @default 0.38
+   * @default 5
    */
   displace?: number;
   
@@ -50,7 +50,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   
   /**
    * Blur amount for the glass effect
-   * @default 5
+   * @default 0
    */
   blur?: number;
   
@@ -85,6 +85,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   /**
    * Semi-transparent color for the glass background (must include alpha)
    * Examples: rgba(255,255,255,0.4), hsla(0,0%,100%,0.4), #FFFFFFFF with alpha
+   * @default 'rgba(255, 255, 255, 0.4)'
    */
   glassColor?: string;
 
@@ -123,6 +124,16 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number;
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
+  /**
+   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop.
+   * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
+   */
+  mobileFallback?: 'css-only' | 'svg';
+  /**
+   * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
+   * @default 'auto'
+   */
+  effectMode?: 'auto' | 'svg' | 'blur' | 'off';
   
   /**
    * Additional CSS class names
@@ -133,6 +144,17 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * Additional inline styles
    */
   style?: CSSProperties;
+  /**
+   * Rendering quality preset. Controls internal SVG resolution to balance performance and fidelity.
+   * @default 'low'
+   */
+  quality?: 'low' | 'standard' | 'high' | 'extreme';
+  /**
+   * Automatically detect device performance and choose a quality preset.
+   * When true and no explicit quality is provided, the component resolves a quality on mount.
+   * @default false
+   */
+  autodetectquality?: boolean;
 }
 
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;

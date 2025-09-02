@@ -125,7 +125,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `aberrationIntensity` | `number` | `0` | Multiplier for chromatic aberration (red/blue separation) |
 | `frost` | `number` | `0.1` | Frost effect intensity (0 to 1) |
 | `borderColor` | `string` | `'rgba(120, 120, 120, 0.7)'` | Border color in CSS format |
-| `glassColor` | `string` | – | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
+| `glassColor` | `string` | `'rgba(255, 255, 255, 0.4)'` | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
 | `background` | `string` | - | Background color or gradient (automatically made semi-transparent) |
 | `autoTextColor` | `boolean` | `false` | Automatically detect background luminance and set text color |
 | `textOnDark` | `string` | `'#ffffff'` | Text color used when background is detected as dark |
@@ -133,6 +133,10 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `forceTextColor` | `boolean` | `false` | Force the computed text color on all descendants (`!important`) to override nested styles |
 | `className` | `string` | - | Additional CSS class names |
 | `style` | `CSSProperties` | - | Additional inline styles |
+| `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
+| `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
+| `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
+| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
 ## Examples
 
@@ -148,6 +152,72 @@ The `background` prop automatically converts solid colors and gradients to semi-
     <p>This uses a gradient background that's automatically made semi-transparent!</p>
   </div>
 </LiquidGlass>
+```
+
+### Quality Presets and Autodetection
+
+```jsx
+// Manual quality
+<LiquidGlass quality="high" background="rgba(255,255,255,0.35)">
+  <Content />
+</LiquidGlass>
+
+// Autodetect device performance and choose quality automatically
+<LiquidGlass autodetectquality background="rgba(255,255,255,0.35)">
+  <Content />
+</LiquidGlass>
+
+// Note:
+// - Default quality is 'low'.
+// - 'extreme' produces the same visual fidelity as previous versions of this component.
+// - For many instances on the same page, prefer quality='low' or autodetectquality.
+```
+
+### Mobile Fallback Control
+
+```jsx
+// Force CSS-only (strongest performance) even on desktop
+<LiquidGlass mobileFallback="css-only" />
+
+// Force SVG filter on mobile (may impact performance)
+<LiquidGlass mobileFallback="svg" />
+
+// Default behavior: CSS-only on mobile, SVG on desktop
+<LiquidGlass />
+```
+
+## Performance and Fallbacks
+
+- **Default behavior**: on mobile devices the component uses a CSS-only effect to avoid jank; on desktop it uses the SVG filter.
+- **Quality presets**: `'low'` is the default and optimized for many instances; `'extreme'` matches previous visuals.
+- **Autodetection**: set `autodetectquality` to let the component choose a preset based on device performance.
+- **Effect Mode**: use `effectMode` to force the strategy.
+
+```jsx
+// Force CSS-only blur (no SVG) — recommended on very low-end devices
+<LiquidGlass effectMode="blur" />
+
+// Disable all filter effects (keeps border/frost/background)
+<LiquidGlass effectMode="off" />
+
+// Force SVG filter everywhere
+<LiquidGlass effectMode="svg" />
+```
+
+### Effect Mode Control
+
+```jsx
+// Force pure CSS blur (no SVG) — ideal per dispositivi molto low-end
+<LiquidGlass effectMode="blur" />
+
+// Disattiva totalmente l'effetto (mantiene solo saturazione/frost)
+<LiquidGlass effectMode="off" />
+
+// Forza sempre l'SVG
+<LiquidGlass effectMode="svg" />
+
+// Selezione automatica (default)
+<LiquidGlass effectMode="auto" />
 ```
 
 ### Card with Glass Effect

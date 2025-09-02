@@ -129,6 +129,11 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
    */
   mobileFallback?: 'css-only' | 'svg';
+  /**
+   * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
+   * @default 'auto'
+   */
+  effectMode?: 'auto' | 'svg' | 'blur' | 'off';
   
   /**
    * Additional CSS class names

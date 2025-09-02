@@ -136,6 +136,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
+| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
 ## Examples
 
@@ -183,6 +184,22 @@ The `background` prop automatically converts solid colors and gradients to semi-
 
 // Default behavior: CSS-only on mobile, SVG on desktop
 <LiquidGlass />
+```
+
+### Effect Mode Control
+
+```jsx
+// Force pure CSS blur (no SVG) — ideal per dispositivi molto low-end
+<LiquidGlass effectMode="blur" />
+
+// Disattiva totalmente l'effetto (mantiene solo saturazione/frost)
+<LiquidGlass effectMode="off" />
+
+// Forza sempre l'SVG
+<LiquidGlass effectMode="svg" />
+
+// Selezione automatica (default)
+<LiquidGlass effectMode="auto" />
 ```
 
 ### Card with Glass Effect

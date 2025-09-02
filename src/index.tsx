@@ -49,6 +49,7 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number; // minimum blur on iOS even when blur=0
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
   mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
+  effectMode?: 'auto' | 'svg' | 'blur' | 'off'; // choose filter strategy independently
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -236,6 +237,7 @@ export function LiquidGlass({
   iosMinBlur = 7,
   iosBlurMode = 'auto',
   mobileFallback,
+  effectMode = 'auto',
   ...props
 }: LiquidGlassProps) {
   // Configuration based on mode
@@ -613,17 +615,23 @@ export function LiquidGlass({
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
 
-  // Build backdrop-filter string with mobile/iOS fallbacks
+  // Build backdrop-filter string with effectMode and mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
-  // Prefer CSS-only on iOS and all mobile to reduce lag
   const useSvgFilter = (() => {
-    // Explicit override if provided
-    if (mobileFallback === 'css-only') return !(isIOS && iosBlurMode === 'auto') && false;
-    if (mobileFallback === 'svg') return !(isIOS && iosBlurMode === 'auto') && true;
-    // Default behavior: disable SVG on mobile and when iOS auto blur is active
+    // effectMode has highest precedence
+    if (effectMode === 'off') return false;
+    if (effectMode === 'blur') return false;
+    if (effectMode === 'svg') return !(isIOS && iosBlurMode === 'auto');
+    // effectMode === 'auto'
+    if (mobileFallback === 'css-only') return false;
+    if (mobileFallback === 'svg') return !(isIOS && iosBlurMode === 'auto');
     return !(isIOS && iosBlurMode === 'auto') && !isMobile;
   })();
-  const cssOnlyBlurPx = (resolvedQuality === 'low' || isMobile) ? Math.min(cssBlur, 2) : cssBlur;
+  const cssOnlyBlurPx = (() => {
+    if (effectMode === 'off') return 0;
+    const base = (resolvedQuality === 'low' || isMobile || effectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;
+    return Math.max(0, base);
+  })();
   const backdropFilterValue = useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`
     : (cssOnlyBlurPx > 0
@@ -678,7 +686,7 @@ export function LiquidGlass({
       {...props}
     >
       <div style={glassMorphismStyle}>
-        {useSvgFilter && (
+        {useSvgFilter && effectMode !== 'off' && (
         <svg 
           className="liquid-glass-filter"
           style={{

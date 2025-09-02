@@ -38,7 +38,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   
   /**
    * Displacement blur amount
-   * @default 0.38
+   * @default 5
    */
   displace?: number;
   
@@ -50,7 +50,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   
   /**
    * Blur amount for the glass effect
-   * @default 5
+   * @default 0
    */
   blur?: number;
   
@@ -85,6 +85,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   /**
    * Semi-transparent color for the glass background (must include alpha)
    * Examples: rgba(255,255,255,0.4), hsla(0,0%,100%,0.4), #FFFFFFFF with alpha
+   * @default 'rgba(255, 255, 255, 0.4)'
    */
   glassColor?: string;
 
@@ -140,7 +141,7 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   style?: CSSProperties;
   /**
    * Rendering quality preset. Controls internal SVG resolution to balance performance and fidelity.
-   * @default 'standard'
+   * @default 'low'
    */
   quality?: 'low' | 'standard' | 'high' | 'extreme';
   /**

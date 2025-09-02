@@ -125,7 +125,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `aberrationIntensity` | `number` | `0` | Multiplier for chromatic aberration (red/blue separation) |
 | `frost` | `number` | `0.1` | Frost effect intensity (0 to 1) |
 | `borderColor` | `string` | `'rgba(120, 120, 120, 0.7)'` | Border color in CSS format |
-| `glassColor` | `string` | – | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
+| `glassColor` | `string` | `'rgba(255, 255, 255, 0.4)'` | Semi‑transparent glass color (`rgba`, `hsla`, `hsl(.../a)`, `#RGBA`, `#RRGGBBAA`). Invalid/opaque values fall back to frost‑based default |
 | `background` | `string` | - | Background color or gradient (automatically made semi-transparent) |
 | `autoTextColor` | `boolean` | `false` | Automatically detect background luminance and set text color |
 | `textOnDark` | `string` | `'#ffffff'` | Text color used when background is detected as dark |
@@ -133,7 +133,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `forceTextColor` | `boolean` | `false` | Force the computed text color on all descendants (`!important`) to override nested styles |
 | `className` | `string` | - | Additional CSS class names |
 | `style` | `CSSProperties` | - | Additional inline styles |
-| `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'standard'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
+| `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 

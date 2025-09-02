@@ -223,7 +223,7 @@ export function LiquidGlass({
   aberrationIntensity = 0,
   frost = 0.1,
   borderColor = "rgba(120, 120, 120, 0.7)",
-  glassColor,
+  glassColor = "rgba(255, 255, 255, 0.4)",
   background,
   autoTextColor = false,
   textOnDark = '#ffffff',
@@ -312,7 +312,7 @@ export function LiquidGlass({
 
   // Quality resolution management
   const hasExplicitQuality = typeof incomingQuality !== 'undefined' && incomingQuality !== null;
-  const defaultQuality: LiquidQuality = 'standard';
+  const defaultQuality: LiquidQuality = 'low';
   const initialQuality: LiquidQuality = hasExplicitQuality ? (incomingQuality as LiquidQuality) : defaultQuality;
   const [resolvedQuality, setResolvedQuality] = useState<LiquidQuality>(initialQuality);
 

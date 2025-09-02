@@ -2,6 +2,15 @@ import React, { useMemo, useEffect, useRef, useState, useId } from 'react';
 
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 
+type LiquidQuality = 'low' | 'standard' | 'high' | 'extreme';
+
+const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
+  low: 4,
+  standard: 3,
+  high: 2.5,
+  extreme: 2
+};
+
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   mode?: string;
@@ -23,6 +32,8 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   textOnDark?: string; // text color when background is dark
   textOnLight?: string; // text color when background is light
   forceTextColor?: boolean; // enforce text color on descendants
+  quality?: LiquidQuality; // rendering quality preset
+  autodetectquality?: boolean; // auto-detect device performance and pick quality
   className?: string;
   style?: React.CSSProperties;
   // iOS fallback controls
@@ -210,6 +221,8 @@ export function LiquidGlass({
   forceTextColor = false,
   className = "",
   style = {},
+  quality: incomingQuality,
+  autodetectquality = false,
   iosMinBlur = 7,
   iosBlurMode = 'auto',
   ...props
@@ -285,6 +298,89 @@ export function LiquidGlass({
   if (!textClassNameRef.current) {
     textClassNameRef.current = `lg-text-${Math.random().toString(36).slice(2, 9)}`;
   }
+
+  // Quality resolution management
+  const hasExplicitQuality = typeof incomingQuality !== 'undefined' && incomingQuality !== null;
+  const defaultQuality: LiquidQuality = 'standard';
+  const initialQuality: LiquidQuality = hasExplicitQuality ? (incomingQuality as LiquidQuality) : defaultQuality;
+  const [resolvedQuality, setResolvedQuality] = useState<LiquidQuality>(initialQuality);
+
+  useEffect(() => {
+    if (hasExplicitQuality) {
+      setResolvedQuality(incomingQuality as LiquidQuality);
+      return;
+    }
+    if (!autodetectquality) {
+      setResolvedQuality(defaultQuality);
+      return;
+    }
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      // SSR safety
+      setResolvedQuality(defaultQuality);
+      return;
+    }
+
+    // Prefer low quality when user requests reduced motion
+    const prefersReducedMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      setResolvedQuality('low');
+      return;
+    }
+
+    const CACHE_KEY = 'simpleLiquidGlass_quality_v1';
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const data = JSON.parse(cached) as { q: LiquidQuality; t: number } | null;
+        if (data && data.q && typeof data.t === 'number' && Date.now() - data.t < CACHE_TTL_MS) {
+          setResolvedQuality(data.q);
+          return;
+        }
+      }
+    } catch {}
+
+    // Heuristics + micro-benchmark
+    const cores = (navigator as any).hardwareConcurrency || 4;
+    const deviceMemory = (navigator as any).deviceMemory || 4;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+
+    // micro-benchmark ~50ms
+    let operations = 0;
+    const start = performance.now();
+    while (performance.now() - start < 50) {
+      // simple math to stress FP unit
+      // avoid optimizations by mixing operations
+      for (let i = 0; i < 200; i++) {
+        const x = Math.sin(i + operations) * Math.cos(i * 1.3 + operations) + Math.sqrt(i + 1);
+        if (x > 1e9) {
+          // never happens; prevents dead-code elimination
+          operations -= 1;
+        }
+        operations += 1;
+      }
+    }
+    const elapsed = Math.max(1, performance.now() - start);
+    const opsPerMs = operations / elapsed;
+
+    let q: LiquidQuality = defaultQuality;
+    if (cores <= 2 || deviceMemory <= 1 || opsPerMs < 8000) {
+      q = 'low';
+    } else if (cores <= 4 || deviceMemory <= 2 || opsPerMs < 16000 || isMobile) {
+      q = 'standard';
+    } else if (cores >= 8 && deviceMemory >= 6 && opsPerMs >= 32000 && !isMobile) {
+      q = 'extreme';
+    } else {
+      q = 'high';
+    }
+
+    setResolvedQuality(q);
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ q, t: Date.now() }));
+    } catch {}
+  }, [incomingQuality, autodetectquality]);
 
   function parseCssColorToRgba(color: string): { r: number; g: number; b: number; a: number } | null {
     const c = color.trim();
@@ -426,12 +522,13 @@ export function LiquidGlass({
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
     const { width, height } = dimensions;
-    const newwidth = width / 2;
-    const newheight = height / 2;
+    const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
+    const newwidth = width / divisor;
+    const newheight = height / divisor;
     const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
     
     // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
-    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / 2; // scaled to half-res viewBox
+    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / (QUALITY_DIVISORS[resolvedQuality] || 3); // scale to viewBox resolution
     
     const svgContent = `
       <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
@@ -454,7 +551,7 @@ export function LiquidGlass({
     
     const encoded = encodeURIComponent(svgContent);
     return `data:image/svg+xml,${encoded}`;
-  }, [dimensions, config]);
+  }, [dimensions, config, resolvedQuality]);
 
   // Generate a unique ID for the SVG filter
   const uniqueFilterId = useId();

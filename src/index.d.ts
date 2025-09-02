@@ -133,6 +133,17 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * Additional inline styles
    */
   style?: CSSProperties;
+  /**
+   * Rendering quality preset. Controls internal SVG resolution to balance performance and fidelity.
+   * @default 'standard'
+   */
+  quality?: 'low' | 'standard' | 'high' | 'extreme';
+  /**
+   * Automatically detect device performance and choose a quality preset.
+   * When true and no explicit quality is provided, the component resolves a quality on mount.
+   * @default false
+   */
+  autodetectquality?: boolean;
 }
 
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;

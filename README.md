@@ -133,6 +133,8 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `forceTextColor` | `boolean` | `false` | Force the computed text color on all descendants (`!important`) to override nested styles |
 | `className` | `string` | - | Additional CSS class names |
 | `style` | `CSSProperties` | - | Additional inline styles |
+| `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'standard'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
+| `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 
 ## Examples
 
@@ -148,6 +150,24 @@ The `background` prop automatically converts solid colors and gradients to semi-
     <p>This uses a gradient background that's automatically made semi-transparent!</p>
   </div>
 </LiquidGlass>
+```
+
+### Quality Presets and Autodetection
+
+```jsx
+// Manual quality
+<LiquidGlass quality="high" background="rgba(255,255,255,0.35)">
+  <Content />
+</LiquidGlass>
+
+// Autodetect device performance and choose quality automatically
+<LiquidGlass autodetectquality background="rgba(255,255,255,0.35)">
+  <Content />
+</LiquidGlass>
+
+// Note:
+// - Default quality is 'standard'.
+// - 'extreme' produces the same visual fidelity as previous versions of this component.
 ```
 
 ### Card with Glass Effect

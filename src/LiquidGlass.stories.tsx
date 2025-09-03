@@ -45,9 +45,9 @@ const meta: Meta<LiquidGlassComponent> = {
       control: 'radio',
       options: ['css-only', 'svg'],
     },
-    effectMode: {
+    preset: {
       control: 'radio',
-      options: ['auto', 'svg', 'blur', 'off'],
+      options: ['svg', 'blur', 'none'],
     },
     scale: { control: { type: 'range', min: 0, max: 400, step: 1 } },
     radius: { control: { type: 'range', min: 0, max: 200, step: 1 } },
@@ -77,7 +77,6 @@ const meta: Meta<LiquidGlassComponent> = {
   args: {
     mode: 'preset',
     quality: 'low',
-    effectMode: 'auto',
     autodetectquality: false,
     radius: 50,
     scale: 160,
@@ -278,7 +277,7 @@ export const ExtremeQuality: Story = {
 
 export const BlurOnly: Story = {
   args: {
-    effectMode: 'blur',
+    preset: 'blur',
     blur: 2,
     children: (
       <div
@@ -302,9 +301,35 @@ export const BlurOnly: Story = {
   ),
 };
 
+export const PresetBlur: Story = {
+  args: {
+    preset: 'blur',
+    blur: 2,
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Preset: Blur (CSS only)
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
 export const EffectOff: Story = {
   args: {
-    effectMode: 'off',
+    preset: 'none',
     children: (
       <div
         style={{

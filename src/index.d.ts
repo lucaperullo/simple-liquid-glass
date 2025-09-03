@@ -11,6 +11,10 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    * @default "preset"
    */
   mode?: 'preset' | 'custom';
+  /**
+   * Simplified effect selection. Use 'svg' for SVG displacement, 'blur' for CSS blur only, or 'none' to disable.
+   */
+  preset?: 'svg' | 'blur' | 'none';
   
   /**
    * Scale of the displacement effect
@@ -125,15 +129,10 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
   /**
-   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop.
+   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop (when preset is 'svg' or auto-selected).
    * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
    */
   mobileFallback?: 'css-only' | 'svg';
-  /**
-   * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
-   * @default 'auto'
-   */
-  effectMode?: 'auto' | 'svg' | 'blur' | 'off';
   
   /**
    * Additional CSS class names

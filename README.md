@@ -107,19 +107,24 @@ On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 7p
 
 The `background` prop automatically converts solid colors and gradients to semi-transparent (30% opacity) for better glass effects. Images (URLs) are left unchanged.
 
-### Blur-only Preset (no SVG)
+### Presets: svg, blur, none
 
-To maximize performance and avoid any SVG generation, enable the blur-only preset:
+Use a simplified API to control the effect strategy:
 
 ```jsx
-<LiquidGlass preset="blur" blur={2}>
-  <YourContent />
-</LiquidGlass>
+// SVG displacement (default auto behavior still applies on mobile via mobileFallback)
+<LiquidGlass preset="svg" />
+
+// CSS-only blur (no SVG). Defaults to a light blur if not provided.
+<LiquidGlass preset="blur" blur={2} />
+
+// No effect (keeps saturation/frost/background and border)
+<LiquidGlass preset="none" />
 ```
 
-- Forces CSS-only blur (no SVG filters) for minimal GPU/CPU overhead
-- Automatically uses low quality heuristics internally
-- Respects iOS fallback rules (may enforce a minimum blur when `iosBlurMode` is `'auto'`)
+- `blur`: forces CSS-only blur (no SVG) and uses low-quality heuristics internally. If `blur` is not provided, a sensible default is applied.
+- `svg`: uses the SVG displacement filter when available; respects `mobileFallback` and iOS rules.
+- `none`: disables the filter effect entirely.
 
 ## Props
 
@@ -127,7 +132,7 @@ To maximize performance and avoid any SVG generation, enable the blur-only prese
 |------|------|---------|-------------|
 | `children` | `ReactNode` | - | Content to display inside the glass effect |
 | `mode` | `'preset' \| 'custom'` | `'preset'` | Use preset values or custom configuration |
-| `preset` | `'blur'` | - | Blur-only mode: disables SVG filter and uses CSS blur only |
+| `preset` | `'svg' \| 'blur' \| 'none'` | - | Simplified effect selection: SVG filter, CSS blur only, or none |
 | `scale` | `number` | `160` | Scale of the displacement effect (-360 to 360) |
 | `radius` | `number` | `50` | Border radius of the glass effect |
 | `border` | `number` | `0.05` | Border thickness (0 to 0.5) |
@@ -151,7 +156,6 @@ To maximize performance and avoid any SVG generation, enable the blur-only prese
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
-| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
 ## Examples
 
@@ -206,33 +210,19 @@ To maximize performance and avoid any SVG generation, enable the blur-only prese
 - **Default behavior**: on mobile devices the component uses a CSS-only effect to avoid jank; on desktop it uses the SVG filter.
 - **Quality presets**: `'low'` is the default and optimized for many instances; `'extreme'` matches previous visuals.
 - **Autodetection**: set `autodetectquality` to let the component choose a preset based on device performance.
-- **Effect Mode**: use `effectMode` to force the strategy.
+- Use the `preset` prop to select between `'svg'`, `'blur'`, and `'none'`.
+
+### Preset Control
 
 ```jsx
-// Force CSS-only blur (no SVG) — recommended on very low-end devices
-<LiquidGlass effectMode="blur" />
+// CSS blur only
+<LiquidGlass preset="blur" />
 
-// Disable all filter effects (keeps border/frost/background)
-<LiquidGlass effectMode="off" />
+// Disable the effect
+<LiquidGlass preset="none" />
 
-// Force SVG filter everywhere
-<LiquidGlass effectMode="svg" />
-```
-
-### Effect Mode Control
-
-```jsx
-// Force pure CSS blur (no SVG) — ideal per dispositivi molto low-end
-<LiquidGlass effectMode="blur" />
-
-// Disattiva totalmente l'effetto (mantiene solo saturazione/frost)
-<LiquidGlass effectMode="off" />
-
-// Forza sempre l'SVG
-<LiquidGlass effectMode="svg" />
-
-// Selezione automatica (default)
-<LiquidGlass effectMode="auto" />
+// Force SVG
+<LiquidGlass preset="svg" />
 ```
 
 ### Card with Glass Effect

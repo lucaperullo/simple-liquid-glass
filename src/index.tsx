@@ -23,7 +23,7 @@ const DISPLACEMENT_CACHE: Map<string, string> = new Map();
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   mode?: string;
-  preset?: 'blur';
+  preset?: 'svg' | 'blur' | 'none';
   scale?: number;
   radius?: number;
   border?: number;
@@ -50,7 +50,6 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number; // minimum blur on iOS even when blur=0
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
   mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
-  effectMode?: 'auto' | 'svg' | 'blur' | 'off'; // choose filter strategy independently
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -239,10 +238,12 @@ export function LiquidGlass({
   iosMinBlur = 7,
   iosBlurMode = 'auto',
   mobileFallback,
-  effectMode = 'auto',
   ...props
 }: LiquidGlassProps) {
   const isBlurPresetActive = visualPreset === 'blur';
+  const selectedEffectMode: 'auto' | 'svg' | 'blur' | 'off' = (
+    visualPreset === 'blur' ? 'blur' : visualPreset === 'svg' ? 'svg' : visualPreset === 'none' ? 'off' : 'auto'
+  );
   // Configuration based on mode
   let config: {
     mode: string;
@@ -622,9 +623,9 @@ export function LiquidGlass({
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
 
-  // Build backdrop-filter string with effectMode and mobile/iOS fallbacks
-  const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
-  const selectedEffectMode: 'auto' | 'svg' | 'blur' | 'off' = isBlurPresetActive ? 'blur' : effectMode;
+  // Build backdrop-filter string with preset-driven effect selection and mobile/iOS fallbacks
+  const baseBlur = (selectedEffectMode === 'blur' ? (blur > 0 ? blur : 2) : blur);
+  const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(baseBlur, iosMinBlur) : baseBlur;
   const useSvgFilter = (() => {
     // effectMode has highest precedence
     if (selectedEffectMode === 'off') return false;

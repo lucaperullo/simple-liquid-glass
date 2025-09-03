@@ -324,3 +324,17 @@ frosted glass, frosted-glass, blur, blur effect, backdrop-filter, svg filter, di
 chromatic aberration, ui effects, card, overlay, glass ui, glass card, glass panel, glassmorphism react
 
 For issues and feature requests, please [create an issue](https://github.com/lucaperullo/simple-liquid-glass/issues).
+
+### Potentially unused files (scan 2025-09-03)
+
+- **candidates (no in-repo references found)**
+  - `examples/src/assets/react.svg`
+  - `examples/public/README.txt` (docs only)
+
+- **dev/demo tooling (kept for local development; not shipped to npm)**
+  - `.storybook/**`
+  - `examples/**` (example app; most files are referenced by the demo)
+
+Notes:
+- This list is heuristic. Dynamic/runtime references and external tooling may not be detected.
+- Review before deleting. If you keep the example app and Storybook, retain their configs.

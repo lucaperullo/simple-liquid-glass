@@ -302,6 +302,32 @@ export const BlurOnly: Story = {
   ),
 };
 
+export const PresetBlur: Story = {
+  args: {
+    preset: 'blur',
+    blur: 2,
+    children: (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 600,
+        }}
+      >
+        Preset: Blur (CSS only)
+      </div>
+    ),
+  },
+  render: (args) => (
+    <DraggableWrapper width={480} height={280}>
+      <LiquidGlass {...args} />
+    </DraggableWrapper>
+  ),
+};
+
 export const EffectOff: Story = {
   args: {
     effectMode: 'off',

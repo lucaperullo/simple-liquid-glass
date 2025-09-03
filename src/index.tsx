@@ -23,6 +23,7 @@ const DISPLACEMENT_CACHE: Map<string, string> = new Map();
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   mode?: string;
+  preset?: 'blur';
   scale?: number;
   radius?: number;
   border?: number;
@@ -194,7 +195,7 @@ function processBackground(background: string | undefined, alpha: number = 0.3):
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 200;
 
-const preset = {
+const DEFAULT_PRESET = {
   scale: 160,
   radius: 50,
   border: 0.05,
@@ -211,6 +212,7 @@ const preset = {
 
 export function LiquidGlass({ 
   children,
+  preset: visualPreset,
   mode = "preset",
   scale = 160,
   radius = 50,
@@ -240,6 +242,7 @@ export function LiquidGlass({
   effectMode = 'auto',
   ...props
 }: LiquidGlassProps) {
+  const isBlurPresetActive = visualPreset === 'blur';
   // Configuration based on mode
   let config: {
     mode: string;
@@ -262,7 +265,7 @@ export function LiquidGlass({
   if (mode === "preset") {
     config = {
       // baseline to preset, but allow incoming props to override as per library behavior
-      ...preset,
+      ...DEFAULT_PRESET,
       scale,
       radius,
       border,
@@ -394,6 +397,9 @@ export function LiquidGlass({
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({ q, t: Date.now() }));
     } catch {}
   }, [incomingQuality, autodetectquality]);
+
+  // Effective quality considering preset="blur" forces low quality for performance
+  const qualityForCalc: LiquidQuality = isBlurPresetActive ? 'low' : resolvedQuality;
 
   function parseCssColorToRgba(color: string): { r: number; g: number; b: number; a: number } | null {
     const c = color.trim();
@@ -532,11 +538,12 @@ export function LiquidGlass({
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
   const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
 
-  // Generate displacement map SVG as data URI
+  // Generate displacement map SVG as data URI (skip entirely on preset="blur")
   const displacementDataUri = useMemo(() => {
+    if (isBlurPresetActive) return '';
     const { width, height } = dimensions;
-    const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
-    const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
+    const divisor = QUALITY_DIVISORS[qualityForCalc] || 3;
+    const quantStep = QUALITY_QUANTIZATION_STEPS[qualityForCalc] || 16;
     const rawW = width / divisor;
     const rawH = height / divisor;
     const newwidth = Math.max(8, Math.round(rawW / quantStep) * quantStep);
@@ -544,10 +551,10 @@ export function LiquidGlass({
     const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
     
     // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
-    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / (QUALITY_DIVISORS[resolvedQuality] || 3); // scale to viewBox resolution
+    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / (QUALITY_DIVISORS[qualityForCalc] || 3); // scale to viewBox resolution
 
     // Shared cache key across instances to reuse identical displacement maps
-    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
+    const cacheKey = `q:${qualityForCalc}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
     const cached = DISPLACEMENT_CACHE.get(cacheKey);
     if (cached) return cached;
     
@@ -574,7 +581,7 @@ export function LiquidGlass({
     const uri = `data:image/svg+xml,${encoded}`;
     DISPLACEMENT_CACHE.set(cacheKey, uri);
     return uri;
-  }, [dimensions, config, resolvedQuality]);
+  }, [dimensions, config, qualityForCalc, isBlurPresetActive]);
 
   // Generate a unique ID for the SVG filter
   const uniqueFilterId = useId();
@@ -617,19 +624,20 @@ export function LiquidGlass({
 
   // Build backdrop-filter string with effectMode and mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
+  const selectedEffectMode: 'auto' | 'svg' | 'blur' | 'off' = isBlurPresetActive ? 'blur' : effectMode;
   const useSvgFilter = (() => {
     // effectMode has highest precedence
-    if (effectMode === 'off') return false;
-    if (effectMode === 'blur') return false;
-    if (effectMode === 'svg') return !(isIOS && iosBlurMode === 'auto');
-    // effectMode === 'auto'
+    if (selectedEffectMode === 'off') return false;
+    if (selectedEffectMode === 'blur') return false;
+    if (selectedEffectMode === 'svg') return !(isIOS && iosBlurMode === 'auto');
+    // selectedEffectMode === 'auto'
     if (mobileFallback === 'css-only') return false;
     if (mobileFallback === 'svg') return !(isIOS && iosBlurMode === 'auto');
     return !(isIOS && iosBlurMode === 'auto') && !isMobile;
   })();
   const cssOnlyBlurPx = (() => {
-    if (effectMode === 'off') return 0;
-    const base = (resolvedQuality === 'low' || isMobile || effectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;
+    if (selectedEffectMode === 'off') return 0;
+    const base = (qualityForCalc === 'low' || isMobile || selectedEffectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;
     return Math.max(0, base);
   })();
   const backdropFilterValue = useSvgFilter
@@ -639,7 +647,7 @@ export function LiquidGlass({
         : `saturate(${config.saturation}%)`);
 
   // Cap SVG blur in low quality to reduce GPU cost
-  const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
+  const feBlurStdDev = qualityForCalc === 'low' ? Math.min(config.blur, 2) : config.blur;
 
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
@@ -686,7 +694,7 @@ export function LiquidGlass({
       {...props}
     >
       <div style={glassMorphismStyle}>
-        {useSvgFilter && effectMode !== 'off' && (
+        {useSvgFilter && selectedEffectMode !== 'off' && (
         <svg 
           className="liquid-glass-filter"
           style={{
@@ -711,7 +719,7 @@ export function LiquidGlass({
                 height="100%"
                 result="map"
               />
-              {resolvedQuality === 'low' ? (
+              {qualityForCalc === 'low' ? (
                 <>
                   <feDisplacementMap 
                     in="SourceGraphic"

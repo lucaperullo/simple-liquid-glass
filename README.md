@@ -107,12 +107,27 @@ On iOS, when `iosBlurMode` is `'auto'`, a minimal blur (`iosMinBlur`, default 7p
 
 The `background` prop automatically converts solid colors and gradients to semi-transparent (30% opacity) for better glass effects. Images (URLs) are left unchanged.
 
+### Blur-only Preset (no SVG)
+
+To maximize performance and avoid any SVG generation, enable the blur-only preset:
+
+```jsx
+<LiquidGlass preset="blur" blur={2}>
+  <YourContent />
+</LiquidGlass>
+```
+
+- Forces CSS-only blur (no SVG filters) for minimal GPU/CPU overhead
+- Automatically uses low quality heuristics internally
+- Respects iOS fallback rules (may enforce a minimum blur when `iosBlurMode` is `'auto'`)
+
 ## Props
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `children` | `ReactNode` | - | Content to display inside the glass effect |
 | `mode` | `'preset' \| 'custom'` | `'preset'` | Use preset values or custom configuration |
+| `preset` | `'blur'` | - | Blur-only mode: disables SVG filter and uses CSS blur only |
 | `scale` | `number` | `160` | Scale of the displacement effect (-360 to 360) |
 | `radius` | `number` | `50` | Border radius of the glass effect |
 | `border` | `number` | `0.05` | Border thickness (0 to 0.5) |

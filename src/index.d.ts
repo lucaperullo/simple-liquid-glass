@@ -159,4 +159,31 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 
 export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
 
-export default LiquidGlass;
+export default LiquidGlassThree;
+
+export interface LiquidGlassThreeProps extends HTMLAttributes<HTMLDivElement> {
+  width?: number;
+  height?: number;
+  dpr?: number;
+  backgroundColor?: string;
+  backgroundSrc?: string;
+  imageSrc?: string;
+  trackMouse?: boolean;
+  mouseMomentum?: number;
+  darkenAmount?: number;
+  darkenRadius?: number;
+  darkenPos?: { x: number; y: number };
+  lightenAmount?: number;
+  lightenRadius?: number;
+  lightenPos?: { x: number; y: number };
+  lightenColor?: string;
+  lensEnabled?: boolean;
+  lensRadius?: number;
+  lensDispersion?: number;
+  /** When true, modulate lens opacity by the foreground image alpha */
+  lensMaskFromImageAlpha?: boolean;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export declare function LiquidGlassThree(props: LiquidGlassThreeProps): JSX.Element;

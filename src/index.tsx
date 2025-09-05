@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState, useId } from 'react';
+import LiquidGlassThree from './LiquidGlassThree';
 
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 
@@ -832,7 +833,6 @@ export function LiquidGlass({
 }
 
 LiquidGlass.displayName = "LiquidGlass";
-
-export default LiquidGlass;
-
-// Removed non-working experimental components per user request
+export { default as LiquidGlassThree } from './LiquidGlassThree';
+export type { LiquidGlassThreeProps } from './LiquidGlassThree';
+export default LiquidGlassThree;

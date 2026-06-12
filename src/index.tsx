@@ -448,7 +448,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
         setEffectiveTextColor(textOnLight);
         return;
       }
-      const dark = isRgbColorDark({ r: bg.r, g: bg.g, b: bg.b });
+      const dark = isRgbColorDark(bg);
       setEffectiveTextColor(dark ? textOnDark : textOnLight);
     };
 

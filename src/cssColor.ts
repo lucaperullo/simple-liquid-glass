@@ -65,7 +65,7 @@ export function findNearestOpaqueBackground(element: HTMLElement | null): Rgba |
   return bodyBg ? parseCssColorToRgba(bodyBg) : null;
 }
 
-export function isRgbColorDark(rgb: { r: number; g: number; b: number }): boolean {
+export function isRgbColorDark(rgb: Pick<Rgba, 'r' | 'g' | 'b'>): boolean {
   const srgb = [rgb.r, rgb.g, rgb.b].map(v => v / 255);
   const linear = srgb.map(c => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
   const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];

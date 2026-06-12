@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.1 — 2026-06-12
+
+### Fixed
+
+- WebGL: `background-image` with `cover`/`contain`/`fixed` on the snapshot source (e.g. hero images, Storybook's backgrounds addon) is now composited with correct geometry — html2canvas cannot rasterize these and produced a misaligned image with white bands.
+- WebGL: removed ghost background layer under the canvas (glass tint is rendered by the shader).
+- WebGL: snapshot auto-refreshes when page content changes (debounced MutationObserver + resize handler, `autoRefresh` option), preventing stale backgrounds.
+
 ## 1.4.0 — 2026-06-12
 
 ### Added

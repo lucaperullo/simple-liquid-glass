@@ -194,6 +194,94 @@ void main() {
 }
 `;
 
+/* ------------------------ background-image support ------------------------ */
+/*
+ * html2canvas cannot rasterize `background-size: cover/contain` combined with
+ * `background-attachment: fixed` (common for hero images, and what Storybook's
+ * backgrounds addon generates). We strip the background-image from the clone
+ * and composite it ourselves with correct geometry.
+ */
+
+function parseBackgroundUrl(backgroundImage: string): string | null {
+  const m = /url\(["']?([^"')]+)["']?\)/.exec(backgroundImage || '');
+  return m ? m[1] : null;
+}
+
+function loadImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // clean load or fail — never taints the canvas
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function compositeSourceBackground(
+  capturedCanvas: HTMLCanvasElement,
+  bgImg: HTMLImageElement,
+  cs: CSSStyleDeclaration,
+  srcRect: DOMRect
+): HTMLCanvasElement {
+  const out = document.createElement('canvas');
+  out.width = capturedCanvas.width;
+  out.height = capturedCanvas.height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return capturedCanvas;
+
+  const scale = out.width / Math.max(1, srcRect.width);
+
+  // background color under everything
+  const bgColor = cs.backgroundColor;
+  if (bgColor && bgColor !== 'transparent' && !/rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/.test(bgColor)) {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, out.width, out.height);
+  }
+
+  // positioning box in source-local CSS px
+  let bx = 0;
+  let by = 0;
+  let bw = srcRect.width;
+  let bh = srcRect.height;
+  if (/fixed/.test(cs.backgroundAttachment)) {
+    // fixed backgrounds are laid out against the viewport
+    bx = -srcRect.left;
+    by = -srcRect.top;
+    bw = window.innerWidth;
+    bh = window.innerHeight;
+  }
+
+  // background-size
+  const ir = bgImg.naturalWidth / Math.max(1, bgImg.naturalHeight);
+  const br = bw / Math.max(1, bh);
+  let dw = bw;
+  let dh = bh;
+  const size = cs.backgroundSize || '';
+  if (/contain/.test(size)) {
+    if (ir > br) { dw = bw; dh = bw / ir; } else { dh = bh; dw = bh * ir; }
+  } else if (/cover/.test(size)) {
+    if (ir > br) { dh = bh; dw = bh * ir; } else { dw = bw; dh = bw / ir; }
+  } else if (/^auto(\s+auto)?$/.test(size.trim())) {
+    dw = bgImg.naturalWidth;
+    dh = bgImg.naturalHeight;
+  }
+
+  // background-position (percentage form, e.g. "50% 50%")
+  const pos = (cs.backgroundPosition || '0% 0%').split(/\s+/);
+  const fx = (parseFloat(pos[0]) || 0) / 100;
+  const fy = (parseFloat(pos[1]) || 0) / 100;
+  const dx = bx + (bw - dw) * fx;
+  const dy = by + (bh - dh) * fy;
+
+  try {
+    ctx.drawImage(bgImg, dx * scale, dy * scale, dw * scale, dh * scale);
+    ctx.drawImage(capturedCanvas, 0, 0);
+    return out;
+  } catch {
+    return capturedCanvas;
+  }
+}
+
 /* ----------------------------- shared renderer --------------------------- */
 
 interface SnapshotEntry {
@@ -303,23 +391,54 @@ class SharedRenderer {
           const srcW = Math.max(1, lens.source.scrollWidth);
           const srcH = Math.max(1, lens.source.scrollHeight);
           const scale = Math.max(0.25, Math.min(lens.resolution, this.maxTex / srcW, this.maxTex / srcH));
-          img = await h2c(lens.source, {
-            scale,
-            useCORS: true,
-            logging: false,
-            backgroundColor: null,
-            ignoreElements: (el: Element) => {
-              if (!(el instanceof HTMLElement)) return false;
-              if (el.dataset.liquidIgnore !== undefined) return true;
-              if (el.classList.contains('liquid-glass-webgl-canvas')) return true;
-              // exclude every registered lens pane, not just this one
-              for (const l of this.lenses) {
-                const ex = l.exclude;
-                if (ex && (el === ex || ex.contains(el))) return true;
+
+          // html2canvas can't rasterize cover/fixed background images — pull
+          // the source's background-image out and composite it ourselves.
+          const cs = getComputedStyle(lens.source);
+          const bgUrl = parseBackgroundUrl(cs.backgroundImage);
+          const bgImg = bgUrl ? await loadImage(bgUrl) : null;
+          if (bgImg) lens.source.setAttribute('data-lg-snapshot-root', '');
+
+          try {
+            img = await h2c(lens.source, {
+              scale,
+              useCORS: true,
+              logging: false,
+              backgroundColor: null,
+              onclone: bgImg
+                ? (doc: Document) => {
+                    const root = doc.querySelector('[data-lg-snapshot-root]') as HTMLElement | null;
+                    if (root) {
+                      root.style.backgroundImage = 'none';
+                      root.style.backgroundColor = 'transparent';
+                      root.removeAttribute('data-lg-snapshot-root');
+                    }
+                  }
+                : undefined,
+              ignoreElements: (el: Element) => {
+                if (!(el instanceof HTMLElement)) return false;
+                if (el.dataset.liquidIgnore !== undefined) return true;
+                if (el.classList.contains('liquid-glass-webgl-canvas')) return true;
+                // exclude every registered lens pane, not just this one
+                for (const l of this.lenses) {
+                  const ex = l.exclude;
+                  if (ex && (el === ex || ex.contains(el))) return true;
+                }
+                return false;
               }
-              return false;
-            }
-          });
+            });
+          } finally {
+            if (bgImg) lens.source.removeAttribute('data-lg-snapshot-root');
+          }
+
+          if (img && bgImg) {
+            img = compositeSourceBackground(
+              img as HTMLCanvasElement,
+              bgImg,
+              cs,
+              lens.source.getBoundingClientRect()
+            );
+          }
         }
       }
     } catch (e) {

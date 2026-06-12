@@ -48,11 +48,14 @@ construction.
 
 ### 2. Anchor detection
 
-At capture time, when no anchor is supplied: scan source descendants (depth ≤ 3) for the first
-element with a non-`none` computed transform whose height exceeds the viewport. Found → anchor;
-not found → anchor = source. Generic detection (no hard-coded library selectors) plus an
-explicit `backdropAnchor` escape hatch. If the anchor becomes disconnected, fall back to source
-for mapping and re-detect at the next capture.
+At **every** capture (libraries like ScrollSmoother apply `transform` lazily, so a one-time
+scan can miss), when no anchor is supplied: scan source descendants (depth ≤ 3) for elements
+with a non-`none` computed transform **or** `will-change: transform`, whose height exceeds the
+viewport **and** whose width is ≥ ⅔ of the source width (excludes parallax heroes and
+decorative layers). Multiple candidates → pick the largest by area. None → anchor = source.
+Generic detection (no hard-coded library selectors) plus an explicit `backdropAnchor` escape
+hatch. If the anchor becomes disconnected, fall back to source for mapping and re-detect at the
+next capture.
 
 ### 3. Fallback fill
 
@@ -62,20 +65,35 @@ smearing. Fallback color auto-detected at capture time (nearest opaque `backgrou
 walking up from the source — same approach as the component's `autoTextColor` logic);
 overridable via `snapshotFallbackColor`.
 
-### 4. Mutation filtering
+### 4. Scroll-aware re-capture policy (phase 1 — correctness-critical)
 
-The auto-refresh MutationObserver ignores `style`-attribute mutations whose target is the
-anchor element. Optimization only — correctness no longer depends on when captures happen
-(§1) — but it stops html2canvas re-runs at every scroll stop.
+On wrapper-mode sites the source box (`<body>`) is often only viewport-height — content scrolls
+*virtually* inside it, so any capture covers roughly one viewport of content no matter what.
+Re-capturing when scrolling leaves the captured region is therefore a **correctness**
+requirement, not an optimization:
 
-### 5. Sliding-window snapshot (phase 2)
+- **Coverage trigger:** each frame, `renderLens()` knows the sampled region. When it exits (or
+  nears) the texture's coverage, schedule a debounced single-flight re-capture, which re-bases
+  per §1. Until it lands, out-of-coverage taps show the §3 fallback.
+- **Velocity gate:** while the anchor delta is changing fast (active fling), defer captures —
+  html2canvas is main-thread-heavy and mid-fling captures cause jank and land stale.
+- **Scroll-idle re-true:** when the anchor delta has changed and then been stable for ~300ms,
+  run one re-capture. This self-heals everything a rigid delta can't model (parallax layers,
+  sticky sections, fixed backgrounds) and picks up CSS-animation/video changes invisible to the
+  MutationObserver.
+- **Stale-capture guard:** when a capture completes whose coverage no longer contains the
+  currently sampled region, immediately schedule one follow-up (single-flight prevents
+  thrashing).
+- **Mutation filtering:** the auto-refresh MutationObserver ignores `style`-attribute mutations
+  whose target is the anchor element (the scroll library's per-frame transforms).
 
-Capture a band ~3 viewport-heights tall around the current viewport instead of the full page
-(html2canvas `y`/`height` crop). `SnapshotEntry` gains `bandOffsetY`. `renderLens()` already
-computes the sampled region; when it drifts within half a viewport of the band edge, schedule a
-debounced (~80ms) single-flight re-capture, which re-bases per §1. Until it lands, out-of-band
-taps show the §3 fallback. Band height clamps so `band × resolution ≤ maxTex` — bands always
-capture at full sharpness.
+### 5. Sliding-window snapshot (phase 2 — sharpness)
+
+Capture a band ~3 viewport-heights tall around the current viewport instead of the full source
+box (html2canvas `y`/`height` crop). `SnapshotEntry` gains `bandOffsetY`. The §4 triggers stay
+unchanged — the band only changes *what* a capture covers, so refraction stays sharp regardless
+of page length. Band height clamps so `band × resolution ≤ maxTex` — bands always capture at
+full sharpness. Horizontal scrolling uses the same delta math and clamping on the x axis.
 
 ### 6. Public API
 
@@ -101,11 +119,16 @@ capture at full sharpness.
 ## Phasing
 
 - **Phase 1 (correctness):** §1–§4 + tests + story. Fixes "broken on smooth-scroll navbars".
+  §4's coverage trigger is part of phase 1 because wrapper-mode sites capture only ~one
+  viewport of content per snapshot regardless of band logic.
 - **Phase 2 (sharpness):** §5. Fixes "blurry on long pages". Independently releasable
   (1.5.0, then 1.5.x).
 
-## Known trade-off
+## Known trade-offs
 
-During a very fast fling past the captured band, the lens shows the correctly-colored fallback
-fill for the ~100–400ms an html2canvas re-capture takes. Inherent to snapshot-based refraction;
-no library can read a live backdrop cross-platform.
+- During a fast fling past the captured region, the lens shows the correctly-colored fallback
+  fill until a re-capture lands (~100–400ms, deferred further by the velocity gate). Inherent
+  to snapshot-based refraction; no library can read a live backdrop cross-platform.
+- Content that moves independently of the anchor (parallax, sticky, fixed backgrounds) is only
+  exactly right at capture instants; between scroll-idle re-trues it shifts rigidly with the
+  anchor. Acceptable for glass refraction, where the backdrop is heavily distorted anyway.

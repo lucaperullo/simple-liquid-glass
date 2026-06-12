@@ -194,6 +194,11 @@ export interface WebGLGlassOptions {
   specular?: number;
   frost?: number;
   resolution?: number;
+  /**
+   * Automatically re-snapshot when the page content behind the glass changes
+   * (debounced MutationObserver) and on window resize. Default true.
+   */
+  autoRefresh?: boolean;
 }
 
 export interface WebGLGlassInstance {

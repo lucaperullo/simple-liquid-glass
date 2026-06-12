@@ -50,6 +50,11 @@ export interface WebGLGlassOptions {
   frost?: number;
   /** Snapshot resolution multiplier. Clamped to the GPU's max texture size. */
   resolution?: number;
+  /**
+   * Automatically re-snapshot when the page content behind the glass changes
+   * (debounced MutationObserver) and on window resize. Default true.
+   */
+  autoRefresh?: boolean;
 }
 
 type LensParams = Required<Pick<WebGLGlassOptions, 'scale' | 'radius' | 'blur' | 'saturation' | 'aberration' | 'edgeWidth' | 'specular' | 'frost'>>;
@@ -198,6 +203,10 @@ interface SnapshotEntry {
   refCount: number;
   version: number;
   capturing: Promise<void> | null;
+  observer: MutationObserver | null;
+  timer: number | null;
+  /** ignore mutation records until this timestamp (capture's own DOM cleanup) */
+  settleUntil: number;
 }
 
 interface Lens {
@@ -208,6 +217,7 @@ interface Lens {
   exclude: HTMLElement | null;
   getSnapshot?: () => Promise<HTMLCanvasElement | HTMLImageElement>;
   resolution: number;
+  autoRefresh: boolean;
   params: LensParams;
   lastKey: string;
   seenVersion: number;
@@ -342,7 +352,10 @@ class SharedRenderer {
         texH: 0,
         refCount: 0,
         version: 0,
-        capturing: null
+        capturing: null,
+        observer: null,
+        timer: null,
+        settleUntil: 0
       };
       this.snapshots.set(lens.source, entry);
     }
@@ -354,9 +367,75 @@ class SharedRenderer {
     if (!entry.capturing) {
       entry.capturing = this.capture(lens, entry).finally(() => {
         entry!.capturing = null;
+        // html2canvas removes its temporary clone iframe right after capture;
+        // those mutation records can arrive after `capturing` clears, so keep
+        // ignoring DOM noise for a short settle window.
+        entry!.settleUntil = performance.now() + 200;
       });
     }
     return entry.capturing;
+  }
+
+  /* --------------------------- auto refresh ------------------------------ */
+
+  /** True when DOM changes at/inside this node must not trigger a re-snapshot. */
+  private isOwnedNode(node: Node | null): boolean {
+    let el: HTMLElement | null =
+      node instanceof HTMLElement ? node : node?.parentElement ?? null;
+    while (el) {
+      if (el.dataset && el.dataset.liquidIgnore !== undefined) return true;
+      if (el.classList) {
+        if (el.classList.contains('liquid-glass-webgl-canvas')) return true;
+        if (el.classList.contains('html2canvas-container')) return true;
+      }
+      if (el.tagName === 'IFRAME') return true; // html2canvas clone target
+      for (const l of this.lenses) {
+        if (l.exclude && el === l.exclude) return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  private scheduleRefresh(source: HTMLElement, delay: number): void {
+    const entry = this.snapshots.get(source);
+    if (!entry) return;
+    if (entry.timer !== null) window.clearTimeout(entry.timer);
+    entry.timer = window.setTimeout(() => {
+      entry.timer = null;
+      const lens = Array.from(this.lenses).find((l) => l.source === source && l.autoRefresh);
+      if (lens) this.refreshSnapshot(lens);
+    }, delay);
+  }
+
+  private onWindowResize = (): void => {
+    for (const source of Array.from(this.snapshots.keys())) {
+      this.scheduleRefresh(source, 500);
+    }
+  };
+
+  private observeSource(lens: Lens, entry: SnapshotEntry): void {
+    if (entry.observer || typeof MutationObserver === 'undefined') return;
+    const source = lens.source;
+    const observer = new MutationObserver((records) => {
+      if (entry.capturing || performance.now() < entry.settleUntil) return;
+      for (const r of records) {
+        const nodes: Node[] = [r.target];
+        r.addedNodes.forEach((n) => nodes.push(n));
+        r.removedNodes.forEach((n) => nodes.push(n));
+        if (nodes.some((n) => !this.isOwnedNode(n))) {
+          this.scheduleRefresh(source, 250);
+          return;
+        }
+      }
+    });
+    observer.observe(source, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true
+    });
+    entry.observer = observer;
   }
 
   /* -------------------------------- lenses ------------------------------- */
@@ -378,6 +457,10 @@ class SharedRenderer {
     }
     this.lenses.add(lens);
     lens.element.appendChild(lens.canvas);
+    if (lens.autoRefresh) {
+      this.observeSource(lens, entry);
+      if (this.lenses.size === 1) window.addEventListener('resize', this.onWindowResize);
+    }
     if (!this.raf) this.loop();
     return true;
   }
@@ -390,11 +473,14 @@ class SharedRenderer {
     if (entry) {
       entry.refCount--;
       if (entry.refCount <= 0) {
+        entry.observer?.disconnect();
+        if (entry.timer !== null) window.clearTimeout(entry.timer);
         this.gl.deleteTexture(entry.texture);
         this.snapshots.delete(lens.source);
       }
     }
     if (this.lenses.size === 0) {
+      window.removeEventListener('resize', this.onWindowResize);
       cancelAnimationFrame(this.raf);
       this.raf = 0;
     }
@@ -504,6 +590,7 @@ export async function createWebGLGlass(options: WebGLGlassOptions): Promise<WebG
     exclude: options.exclude === undefined ? options.element : options.exclude,
     getSnapshot: options.getSnapshot,
     resolution: options.resolution ?? Math.min(window.devicePixelRatio || 1, 2),
+    autoRefresh: options.autoRefresh !== false,
     params: {
       scale: options.scale ?? 24,
       radius: options.radius ?? 50,

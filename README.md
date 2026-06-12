@@ -220,14 +220,14 @@ How it works: the live backdrop can't be read for security reasons, so the page 
 
 **Scales to many panes.** All instances share a single WebGL context and a single page snapshot (per snapshot source), so N panes ≠ N contexts/captures. Per-pane positioning, z-index and border-radius behave like normal DOM elements.
 
-**Refreshing the snapshot.** The snapshot is static; scrolling and moving panes works live, but if the content *behind* the glass changes, re-capture via the ref:
+**Snapshot refresh is automatic.** Scrolling and moving panes works live without re-capturing. When the content *behind* the glass changes (DOM mutations, window resize), the snapshot re-captures automatically (debounced MutationObserver; disable via `createWebGLGlass`'s `autoRefresh: false`). Captures are throttled — for very animation-heavy backgrounds consider the CSS fallback instead. You can also force a re-capture manually via the ref:
 
 ```jsx
 const glassRef = useRef(null);
 
 <LiquidGlass ref={glassRef} effectMode="webgl">...</LiquidGlass>
 
-// after the background changes:
+// force a re-capture:
 await glassRef.current.refresh();
 ```
 

@@ -742,7 +742,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     borderRadius: effectiveRadiusPx,
     position: "absolute",
     zIndex: 1,
-    background: resolvedGlassBackground,
+    // In WebGL mode the shader renders frost/tint itself; a CSS background
+    // here would show through as a ghost layer under/around the canvas.
+    background: webglActive ? 'transparent' : resolvedGlassBackground,
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden',

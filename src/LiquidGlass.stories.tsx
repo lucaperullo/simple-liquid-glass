@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import LiquidGlass from './index';
+import LiquidGlass, { LiquidGlassHandle } from './index';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -47,7 +47,7 @@ const meta: Meta<LiquidGlassComponent> = {
     },
     effectMode: {
       control: 'radio',
-      options: ['auto', 'svg', 'blur', 'off'],
+      options: ['auto', 'svg', 'blur', 'webgl', 'off'],
     },
     scale: { control: { type: 'range', min: 0, max: 400, step: 1 } },
     radius: { control: { type: 'range', min: 0, max: 200, step: 1 } },
@@ -325,6 +325,55 @@ export const EffectOff: Story = {
       <LiquidGlass {...args} />
     </DraggableWrapper>
   ),
+};
+
+/**
+ * WebGL refraction (works on iOS Safari & Firefox).
+ * The page is snapshotted with html2canvas (auto-loaded from CDN), so the
+ * story provides its own DOM background to refract. Use "Re-snapshot" after
+ * changing what's behind the glass.
+ */
+function WebGLShowcase(args: React.ComponentProps<typeof LiquidGlass>) {
+  const glassRef = useRef<LiquidGlassHandle>(null);
+  const [hue, setHue] = useState(200);
+
+  return (
+    <div style={{ position: 'relative', width: 720, maxWidth: '90vw', padding: 24 }}>
+      {/* background content that gets refracted */}
+      <div style={{ borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ height: 70, background: `linear-gradient(90deg, hsl(${hue} 90% 60%), hsl(${hue + 80} 90% 60%), hsl(${hue + 160} 90% 60%))` }} />
+        <div style={{ display: 'flex', height: 70 }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ flex: 1, background: i % 2 ? '#222' : '#fff' }} />
+          ))}
+        </div>
+        <div style={{ height: 70, background: `radial-gradient(circle at 30% 50%, hsl(${hue + 240} 90% 65%), #130f40)` }} />
+      </div>
+
+      {/* glass pane on top */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 340, height: 150 }}>
+        <LiquidGlass ref={glassRef} {...args}>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.5)' }}>
+            WebGL refraction
+          </div>
+        </LiquidGlass>
+      </div>
+
+      <div style={{ marginTop: 16, display: 'flex', gap: 12 }} data-liquid-ignore="">
+        <button onClick={() => setHue((h) => (h + 40) % 360)}>Shift background colors</button>
+        <button onClick={() => glassRef.current?.refresh()}>Re-snapshot (ref API)</button>
+      </div>
+    </div>
+  );
+}
+
+export const WebGLRefraction: Story = {
+  args: {
+    effectMode: 'webgl',
+    aberrationIntensity: 1,
+    blur: 2,
+  },
+  render: (args) => <WebGLShowcase {...args} />,
 };
 
 export const MobileCSSOnly: Story = {

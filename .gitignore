@@ -57,3 +57,5 @@ temp/
 # OS files
 Thumbs.db
 Desktop.ini
+# Claude session settings
+.claude/

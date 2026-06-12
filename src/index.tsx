@@ -1,4 +1,8 @@
-import React, { useMemo, useEffect, useRef, useState, useId } from 'react';
+import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImperativeHandle } from 'react';
+import { createWebGLGlass, WebGLGlassInstance } from './webglRenderer';
+
+export { createWebGLGlass } from './webglRenderer';
+export type { WebGLGlassOptions, WebGLGlassInstance } from './webglRenderer';
 
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 
@@ -49,7 +53,9 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   iosMinBlur?: number; // minimum blur on iOS even when blur=0
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
   mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
-  effectMode?: 'auto' | 'svg' | 'blur' | 'off'; // choose filter strategy independently
+  effectMode?: 'auto' | 'svg' | 'blur' | 'webgl' | 'off'; // choose filter strategy independently
+  // WebGL mode: custom snapshot provider (defaults to window.html2canvas on document.body)
+  getSnapshot?: () => Promise<HTMLCanvasElement | HTMLImageElement>;
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -191,6 +197,16 @@ function processBackground(background: string | undefined, alpha: number = 0.3):
   return addTransparencyToColor(background, alpha);
 }
 
+export interface LiquidGlassHandle {
+  /**
+   * WebGL mode: re-capture the page background snapshot (call after the
+   * content behind the glass changes). No-op in other effect modes.
+   */
+  refresh: () => Promise<void>;
+  /** The root container element. */
+  element: HTMLDivElement | null;
+}
+
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 200;
 
@@ -209,7 +225,7 @@ const preset = {
   borderColor: "rgba(120, 120, 120, 0.7)"
 };
 
-export function LiquidGlass({ 
+export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(function LiquidGlass({
   children,
   mode = "preset",
   scale = 160,
@@ -238,8 +254,9 @@ export function LiquidGlass({
   iosBlurMode = 'auto',
   mobileFallback,
   effectMode = 'auto',
+  getSnapshot,
   ...props
-}: LiquidGlassProps) {
+}: LiquidGlassProps, ref) {
   // Configuration based on mode
   let config: {
     mode: string;
@@ -615,28 +632,106 @@ export function LiquidGlass({
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
 
+  // Only Chromium (Blink) supports SVG filters in backdrop-filter (url(#...)).
+  // Safari/iOS WebKit (bug 245510) and Firefox silently ignore it, so gate on
+  // engine support instead of iOS-only checks (fixes broken effect on Firefox).
+  // Note: every iOS browser (incl. CriOS/FxiOS) is WebKit, hence the isIOS guard.
+  const supportsSvgBackdropFilter = (() => {
+    if (typeof navigator === 'undefined') return false;
+    if (isIOS) return false;
+    const ua = navigator.userAgent || '';
+    if (/firefox|fxios/i.test(ua)) return false;
+    return /(chrome|chromium|edg|opr)\//i.test(ua);
+  })();
+
   // Build backdrop-filter string with effectMode and mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
   const useSvgFilter = (() => {
     // effectMode has highest precedence
     if (effectMode === 'off') return false;
     if (effectMode === 'blur') return false;
-    if (effectMode === 'svg') return !(isIOS && iosBlurMode === 'auto');
+    if (effectMode === 'webgl') return false;
+    if (effectMode === 'svg') return supportsSvgBackdropFilter;
     // effectMode === 'auto'
+    if (!supportsSvgBackdropFilter) return false;
     if (mobileFallback === 'css-only') return false;
-    if (mobileFallback === 'svg') return !(isIOS && iosBlurMode === 'auto');
-    return !(isIOS && iosBlurMode === 'auto') && !isMobile;
+    if (mobileFallback === 'svg') return true;
+    return !isMobile;
   })();
   const cssOnlyBlurPx = (() => {
     if (effectMode === 'off') return 0;
     const base = (resolvedQuality === 'low' || isMobile || effectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;
     return Math.max(0, base);
   })();
-  const backdropFilterValue = useSvgFilter
-    ? `saturate(${config.saturation}%) url(#${filterId})`
-    : (cssOnlyBlurPx > 0
-        ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
-        : `saturate(${config.saturation}%)`);
+
+  // --- WebGL mode (true refraction on iOS/Firefox via snapshot + shader) ---
+  const wantsWebGL = effectMode === 'webgl';
+  const [webglActive, setWebglActive] = useState(false);
+  const webglRef = useRef<WebGLGlassInstance | null>(null);
+  const glassLayerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!wantsWebGL) return;
+    let cancelled = false;
+    let inst: WebGLGlassInstance | null = null;
+    (async () => {
+      const el = glassLayerRef.current;
+      if (!el) return;
+      inst = await createWebGLGlass({
+        element: el,
+        exclude: containerRef.current, // keep the pane itself out of the snapshot
+        getSnapshot,
+        radius: config.radius,
+        scale: config.scale / 8, // map feDisplacementMap scale to px displacement
+        blur: Math.max(config.blur, 1),
+        saturation: config.saturation,
+        aberration: config.aberrationIntensity * 0.3,
+        frost: config.frost
+      });
+      if (cancelled) {
+        inst?.destroy();
+        return;
+      }
+      webglRef.current = inst;
+      setWebglActive(!!inst);
+    })();
+    return () => {
+      cancelled = true;
+      inst?.destroy();
+      webglRef.current = null;
+      setWebglActive(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsWebGL]);
+
+  useEffect(() => {
+    webglRef.current?.update({
+      radius: config.radius,
+      scale: config.scale / 8,
+      blur: Math.max(config.blur, 1),
+      saturation: config.saturation,
+      aberration: config.aberrationIntensity * 0.3,
+      frost: config.frost
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.radius, config.scale, config.blur, config.saturation, config.aberrationIntensity, config.frost]);
+
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await webglRef.current?.refresh();
+    },
+    get element() {
+      return containerRef.current;
+    }
+  }), []);
+
+  const backdropFilterValue = webglActive
+    ? 'none' // canvas renders the full effect
+    : useSvgFilter
+      ? `saturate(${config.saturation}%) url(#${filterId})`
+      : (cssOnlyBlurPx > 0
+          ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
+          : `saturate(${config.saturation}%)`);
 
   // Cap SVG blur in low quality to reduce GPU cost
   const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
@@ -652,6 +747,28 @@ export function LiquidGlass({
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden',
     willChange: 'backdrop-filter, filter'
+  };
+
+  // Layered CSS fallback (iOS/Firefox): a masked edge "ring" with a stronger
+  // backdrop blur + brightness fakes the refraction band of the SVG/WebGL
+  // paths, plus a specular highlight. Far closer to liquid glass than a flat blur.
+  const showEdgeLayer = !useSvgFilter && !webglActive && effectMode !== 'off';
+  const edgeBandPx = Math.max(10, Math.round(Math.min(dimensions.width, dimensions.height) * 0.12));
+  const edgeBackdrop = `blur(${Math.max(cssOnlyBlurPx * 2, 6)}px) saturate(${config.saturation}%) brightness(1.07)`;
+  const edgeRefractionStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: effectiveRadiusPx,
+    zIndex: 1,
+    pointerEvents: 'none',
+    backdropFilter: edgeBackdrop,
+    WebkitBackdropFilter: edgeBackdrop,
+    border: `${edgeBandPx}px solid transparent`,
+    mask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+    maskComposite: 'exclude',
+    WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+    WebkitMaskComposite: 'xor',
+    boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.4), inset -1px -1px 0 rgba(255,255,255,0.15)'
   };
 
   // Gradient border styles
@@ -685,7 +802,7 @@ export function LiquidGlass({
       style={containerStyle}
       {...props}
     >
-      <div style={glassMorphismStyle}>
+      <div style={glassMorphismStyle} ref={glassLayerRef}>
         {useSvgFilter && effectMode !== 'off' && (
         <svg 
           className="liquid-glass-filter"
@@ -797,7 +914,11 @@ export function LiquidGlass({
         )}
       </div>
       
-      <div 
+      {showEdgeLayer && (
+        <div className="liquid-glass-edge" style={edgeRefractionStyle} />
+      )}
+
+      <div
         className="liquid-glass-border"
         style={gradientBorderStyle}
       />
@@ -829,7 +950,7 @@ export function LiquidGlass({
       )}
     </div>
   );
-}
+});
 
 LiquidGlass.displayName = "LiquidGlass";
 

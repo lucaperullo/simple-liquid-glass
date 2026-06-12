@@ -1,4 +1,4 @@
-import { ReactNode, CSSProperties, HTMLAttributes } from 'react';
+import { ReactNode, CSSProperties, HTMLAttributes, ForwardRefExoticComponent, RefAttributes } from 'react';
 
 export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   /**
@@ -130,10 +130,17 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
    */
   mobileFallback?: 'css-only' | 'svg';
   /**
-   * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
+   * Control the rendering effect: auto-select, force SVG, CSS blur, WebGL refraction, or disable effects entirely.
+   * 'webgl' renders true refraction on all browsers (incl. iOS Safari and Firefox) via a page snapshot + shader.
+   * Requires html2canvas on window, or a custom `getSnapshot`. Falls back to layered CSS if unavailable.
    * @default 'auto'
    */
-  effectMode?: 'auto' | 'svg' | 'blur' | 'off';
+  effectMode?: 'auto' | 'svg' | 'blur' | 'webgl' | 'off';
+  /**
+   * WebGL mode: custom snapshot provider for the background texture.
+   * Defaults to window.html2canvas(document.body).
+   */
+  getSnapshot?: () => Promise<HTMLCanvasElement | HTMLImageElement>;
   
   /**
    * Additional CSS class names
@@ -157,6 +164,48 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   autodetectquality?: boolean;
 }
 
-export declare function LiquidGlass(props: LiquidGlassProps): JSX.Element;
+/** Imperative handle exposed via ref. */
+export interface LiquidGlassHandle {
+  /**
+   * WebGL mode: re-capture the page background snapshot (call after the
+   * content behind the glass changes). No-op in other effect modes.
+   */
+  refresh: () => Promise<void>;
+  /** The root container element. */
+  element: HTMLDivElement | null;
+}
+
+export declare const LiquidGlass: ForwardRefExoticComponent<LiquidGlassProps & RefAttributes<LiquidGlassHandle>>;
+
+/** Options for the standalone WebGL renderer. */
+export interface WebGLGlassOptions {
+  element: HTMLElement;
+  snapshotSource?: HTMLElement;
+  exclude?: HTMLElement | null;
+  getSnapshot?: () => Promise<HTMLCanvasElement | HTMLImageElement>;
+  /** Auto-load html2canvas from cdnjs when missing. Default true. */
+  autoLoadSnapshotLib?: boolean;
+  scale?: number;
+  radius?: number;
+  blur?: number;
+  saturation?: number;
+  aberration?: number;
+  edgeWidth?: number;
+  specular?: number;
+  frost?: number;
+  resolution?: number;
+}
+
+export interface WebGLGlassInstance {
+  refresh: () => Promise<void>;
+  update: (opts: Partial<Pick<WebGLGlassOptions, 'scale' | 'radius' | 'blur' | 'saturation' | 'aberration' | 'edgeWidth' | 'specular' | 'frost'>>) => void;
+  destroy: () => void;
+}
+
+/**
+ * Framework-free WebGL liquid-glass renderer (used by effectMode 'webgl').
+ * Returns null when WebGL or a snapshot source is unavailable.
+ */
+export declare function createWebGLGlass(options: WebGLGlassOptions): Promise<WebGLGlassInstance | null>;
 
 export default LiquidGlass;

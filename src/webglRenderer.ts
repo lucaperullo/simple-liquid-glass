@@ -295,6 +295,8 @@ interface SnapshotEntry {
   timer: number | null;
   /** ignore mutation records until this timestamp (capture's own DOM cleanup) */
   settleUntil: number;
+  /** computed background signature at capture time, to detect stylesheet-driven changes */
+  bgSig: string | null;
 }
 
 interface Lens {
@@ -382,6 +384,10 @@ class SharedRenderer {
 
   private async capture(lens: Lens, entry: SnapshotEntry): Promise<void> {
     let img: HTMLCanvasElement | HTMLImageElement | null = null;
+    try {
+      const csSig = getComputedStyle(lens.source);
+      entry.bgSig = csSig.backgroundImage + '|' + csSig.backgroundColor;
+    } catch {}
     try {
       if (lens.getSnapshot) {
         img = await lens.getSnapshot();
@@ -474,7 +480,8 @@ class SharedRenderer {
         capturing: null,
         observer: null,
         timer: null,
-        settleUntil: 0
+        settleUntil: 0,
+        bgSig: null
       };
       this.snapshots.set(lens.source, entry);
     }
@@ -536,6 +543,10 @@ class SharedRenderer {
   private observeSource(lens: Lens, entry: SnapshotEntry): void {
     if (entry.observer || typeof MutationObserver === 'undefined') return;
     const source = lens.source;
+    // For <body> sources observe the whole documentElement: stylesheets
+    // injected into <head> (Storybook backgrounds addon, CSS-in-JS) change
+    // the backdrop without any mutation inside <body>.
+    const observeTarget = source === document.body ? document.documentElement : source;
     const observer = new MutationObserver((records) => {
       if (entry.capturing || performance.now() < entry.settleUntil) return;
       for (const r of records) {
@@ -548,13 +559,37 @@ class SharedRenderer {
         }
       }
     });
-    observer.observe(source, {
+    observer.observe(observeTarget, {
       subtree: true,
       childList: true,
       attributes: true,
       characterData: true
     });
     entry.observer = observer;
+  }
+
+  /**
+   * Stylesheet-driven backdrop changes (head <style> rules, media queries)
+   * can alter the computed background without matching mutation records.
+   * Cheap throttled check from the render loop.
+   */
+  private lastBgCheck = 0;
+
+  private checkBackgroundSignatures(): void {
+    const now = performance.now();
+    if (now - this.lastBgCheck < 500) return;
+    this.lastBgCheck = now;
+    for (const [source, entry] of Array.from(this.snapshots.entries())) {
+      if (entry.capturing || entry.bgSig === null) continue;
+      try {
+        const cs = getComputedStyle(source);
+        const sig = cs.backgroundImage + '|' + cs.backgroundColor;
+        if (sig !== entry.bgSig) {
+          entry.bgSig = sig; // avoid re-scheduling every tick while debounced
+          this.scheduleRefresh(source, 100);
+        }
+      } catch {}
+    }
   }
 
   /* -------------------------------- lenses ------------------------------- */
@@ -579,6 +614,9 @@ class SharedRenderer {
     if (lens.autoRefresh) {
       this.observeSource(lens, entry);
       if (this.lenses.size === 1) window.addEventListener('resize', this.onWindowResize);
+      // One settle re-capture: catches fonts, late-loading images and styles
+      // applied just after mount (e.g. Storybook's backgrounds addon).
+      this.scheduleRefresh(lens.source, 800);
     }
     if (!this.raf) this.loop();
     return true;
@@ -609,6 +647,7 @@ class SharedRenderer {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
+    this.checkBackgroundSignatures();
     for (const lens of this.lenses) this.renderLens(lens);
   };
 

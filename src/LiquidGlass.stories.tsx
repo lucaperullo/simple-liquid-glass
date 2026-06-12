@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { LiquidGlassHandle } from './index';
 
 type LiquidGlassComponent = typeof LiquidGlass;
@@ -10,25 +10,24 @@ const meta: Meta<LiquidGlassComponent> = {
   parameters: {
     layout: 'centered',
     backgrounds: {
-      default: 'light',
-      values: [
-        { name: 'light', value: '#ffffff' },
-        { name: 'dark', value: '#111111' },
-        { name: 'gray', value: '#2b2b2b' },
-        { name: 'brand', value: '#0ea5e9' },
-        {
+      options: {
+        light: { name: 'light', value: '#ffffff' },
+        dark: { name: 'dark', value: '#111111' },
+        gray: { name: 'gray', value: '#2b2b2b' },
+        brand: { name: 'brand', value: '#0ea5e9' },
+        imageForest: {
           name: 'Image: Forest',
           value: 'url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
         },
-        {
+        imageCity: {
           name: 'Image: City',
           value: 'url("https://images.unsplash.com/photo-1508057198894-247b23fe5ade?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
         },
-        {
+        imageBeach: {
           name: 'Image: Beach',
           value: 'url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2400&auto=format&fit=crop") center / cover no-repeat fixed',
         },
-      ],
+      },
     },
   },
   argTypes: {
@@ -213,16 +212,12 @@ export const Draggable: Story = {
       </div>
     ),
   },
+
   render: (args) => (
     <DraggableWrapper width={480} height={280}>
       <LiquidGlass {...args} />
     </DraggableWrapper>
-  ),
-  parameters: {
-    backgrounds: {
-      // use controls in the toolbar to test on different backgrounds
-    },
-  },
+  )
 };
 
 

@@ -1,4 +1,4 @@
-/** Shared CSS color helpers (single source of truth for component + WebGL renderer). */
+/** Shared CSS color helpers (single source of truth). */
 
 export interface Rgba { r: number; g: number; b: number; a: number }
 

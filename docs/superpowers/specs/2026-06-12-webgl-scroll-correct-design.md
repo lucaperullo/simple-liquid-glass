@@ -1,7 +1,10 @@
 # WebGL scroll-correct glass — design
 
 **Date:** 2026-06-12
-**Status:** approved
+**Status:** superseded — WebGL support was removed entirely in 2.0.0 (user decision,
+2026-06-13). Phase 1 was implemented and verified on the parked branch
+`feat/webgl-scroll-correct`; see that branch for the anchor-tracking work and
+the live DOM mirror research if refraction-on-iOS is ever revisited.
 **Scope:** `src/webglRenderer.ts`, `src/index.tsx`, stories, README
 
 ## Problem

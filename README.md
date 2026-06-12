@@ -136,8 +136,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
-| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'webgl' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, WebGL refraction, or disable |
-| `getSnapshot` | `() => Promise<canvas \| img>` | `window.html2canvas(body)` | WebGL mode: custom background snapshot provider |
+| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
 ## Examples
 
@@ -191,53 +190,16 @@ The `background` prop automatically converts solid colors and gradients to semi-
 
 SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Chrome, Edge, Opera, Android Chrome). Safari/iOS WebKit ([bug 245510](https://bugs.webkit.org/show_bug.cgi?id=245510)) and Firefox silently ignore them, so the component picks a strategy per engine:
 
-| Engine | `effectMode="auto"` | Best available |
-|--------|--------------------|----------------|
-| Chromium desktop | SVG displacement (full effect) | SVG |
-| Chromium Android | Layered CSS (perf) — opt into SVG with `mobileFallback="svg"` | SVG |
-| iOS Safari / all iOS browsers | Layered CSS fallback | WebGL |
-| Firefox | Layered CSS fallback | WebGL |
+| Engine | `effectMode="auto"` |
+|--------|--------------------|
+| Chromium desktop | SVG displacement (full effect) |
+| Chromium Android | Layered CSS (perf) — opt into SVG with `mobileFallback="svg"` |
+| iOS Safari / all iOS browsers | Layered CSS fallback |
+| Firefox | Layered CSS fallback |
 
 **Layered CSS fallback** (automatic): instead of a flat blur, a masked edge ring with a stronger backdrop blur + brightness fakes the refraction band, plus a specular highlight. Zero dependencies, 60fps.
 
-### WebGL mode (true refraction on iOS)
-
-`effectMode="webgl"` renders real displacement + chromatic aberration + frost + specular highlights in a fragment shader on any WebGL-capable browser, including iOS Safari. It is fully drop-in:
-
-```jsx
-<LiquidGlass effectMode="webgl">
-  <Content />   {/* children stay fully interactive */}
-</LiquidGlass>
-```
-
-How it works: the live backdrop can't be read for security reasons, so the page is snapshotted into a texture with [html2canvas](https://html2canvas.hertzen.com) — **auto-loaded from cdnjs on first use** if it isn't already on the page. To avoid the CDN request, include html2canvas yourself (script tag or bundle) or pass your own `getSnapshot`:
-
-```jsx
-<LiquidGlass effectMode="webgl" getSnapshot={async () => myBackgroundCanvas}>
-  <Content />
-</LiquidGlass>
-```
-
-**Scales to many panes.** All instances share a single WebGL context and a single page snapshot (per snapshot source), so N panes ≠ N contexts/captures. Per-pane positioning, z-index and border-radius behave like normal DOM elements.
-
-**Snapshot refresh is automatic.** Scrolling and moving panes works live without re-capturing. When the content *behind* the glass changes (DOM mutations, window resize), the snapshot re-captures automatically (debounced MutationObserver; disable via `createWebGLGlass`'s `autoRefresh: false`). Captures are throttled — for very animation-heavy backgrounds consider the CSS fallback instead. You can also force a re-capture manually via the ref:
-
-```jsx
-const glassRef = useRef(null);
-
-<LiquidGlass ref={glassRef} effectMode="webgl">...</LiquidGlass>
-
-// force a re-capture:
-await glassRef.current.refresh();
-```
-
-Notes & limitations:
-
-- Cross-origin images need permissive CORS headers or they'll be missing from the snapshot.
-- html2canvas re-renders the page, so some CSS isn't captured: `repeating-*`/`conic` gradients, some filters/shadows. Backgrounds with solid colors, images, and plain linear/radial gradients capture well.
-- Exclude elements from the snapshot (e.g. overlays) with the `data-liquid-ignore` attribute. Glass panes themselves are excluded automatically.
-- If WebGL or a snapshot source is unavailable, it gracefully falls back to the layered CSS effect.
-- The framework-free renderer is also exported for non-React use: `import { createWebGLGlass } from 'simple-liquid-glass'`.
+> **Note:** versions 1.4.x shipped an experimental snapshot-based WebGL refraction mode (`effectMode="webgl"`). It was removed in 2.0.0: snapshot-based refraction cannot track live page content reliably (smooth-scroll libraries, animations, html2canvas rendering gaps). On non-Chromium engines the component now always uses the layered CSS fallback.
 
 ## Performance and Fallbacks
 

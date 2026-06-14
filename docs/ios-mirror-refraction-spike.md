@@ -1,9 +1,13 @@
 # Spike: true refraction on iOS / Safari via a live DOM mirror (P4)
 
-**Status:** SHIPPED in v2.3.0 as the opt-in `simple-liquid-glass/mirror` export
-([src/mirror/index.tsx](../src/mirror/index.tsx)) — **validated on a real iPhone** (drag the
-lens to see the distortion). The original `src/experimental/MirrorGlass.tsx` POC was retired
-in favor of the production component. Perf notes: the filter is applied to a lens-sized element
+**Status:** SHIPPED in v2.3.0 as the opt-in `simple-liquid-glass/mirror` export, then **folded into
+the core `<LiquidGlass>` in v2.4.0** (engine: [src/core/mirrorEngine.ts](../src/core/mirrorEngine.ts);
+`backdropRef`/`backdropSelector`/`mirror`/`mirrorScale`/`track` props). `simple-liquid-glass/mirror`
+([src/mirror/index.tsx](../src/mirror/index.tsx)) is now a thin back-compat wrapper. **Validated on a
+real iPhone** (drag the lens to see the distortion). A zero-config auto-detect of the backdrop was
+tried in 2.4.0 and reverted — it crashed iOS Safari by cloning a page-sized ancestor, so the backdrop
+is required (must be a sibling, not an ancestor). The original `src/experimental/MirrorGlass.tsx` POC
+was retired in favor of the production component. Perf notes: the filter is applied to a lens-sized element
 (not the full-page clone) and the live re-align is throttled to ~30fps to keep iOS smooth; keep
 lenses modest in size. Use `track` for a moving/dragged lens.
 

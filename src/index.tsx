@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImpe
 import { parseCssColorToRgba, findNearestOpaqueBackground, isRgbColorDark } from './cssColor';
 import { cacheGet, cacheSet } from './displacementCache';
 import { quantizedSize, buildDisplacementDataUri } from './core/displacementMap';
+import { useMirrorEngine } from './core/mirrorEngine';
 import { decisiveTier, classifyQuality } from './quality';
 import type { LiquidQuality } from './quality';
 
@@ -51,6 +52,13 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
   mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
   effectMode?: 'auto' | 'svg' | 'blur' | 'off'; // choose filter strategy independently
+  // iOS/Safari/Firefox real-refraction mirror (live DOM clone). On the fallback engines, when a
+  // backdrop is provided, the lens refracts a displaced clone of it instead of just blurring.
+  mirror?: boolean; // enable the live mirror on fallback engines (default true)
+  backdropRef?: React.RefObject<HTMLElement | null>; // element behind the lens (must NOT be an ancestor)
+  backdropSelector?: string; // alternative to backdropRef: a CSS selector resolved on mount
+  mirrorScale?: number; // mirror displacement strength (default 26)
+  track?: boolean; // re-align the clone every frame when the lens itself moves (drag/animation)
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -246,6 +254,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   iosBlurMode = 'auto',
   mobileFallback,
   effectMode = 'auto',
+  mirror = true,
+  backdropRef,
+  backdropSelector,
+  mirrorScale = 26,
+  track = false,
   ...props
 }: LiquidGlassProps, ref) {
   // Configuration based on mode
@@ -310,6 +323,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const mirrorHolderRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
@@ -602,6 +616,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // Generate a unique ID for the SVG filter
   const uniqueFilterId = useId();
   const filterId = `liquid-glass-filter-${uniqueFilterId}`;
+  const mirrorFilterId = `liquid-glass-mirror-${uniqueFilterId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   const resolvedGlassBackground = background
     ? 'transparent' // Use transparent when background is provided
@@ -686,7 +701,21 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const fallbackFrostPx = isFallback
     ? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)
     : 0;
-  const backdropFilterValue = !isVisible
+
+  // On the fallback engines (Safari/iOS/Firefox), when a backdrop is provided, refract a live
+  // displaced clone of it instead of just blurring. Returns false (→ blur) on Chromium, when
+  // off-screen, when `mirror` is off, or when no usable backdrop is given. Purely additive: with
+  // mirrorActive=false the behavior is identical to the blur fallback.
+  const mirrorActive = useMirrorEngine({
+    enabled: isFallback && isVisible && mirror,
+    containerRef,
+    holderRef: mirrorHolderRef,
+    backdropRef,
+    backdropSelector,
+    track
+  });
+
+  const backdropFilterValue = !isVisible || mirrorActive
     ? 'none'
     : useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`
@@ -754,10 +783,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={className}
       style={containerStyle}
+      data-liquid-glass=""
       {...props}
     >
       <div style={glassMorphismStyle}>
@@ -871,6 +901,53 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
         </svg>
         )}
       </div>
+
+      {/* iOS / Safari / Firefox real-refraction mirror. The FILTERED element is lens-sized (inset 0
+          + overflow hidden) so the GPU only filters the lens area each frame; the clone holder
+          inside it is translated to the right slice of the backdrop. Hidden until the engine
+          confirms an explicit, non-ancestor backdrop — otherwise the blur fallback above shows. */}
+      {isFallback && mirror && (
+        <>
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1,
+              borderRadius: effectiveRadiusPx,
+              overflow: 'hidden',
+              filter: `url(#${mirrorFilterId})`,
+              WebkitFilter: `url(#${mirrorFilterId})`,
+              pointerEvents: 'none',
+              visibility: mirrorActive ? 'visible' : 'hidden'
+            }}
+          >
+            <div ref={mirrorHolderRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+          </div>
+          {mirrorActive && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 1,
+                borderRadius: effectiveRadiusPx,
+                pointerEvents: 'none',
+                background:
+                  'linear-gradient(168deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 100%)',
+                mixBlendMode: 'screen'
+              }}
+            />
+          )}
+          <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+            <filter id={mirrorFilterId} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.009 0.011" numOctaves={1} seed={11} result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale={mirrorScale} xChannelSelector="R" yChannelSelector="G" result="disp" />
+              <feGaussianBlur in="disp" stdDeviation="0.8" />
+            </filter>
+          </svg>
+        </>
+      )}
 
       <div
         className="liquid-glass-border"

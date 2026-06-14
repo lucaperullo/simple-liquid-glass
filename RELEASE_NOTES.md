@@ -1,3 +1,31 @@
+# What's new in `simple-liquid-glass` v2.4.0
+
+**Real refraction on iPhone — built right into `<LiquidGlass>`.** Safari/iOS and Firefox can't run
+SVG filters inside `backdrop-filter`, so they used to only blur. Now the core component carries a
+live-DOM **mirror**: give it the element behind the lens and, on those engines, it refracts a
+displaced clone of that element — actual distortion, not a frosted rectangle. Chromium keeps its
+native `backdrop-filter` refraction and pays nothing for the mirror.
+
+```jsx
+const bg = useRef(null);
+<div ref={bg}>{/* the background behind the glass */}</div>
+<LiquidGlass backdropRef={bg} track>…</LiquidGlass>
+```
+
+- **One component.** No separate import — the mirror lives in `<LiquidGlass>` (the `mirror` prop,
+  on by default). `simple-liquid-glass/mirror` still works as a thin back-compat wrapper.
+- **You point at the backdrop on purpose.** `backdropRef` must be a **sibling/background** element,
+  not an ancestor of the lens. There's deliberately no auto-detect: guessing it meant cloning a
+  page-sized ancestor, which crashes iOS Safari. Without a usable backdrop it falls back to blur.
+- **New props:** `mirror` (default true), `backdropRef`, `backdropSelector`, `mirrorScale`
+  (strength, default 26), `track` (re-align every frame for a moving/dragged lens).
+- **Tuned for iOS:** off-screen lenses pause, the filter is applied to a lens-sized element, and the
+  re-align is throttled to ~30fps. Validated on a real iPhone.
+- **Bundle:** core 6.6 → ~7.5 KB gzip (still zero runtime dependencies, still SSR-safe). No
+  breaking changes — without a `backdropRef`, behavior is identical to 2.3.0.
+
+---
+
 # What's new in `simple-liquid-glass` v2.2.0
 
 **Performance hardening release.** Every glass element on your page now costs less CPU, GPU

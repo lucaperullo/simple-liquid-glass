@@ -672,14 +672,31 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     }
   }), []);
 
+  // CSS fallback (Safari/Firefox/iOS): true refraction is impossible (WebKit can't run SVG
+  // filters in backdrop-filter), so the surface must instead read as real frosted glass.
+  // Give it a blur floor + extra saturation/brightness. The SVG path is untouched — its
+  // displacement already provides the glassy look.
+  const isFallback = !useSvgFilter && effectMode !== 'off';
+  const fallbackFrostPx = isFallback
+    ? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)
+    : 0;
   const backdropFilterValue = useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`
-    : (cssOnlyBlurPx > 0
-        ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
-        : `saturate(${config.saturation}%)`);
+    : isFallback
+      ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 160)}%) brightness(1.04)`
+      : (cssOnlyBlurPx > 0
+          ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
+          : `saturate(${config.saturation}%)`);
 
   // Cap SVG blur in low quality to reduce GPU cost
   const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
+
+  // Diagonal specular sheen + soft depth, layered over the glass tint — fallback only.
+  const fallbackSheen =
+    'linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 16%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 72%, rgba(255,255,255,0.12) 100%)';
+  const glassLayerBackground = isFallback
+    ? `${fallbackSheen}, ${resolvedGlassBackground}`
+    : resolvedGlassBackground;
 
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
@@ -687,10 +704,13 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     borderRadius: effectiveRadiusPx,
     position: "absolute",
     zIndex: 1,
-    background: resolvedGlassBackground,
+    background: glassLayerBackground,
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden',
+    // Soft outer shadow gives the fallback the depth real glass has (the SVG path reads as
+    // glass from its refraction, so it doesn't need it).
+    boxShadow: isFallback ? '0 6px 22px rgba(0, 0, 0, 0.12)' : undefined,
     // Dynamic: only hint the compositor while actively resizing (see A4). Idle instances
     // default to 'auto' so many cards on a page don't each pin a GPU layer.
     willChange: isResizing ? 'backdrop-filter, filter' : 'auto'
@@ -701,7 +721,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // plus a specular highlight. Far closer to liquid glass than a flat blur.
   const showEdgeLayer = !useSvgFilter && effectMode !== 'off';
   const edgeBandPx = Math.max(10, Math.round(Math.min(dimensions.width, dimensions.height) * 0.12));
-  const edgeBackdrop = `blur(${Math.max(cssOnlyBlurPx * 2, 6)}px) saturate(${config.saturation}%) brightness(1.07)`;
+  // Edge ring refracts harder than the centre (stronger blur + brightness), faking the
+  // lensing band of real glass.
+  const edgeBackdrop = `blur(${Math.max(fallbackFrostPx * 1.5, 10)}px) saturate(${Math.max(config.saturation, 170)}%) brightness(1.1)`;
   const edgeRefractionStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
@@ -715,7 +737,13 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     maskComposite: 'exclude',
     WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
     WebkitMaskComposite: 'xor',
-    boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.4), inset -1px -1px 0 rgba(255,255,255,0.15)'
+    // Warm highlight top-left, cool highlight bottom-right = fake chromatic aberration on the
+    // rim, plus a faint full-perimeter lens rim. (Pure CSS — no displacement available here.)
+    boxShadow: [
+      'inset 1.5px 1.5px 1.5px rgba(255, 243, 235, 0.55)',
+      'inset -1.5px -1.5px 1.5px rgba(223, 238, 255, 0.45)',
+      'inset 0 0 0 1px rgba(255, 255, 255, 0.20)'
+    ].join(', ')
   };
 
   // Gradient border styles

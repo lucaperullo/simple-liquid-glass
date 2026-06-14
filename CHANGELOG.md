@@ -20,16 +20,17 @@ All notable changes to this project are documented here. This project adheres to
 - **`core/displacementMap`** — the displacement-map generator extracted into a pure,
   framework-agnostic, unit-tested module now shared by the React component and the web
   component (single source of truth).
-- **`simple-liquid-glass/mirror`** — REAL refraction on Safari / iOS / Firefox, not just blur.
-  Those engines can't run SVG filters in `backdrop-filter`, but they can in a regular element
-  `filter`, so `<LiquidGlassMirror backdropRef={…}>` renders a live, displaced **clone** of the
-  content behind the lens (true distortion). Opt-in subpath (~7.7 KB gzip; core unchanged),
-  gated to the fallback engines, off-screen-paused, and degrades to blur when no backdrop
-  source is given. **Validated on a real iPhone** (drag the lens to see the distortion). Supports
-  `backdropRef`/`backdropSelector` (the element behind the lens), `mirrorScale`, and `track`
-  (continuous re-align for a moving/dragged lens). Off-screen-paused; the filter is applied to a
-  lens-sized element + the re-align is throttled to ~30fps to keep iOS smooth. Supersedes the
-  earlier experimental POC.
+- **Automatic real refraction on Safari / iOS / Firefox** — `<LiquidGlass>` now does it out of
+  the box. Those engines can't run SVG filters in `backdrop-filter`, but they can in a regular
+  element `filter`, so on the fallback engines the core renders a live, displaced **clone** of the
+  content behind the lens (true distortion) instead of just blurring. On by default (`mirror`
+  prop); the **backdrop is auto-detected** (nearest background-ish ancestor, else `<body>`), with
+  `backdropRef`/`backdropSelector` to target it explicitly, `mirrorScale` for strength, and
+  `track` for a moving/dragged lens. **Validated on a real iPhone.** Off-screen-paused; the filter
+  is applied to a lens-sized element and the re-align is throttled to ~30fps to keep iOS smooth.
+  The engine lives in `core/mirrorEngine` (shared); `simple-liquid-glass/mirror` →
+  `LiquidGlassMirror` remains as a thin back-compat wrapper. (Core grows to ~7.6 KB gzip to
+  include this; the old experimental POC is retired.)
 
 ### Improved
 

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
 import { LiquidGlassInteractive } from './interactive';
+import { MirrorGlass } from './experimental/MirrorGlass';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -415,6 +416,83 @@ export const ManyInstances: Story = {
       ))}
     </div>
   ),
+};
+
+function IOSMirrorDemo() {
+  const bgRef = useRef<HTMLDivElement>(null);
+  const blocks = ['#ff5f6d', '#ffc371', '#2193b0', '#6dd5ed', '#c471f5', '#fa71cd'];
+  return (
+    <div style={{ position: 'relative', minHeight: '120vh' }}>
+      <div
+        ref={bgRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignContent: 'flex-start',
+          gap: 0,
+          background: '#0b1021',
+        }}
+      >
+        {Array.from({ length: 60 }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: '16.66%',
+              height: 90,
+              background: blocks[i % blocks.length],
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.92)',
+              fontWeight: 600,
+              fontSize: 22,
+            }}
+          >
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontFamily: 'system-ui, sans-serif',
+              color: '#fff',
+              background: 'rgba(0,0,0,0.45)',
+              padding: '6px 12px',
+              borderRadius: 8,
+            }}
+          >
+            Open on iPhone Safari — the blocks behind should bend (true refraction)
+          </div>
+          <MirrorGlass source={bgRef} width={320} height={200} scale={60}>
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 600,
+                color: '#fff',
+                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              }}
+            >
+              iOS mirror refraction
+            </div>
+          </MirrorGlass>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const IOSMirrorRefraction: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => <IOSMirrorDemo />,
 };
 
 export const Elastic: Story = {

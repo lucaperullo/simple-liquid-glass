@@ -691,7 +691,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     : useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`
     : isFallback
-      ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 160)}%) brightness(1.04)`
+      ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 180)}%)`
       : (cssOnlyBlurPx > 0
           ? `blur(${cssOnlyBlurPx}px) saturate(${config.saturation}%)`
           : `saturate(${config.saturation}%)`);
@@ -699,12 +699,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // Cap SVG blur in low quality to reduce GPU cost
   const feBlurStdDev = resolvedQuality === 'low' ? Math.min(config.blur, 2) : config.blur;
 
-  // Diagonal specular sheen + soft depth, layered over the glass tint — fallback only.
-  const fallbackSheen =
-    'linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 16%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 72%, rgba(255,255,255,0.12) 100%)';
-  const glassLayerBackground = isFallback
-    ? `${fallbackSheen}, ${resolvedGlassBackground}`
-    : resolvedGlassBackground;
+  // Fallback glass tint: bright at the very top (light from above) fading to near-transparent
+  // through the body, so the blurred backdrop shows through — reads as glass, not milky plastic.
+  const fallbackTint =
+    'linear-gradient(168deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 11%, rgba(255,255,255,0.03) 46%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.08) 100%)';
+  const glassLayerBackground = isFallback ? fallbackTint : resolvedGlassBackground;
 
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
@@ -716,43 +715,19 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden',
-    // Soft outer shadow gives the fallback the depth real glass has (the SVG path reads as
-    // glass from its refraction, so it doesn't need it).
-    boxShadow: isFallback ? '0 6px 22px rgba(0, 0, 0, 0.12)' : undefined,
+    // Fallback depth + glass edge: soft outer drop shadow, a bright top rim (light catching the
+    // edge), a faint bottom rim, and a hairline full-perimeter rim. (SVG path reads as glass
+    // from its refraction, so it gets none of this.)
+    boxShadow: isFallback
+      ? '0 10px 30px rgba(0,0,0,0.20), inset 0 1px 1px rgba(255,255,255,0.75), inset 0 -2px 3px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.22)'
+      : undefined,
     // Dynamic: only hint the compositor while actively resizing (see A4). Idle instances
     // default to 'auto' so many cards on a page don't each pin a GPU layer.
     willChange: isResizing ? 'backdrop-filter, filter' : 'auto'
   };
 
-  // Layered CSS fallback (iOS/Firefox): a masked edge "ring" with a stronger
-  // backdrop blur + brightness fakes the refraction band of the SVG path,
-  // plus a specular highlight. Far closer to liquid glass than a flat blur.
-  const showEdgeLayer = !useSvgFilter && effectMode !== 'off' && isVisible;
-  const edgeBandPx = Math.max(10, Math.round(Math.min(dimensions.width, dimensions.height) * 0.12));
-  // Edge ring refracts harder than the centre (stronger blur + brightness), faking the
-  // lensing band of real glass.
-  const edgeBackdrop = `blur(${Math.max(fallbackFrostPx * 1.5, 10)}px) saturate(${Math.max(config.saturation, 170)}%) brightness(1.1)`;
-  const edgeRefractionStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    borderRadius: effectiveRadiusPx,
-    zIndex: 1,
-    pointerEvents: 'none',
-    backdropFilter: edgeBackdrop,
-    WebkitBackdropFilter: edgeBackdrop,
-    border: `${edgeBandPx}px solid transparent`,
-    mask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-    maskComposite: 'exclude',
-    WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-    WebkitMaskComposite: 'xor',
-    // Warm highlight top-left, cool highlight bottom-right = fake chromatic aberration on the
-    // rim, plus a faint full-perimeter lens rim. (Pure CSS — no displacement available here.)
-    boxShadow: [
-      'inset 1.5px 1.5px 1.5px rgba(255, 243, 235, 0.55)',
-      'inset -1.5px -1.5px 1.5px rgba(223, 238, 255, 0.45)',
-      'inset 0 0 0 1px rgba(255, 255, 255, 0.20)'
-    ].join(', ')
-  };
+  // (The old masked "edge band" fallback was removed — it read as a clunky inset frame. The
+  // fallback's glass edge now comes from the rim box-shadows above + the gradient border below.)
 
   // Gradient border styles
   const gradientBorderStyle: React.CSSProperties = {
@@ -896,10 +871,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
         </svg>
         )}
       </div>
-      
-      {showEdgeLayer && (
-        <div className="liquid-glass-edge" style={edgeRefractionStyle} />
-      )}
 
       <div
         className="liquid-glass-border"

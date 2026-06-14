@@ -44,9 +44,9 @@
   },
   "size-limit": [
     {
-      "name": "core — import { LiquidGlass } (gzip)",
+      "name": "core — import { LiquidGlass } (gzip, includes iOS mirror engine)",
       "path": "dist/index.esm.js",
-      "limit": "7 KB",
+      "limit": "8.5 KB",
       "ignore": ["react", "react-dom"]
     },
     {

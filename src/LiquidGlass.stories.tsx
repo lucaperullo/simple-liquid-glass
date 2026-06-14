@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
 import { LiquidGlassInteractive } from './interactive';
-import { LiquidGlassMirror } from './mirror';
 import './web-component'; // side-effect: registers <liquid-glass>
 
 type LiquidGlassComponent = typeof LiquidGlass;
@@ -421,7 +420,6 @@ export const ManyInstances: Story = {
 
 function IOSMirrorDemo() {
   const bgRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState<boolean | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ on: false, sx: 0, sy: 0, px: 0, py: 0 });
   const onDown = (e: React.PointerEvent) => {
@@ -485,20 +483,7 @@ function IOSMirrorDemo() {
               borderRadius: 8,
             }}
           >
-            Open on iPhone Safari — the blocks behind should bend (true refraction)
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              fontFamily: 'system-ui, sans-serif',
-              fontWeight: 700,
-              color: active ? '#7CFC9B' : '#ffd36b',
-              background: 'rgba(0,0,0,0.55)',
-              padding: '6px 14px',
-              borderRadius: 8,
-            }}
-          >
-            mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
+            Plain &lt;LiquidGlass backdropRef={'{bg}'}&gt; — on iPhone Safari the blocks behind bend (true refraction)
           </div>
           <div
             ref={wrapRef}
@@ -508,7 +493,9 @@ function IOSMirrorDemo() {
             onPointerCancel={onUp}
             style={{ width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
           >
-            <LiquidGlassMirror backdropRef={bgRef} force track radius={28} onActiveChange={setActive}>
+            {/* The core component, given a (sibling) backdrop. mobileFallback="css-only" forces the
+                fallback path so the mirror is exercisable on Chromium; on real iOS it auto-takes it. */}
+            <LiquidGlass backdropRef={bgRef} track radius={28} mobileFallback="css-only">
               <div
                 style={{
                   width: '100%',
@@ -523,7 +510,7 @@ function IOSMirrorDemo() {
               >
                 drag me over the blocks
               </div>
-            </LiquidGlassMirror>
+            </LiquidGlass>
           </div>
         </div>
       </div>

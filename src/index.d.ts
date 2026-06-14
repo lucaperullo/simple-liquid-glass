@@ -136,6 +136,32 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
   effectMode?: 'auto' | 'svg' | 'blur' | 'off';
 
   /**
+   * On the fallback engines (Safari / iOS / Firefox, which can't run SVG filters in
+   * `backdrop-filter`), refract a live displaced **clone** of the element behind the lens instead
+   * of just blurring. Requires `backdropRef` (or `backdropSelector`); falls back to blur otherwise.
+   * @default true
+   */
+  mirror?: boolean;
+  /**
+   * The element behind the lens to refract (for the iOS/Safari mirror). MUST NOT be an ancestor of
+   * the lens — point it at a sibling/background element. Falls back to blur when omitted.
+   */
+  backdropRef?: import('react').RefObject<HTMLElement | null>;
+  /** Alternative to `backdropRef`: a CSS selector for the backdrop, resolved on mount. */
+  backdropSelector?: string;
+  /**
+   * Displacement strength for the mirror refraction.
+   * @default 26
+   */
+  mirrorScale?: number;
+  /**
+   * Continuously re-align the mirror clone every frame — needed only when the lens itself MOVES
+   * (dragging, animation). Scroll/resize re-align is automatic for static lenses.
+   * @default false
+   */
+  track?: boolean;
+
+  /**
    * Additional CSS class names
    */
   className?: string;

@@ -53,40 +53,49 @@ function App() {
 }
 ```
 
-### Real refraction on iOS / Safari / Firefox — `LiquidGlassMirror`
+### Real refraction on iOS / Safari / Firefox — built into `<LiquidGlass>`
 
-The core `<LiquidGlass>` SVG refraction only runs on **Chromium** — WebKit (Safari/iOS) and
-Firefox can't put SVG filters inside `backdrop-filter`, so there they show a frosted‑blur
-fallback. For **true distortion on iOS/Safari/Firefox**, use `LiquidGlassMirror` from the
-opt‑in `/mirror` subpath. Safari *does* support `feDisplacementMap` in a regular element
-`filter`, so the mirror renders a live, displaced **clone** of the content behind the lens.
-It auto‑selects per engine:
-
-- **Chromium** → delegates to the core `<LiquidGlass>` (real `backdrop-filter` refraction)
-- **Safari / iOS / Firefox** → live‑DOM‑mirror refraction (the real distortion)
-- **no source / unsupported layout** → frosted‑blur fallback
+SVG-displacement refraction in `backdrop-filter` only runs on **Chromium** — WebKit (Safari/iOS)
+and Firefox can't do it, so by default they show a frosted-blur fallback. But Safari/iOS *can* run
+`feDisplacementMap` in a regular element `filter` (caniuse #3803). So `<LiquidGlass>` has a built-in
+**mirror**: on the fallback engines, when you give it the element behind the lens, it refracts a
+live, displaced **clone** of that element — true distortion, no extra component:
 
 ```jsx
 import { useRef } from 'react';
-import { LiquidGlassMirror } from 'simple-liquid-glass/mirror';
+import { LiquidGlass } from 'simple-liquid-glass';
 
 function Card() {
   const bg = useRef(null);
   return (
     <div style={{ position: 'relative' }}>
-      <div ref={bg}>{/* the content that sits behind the glass */}</div>
-      <LiquidGlassMirror backdropRef={bg} radius={24} track>
+      <div ref={bg}>{/* the background that sits behind the glass */}</div>
+      <LiquidGlass backdropRef={bg} radius={24} track>
         <div style={{ padding: 20 }}>Glass that refracts on iOS</div>
-      </LiquidGlassMirror>
+      </LiquidGlass>
     </div>
   );
 }
 ```
 
-Point `backdropRef` (or `backdropSelector`) at the element whose content is behind the lens
-(it must **not** be an ancestor of the lens, or it would mirror itself). Add `track` when the
-lens itself moves (drag/animation) so the refraction follows it. Keep lenses modest in size —
-the iOS filter cost scales with lens area. `mirrorScale` tunes the distortion strength.
+Per engine:
+
+- **Chromium** → real `backdrop-filter` refraction (the mirror stays off — nothing to pay for)
+- **Safari / iOS / Firefox** with a `backdropRef` → live-DOM-mirror refraction (the real distortion)
+- **Safari / iOS / Firefox** without a usable backdrop → frosted-blur fallback
+
+**Why you must pass `backdropRef`.** The library can't safely *guess* what's behind a floating
+glass panel. Auto-detecting it means cloning a page-sized ancestor, which exhausts iOS Safari's
+memory and crashes the tab — so it's required, not magic. Point `backdropRef` (or `backdropSelector`)
+at the element behind the lens; it must be a **sibling/background**, **not an ancestor** of the lens
+(an ancestor would mirror the glass into itself — that case degrades to blur). Notes:
+
+- `track` — re-align the clone every frame when the lens itself **moves** (drag/animation).
+- `mirrorScale` — distortion strength (default 26). `mirror={false}` — opt out (blur on iOS).
+- Keep lenses modest in size — the iOS filter cost scales with lens area.
+
+> `LiquidGlassMirror` from `simple-liquid-glass/mirror` still exists as a thin back-compat wrapper
+> (it just forwards to `<LiquidGlass>`), but it's no longer needed — the core does this directly.
 
 ### Pointer‑reactive elasticity — `LiquidGlassInteractive`
 

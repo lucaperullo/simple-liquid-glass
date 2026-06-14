@@ -20,16 +20,18 @@ All notable changes to this project are documented here. This project adheres to
 - **`core/displacementMap`** — the displacement-map generator extracted into a pure,
   framework-agnostic, unit-tested module now shared by the React component and the web
   component (single source of truth).
-- **`simple-liquid-glass/mirror`** — REAL refraction on Safari / iOS / Firefox, not just blur.
-  Those engines can't run SVG filters in `backdrop-filter`, but they can in a regular element
-  `filter`, so `<LiquidGlassMirror backdropRef={…}>` renders a live, displaced **clone** of the
-  content behind the lens (true distortion). Opt-in subpath (~7.7 KB gzip; core unchanged),
-  gated to the fallback engines, off-screen-paused, and degrades to blur when no backdrop
-  source is given. **Validated on a real iPhone** (drag the lens to see the distortion). Supports
-  `backdropRef`/`backdropSelector` (the element behind the lens), `mirrorScale`, and `track`
-  (continuous re-align for a moving/dragged lens). Off-screen-paused; the filter is applied to a
-  lens-sized element + the re-align is throttled to ~30fps to keep iOS smooth. Supersedes the
-  earlier experimental POC.
+- **Real refraction on Safari / iOS / Firefox — built into `<LiquidGlass>`.** Those engines can't
+  run SVG filters in `backdrop-filter`, but they can in a regular element `filter`, so when you give
+  the core component the element behind the lens (`backdropRef`/`backdropSelector`), on the fallback
+  engines it refracts a live, displaced **clone** of that element (true distortion) instead of just
+  blurring. No separate component. The backdrop is **required, not auto-detected** — guessing it
+  means cloning a page-sized ancestor, which crashes iOS Safari; an ancestor source degrades to
+  blur. New props: `mirror` (default true), `backdropRef`, `backdropSelector`, `mirrorScale` (26),
+  `track` (re-align for a moving/dragged lens). **Validated on a real iPhone.** Off-screen-paused;
+  the filter is applied to a lens-sized element and the re-align is throttled to ~30fps to keep iOS
+  smooth. Engine lives in `core/mirrorEngine` (shared); `simple-liquid-glass/mirror` →
+  `LiquidGlassMirror` remains as a thin back-compat wrapper that just forwards to `<LiquidGlass>`.
+  (Core grows to ~7.5 KB gzip to include this.)
 
 ### Improved
 
@@ -38,7 +40,7 @@ All notable changes to this project are documented here. This project adheres to
   unblurred at the default `blur=0`), a top-lit gradient sheen, a bright specular rim, and a soft
   depth shadow — and the white-tint/brightness wash + the clunky masked "edge band" were both
   removed. Gated to the fallback path; the Chromium SVG path is unchanged. (Note: this path can
-  only blur — true distortion on those engines needs `simple-liquid-glass/mirror` above.)
+  only blur — for true distortion on those engines, give `<LiquidGlass>` a `backdropRef` (above).)
 - **Multi-instance performance.** Off-screen instances now drop their `backdrop-filter`
   via an `IntersectionObserver` (200px margin, no pop-in), so a page with many glass cards
   only pays GPU cost for the ones in view (e.g. 60/100 disabled on a typical scroll).

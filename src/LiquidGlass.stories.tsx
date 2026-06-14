@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
 import { LiquidGlassInteractive } from './interactive';
-import { MirrorGlass } from './experimental/MirrorGlass';
+import { LiquidGlassMirror } from './mirror';
 import './web-component'; // side-effect: registers <liquid-glass>
 
 type LiquidGlassComponent = typeof LiquidGlass;
@@ -469,22 +469,24 @@ function IOSMirrorDemo() {
           >
             Open on iPhone Safari — the blocks behind should bend (true refraction)
           </div>
-          <MirrorGlass source={bgRef} width={320} height={200} scale={60}>
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 600,
-                color: '#fff',
-                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-              }}
-            >
-              iOS mirror refraction
-            </div>
-          </MirrorGlass>
+          <div style={{ width: 320, height: 200 }}>
+            <LiquidGlassMirror backdropRef={bgRef} force mirrorScale={48} radius={28}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 600,
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                }}
+              >
+                iOS mirror refraction
+              </div>
+            </LiquidGlassMirror>
+          </div>
         </div>
       </div>
     </div>

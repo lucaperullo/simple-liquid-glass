@@ -45,6 +45,17 @@ export default [
     plugins: jsPlugins(),
     external: ['react', 'react-dom']
   },
+  // Opt-in mirror entry (./mirror) — real refraction on Safari/iOS/Firefox via a displaced
+  // live DOM clone. Self-contained (bundles core); consumers use either the core OR this.
+  {
+    input: 'src/mirror/index.tsx',
+    output: [
+      { file: 'dist/mirror.cjs', format: 'cjs', sourcemap: true, exports: 'named' },
+      { file: 'dist/mirror.esm.js', format: 'esm', sourcemap: true, exports: 'named' }
+    ],
+    plugins: jsPlugins(),
+    external: ['react', 'react-dom']
+  },
   // Framework-agnostic <liquid-glass> web component (./web-component) — vanilla, no React.
   {
     input: 'src/web-component/index.ts',

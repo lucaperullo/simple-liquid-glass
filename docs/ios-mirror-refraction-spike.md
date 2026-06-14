@@ -1,6 +1,9 @@
 # Spike: true refraction on iOS / Safari via a live DOM mirror (P4)
 
-**Status:** experimental spike — verified in Chromium, **awaiting real-device validation on iOS Safari**.
+**Status:** productized as the opt-in `simple-liquid-glass/mirror` export
+([src/mirror/index.tsx](../src/mirror/index.tsx)) — mechanism verified in Chromium,
+**awaiting real-device validation on iOS Safari**. (The original `src/experimental/MirrorGlass.tsx`
+POC has been retired in favor of the production component.)
 
 ## The problem
 

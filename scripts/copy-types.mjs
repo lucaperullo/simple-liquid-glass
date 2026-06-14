@@ -22,6 +22,13 @@ const interactiveContent = (await readFile(interactiveSrc, 'utf8')).replace(/(['
 await writeFile(interactiveDest, interactiveContent);
 console.log(`[copy-types] Copied ${interactiveSrc} -> ${interactiveDest} (rewrote ../index -> ./index)`);
 
+// Mirror subpath types: rewrite '../index' -> './index' for the flat dist layout.
+const mirrorSrc = resolve(root, 'src', 'mirror', 'index.d.ts');
+const mirrorDest = resolve(outDir, 'mirror.d.ts');
+const mirrorContent = (await readFile(mirrorSrc, 'utf8')).replace(/(['"])\.\.\/index\1/g, "$1./index$1");
+await writeFile(mirrorDest, mirrorContent);
+console.log(`[copy-types] Copied ${mirrorSrc} -> ${mirrorDest} (rewrote ../index -> ./index)`);
+
 // Web component types: self-contained, copy as-is.
 const wcSrc = resolve(root, 'src', 'web-component', 'index.d.ts');
 const wcDest = resolve(outDir, 'web-component.d.ts');

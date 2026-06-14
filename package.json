@@ -17,6 +17,11 @@
       "import": "./dist/interactive.esm.js",
       "require": "./dist/interactive.cjs"
     },
+    "./mirror": {
+      "types": "./dist/mirror.d.ts",
+      "import": "./dist/mirror.esm.js",
+      "require": "./dist/mirror.cjs"
+    },
     "./web-component": {
       "types": "./dist/web-component.d.ts",
       "import": "./dist/web-component.esm.js",
@@ -47,6 +52,12 @@
     {
       "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
       "path": "dist/interactive.esm.js",
+      "limit": "9 KB",
+      "ignore": ["react", "react-dom"]
+    },
+    {
+      "name": "mirror — import { LiquidGlassMirror } (gzip, bundles core)",
+      "path": "dist/mirror.esm.js",
       "limit": "9 KB",
       "ignore": ["react", "react-dom"]
     },

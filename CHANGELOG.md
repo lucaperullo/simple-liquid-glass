@@ -20,20 +20,22 @@ All notable changes to this project are documented here. This project adheres to
 - **`core/displacementMap`** — the displacement-map generator extracted into a pure,
   framework-agnostic, unit-tested module now shared by the React component and the web
   component (single source of truth).
-
-### Experimental
-
-- **iOS/Safari true-refraction spike** (`src/experimental/MirrorGlass.tsx`, story-only, not a
-  package export): a live-DOM-mirror that applies the displacement via element `filter:url()`
-  (which Safari supports, unlike `backdrop-filter`). Awaiting real-device validation. See
-  `docs/ios-mirror-refraction-spike.md`.
+- **`simple-liquid-glass/mirror`** — REAL refraction on Safari / iOS / Firefox, not just blur.
+  Those engines can't run SVG filters in `backdrop-filter`, but they can in a regular element
+  `filter`, so `<LiquidGlassMirror backdropRef={…}>` renders a live, displaced **clone** of the
+  content behind the lens (true distortion). Opt-in subpath (~7.7 KB gzip; core unchanged),
+  gated to the fallback engines, off-screen-paused, and degrades to blur when no backdrop
+  source is given or the layout is unsupported (transformed/fixed/sticky ancestors). The final
+  iOS look is pending real-device validation. (Supersedes the earlier experimental POC.)
 
 ### Improved
 
-- **Frosted CSS fallback (Safari/Firefox/iOS).** The fallback now reads as real frosted
-  glass — a blur frost floor on the centre (it was unblurred at the default `blur=0`), a
-  diagonal specular sheen, a warm/cool chromatic edge ring, stronger edge lensing, and soft
-  depth. Gated to the fallback path; the Chromium SVG path is unchanged.
+- **Frosted CSS fallback (Safari/Firefox/iOS).** Redesigned to read as real, transparent
+  frosted glass instead of a milky plastic rectangle: a blur frost floor on the centre (it was
+  unblurred at the default `blur=0`), a top-lit gradient sheen, a bright specular rim, and a soft
+  depth shadow — and the white-tint/brightness wash + the clunky masked "edge band" were both
+  removed. Gated to the fallback path; the Chromium SVG path is unchanged. (Note: this path can
+  only blur — true distortion on those engines needs `simple-liquid-glass/mirror` above.)
 - **Multi-instance performance.** Off-screen instances now drop their `backdrop-filter`
   via an `IntersectionObserver` (200px margin, no pop-in), so a page with many glass cards
   only pays GPU cost for the ones in view (e.g. 60/100 disabled on a typical scroll).

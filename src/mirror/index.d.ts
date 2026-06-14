@@ -1,0 +1,19 @@
+import { ForwardRefExoticComponent, RefAttributes, RefObject } from 'react';
+import { LiquidGlassProps, LiquidGlassHandle } from '../index';
+
+export interface LiquidGlassMirrorProps extends LiquidGlassProps {
+  /** The element behind the lens to refract (canonical). Must not contain the lens. */
+  backdropRef?: RefObject<HTMLElement | null>;
+  /** Alternative to backdropRef: a selector resolved once on mount. */
+  backdropSelector?: string;
+  /** Displacement strength for the mirror (dense turbulence field). Default 48. */
+  mirrorScale?: number;
+  /** Render the mirror even on engines that support real backdrop refraction (testing/demo). */
+  force?: boolean;
+}
+
+export declare const LiquidGlassMirror: ForwardRefExoticComponent<
+  LiquidGlassMirrorProps & RefAttributes<LiquidGlassHandle>
+>;
+
+export default LiquidGlassMirror;

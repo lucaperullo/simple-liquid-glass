@@ -422,15 +422,19 @@ export const ManyInstances: Story = {
 function IOSMirrorDemo() {
   const bgRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<boolean | null>(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ on: false, sx: 0, sy: 0, px: 0, py: 0 });
   const onDown = (e: React.PointerEvent) => {
-    drag.current = { on: true, sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(wrapRef.current?.style.transform || '');
+    drag.current = { on: true, sx: e.clientX, sy: e.clientY, px: m ? +m[1] : 0, py: m ? +m[2] : 0 };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onMove = (e: React.PointerEvent) => {
-    if (!drag.current.on) return;
-    setPos({ x: drag.current.px + (e.clientX - drag.current.sx), y: drag.current.py + (e.clientY - drag.current.sy) });
+    if (!drag.current.on || !wrapRef.current) return;
+    // Drive the transform via the ref — no React re-render per pointer move (keeps drag smooth).
+    const x = drag.current.px + (e.clientX - drag.current.sx);
+    const y = drag.current.py + (e.clientY - drag.current.sy);
+    wrapRef.current.style.transform = `translate(${x}px, ${y}px)`;
   };
   const onUp = () => {
     drag.current.on = false;
@@ -497,11 +501,12 @@ function IOSMirrorDemo() {
             mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
           </div>
           <div
+            ref={wrapRef}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
-            style={{ width: 320, height: 200, transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', cursor: 'grab' }}
+            style={{ width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
           >
             <LiquidGlassMirror backdropRef={bgRef} force track mirrorScale={48} radius={28} onActiveChange={setActive}>
               <div

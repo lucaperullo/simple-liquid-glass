@@ -67,6 +67,7 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
 
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mirrorRef = useRef<HTMLDivElement | null>(null);
+    const cloneHolderRef = useRef<HTMLDivElement | null>(null);
     const [mirrorActive, setMirrorActive] = useState(false);
     // Start visible so the lens activates on mount; the IntersectionObserver only pauses it
     // once it confirms the element is off-screen (so visible instances always clone).
@@ -112,7 +113,8 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
       if (!isVisible) return;
       const lens = containerRef.current;
       const mirror = mirrorRef.current;
-      if (!lens || !mirror) return;
+      const holder = cloneHolderRef.current;
+      if (!lens || !mirror || !holder) return;
 
       const source: HTMLElement | null =
         backdropRef?.current ?? (backdropSelector ? document.querySelector<HTMLElement>(backdropSelector) : null);
@@ -140,10 +142,10 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
           c.style.height = '100%';
           // Strip any nested liquid-glass lenses so they don't render as frozen clones.
           c.querySelectorAll('[data-liquid-glass]').forEach((n) => n.remove());
-          mirror.replaceChildren(c);
+          holder.replaceChildren(c);
           activate(true);
         } catch {
-          mirror.replaceChildren();
+          holder.replaceChildren();
           activate(false);
         }
       };
@@ -153,9 +155,11 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
         raf = 0;
         const lr = lens.getBoundingClientRect();
         const sr = source.getBoundingClientRect();
-        mirror.style.width = `${sr.width}px`;
-        mirror.style.height = `${sr.height}px`;
-        mirror.style.transform = `translate(${sr.left - lr.left}px, ${sr.top - lr.top}px)`;
+        // Only the clone moves/resizes; the FILTERED element (mirror) stays lens-sized, so the
+        // GPU filters ~lens area per frame instead of the whole page clone.
+        holder.style.width = `${sr.width}px`;
+        holder.style.height = `${sr.height}px`;
+        holder.style.transform = `translate(${sr.left - lr.left}px, ${sr.top - lr.top}px)`;
       };
       const onChange = () => {
         if (!raf) raf = requestAnimationFrame(sync);
@@ -189,7 +193,7 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
         window.removeEventListener('scroll', onChange, true);
         window.removeEventListener('resize', onChange);
         mo.disconnect();
-        mirror.replaceChildren();
+        holder.replaceChildren();
       };
     }, [isVisible, backdropRef, backdropSelector, track]);
 
@@ -221,20 +225,24 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
               'linear-gradient(168deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.10) 12%, rgba(255,255,255,0.03) 46%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.08) 100%)'
           }}
         />
-        {/* The displaced, opaque live clone = real refraction on Safari/iOS. */}
+        {/* The displaced, opaque live clone = real refraction on Safari/iOS. The FILTERED
+            element is lens-sized (inset 0, overflow hidden) so the GPU only filters the lens
+            area each frame; the full-page clone lives inside it, translated to the right slice. */}
         <div
           ref={mirrorRef}
           aria-hidden="true"
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
+            inset: 0,
+            overflow: 'hidden',
             filter: `url(#${filterId})`,
             WebkitFilter: `url(#${filterId})`,
             pointerEvents: 'none',
             visibility: mirrorActive ? 'visible' : 'hidden'
           }}
-        />
+        >
+          <div ref={cloneHolderRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+        </div>
         {/* Top-lit specular sheen over the refraction for a glassy finish. */}
         <div
           aria-hidden="true"

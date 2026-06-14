@@ -5,6 +5,15 @@ All notable changes to this project are documented here. This project adheres to
 
 ## Unreleased (2.3.0)
 
+### Added
+
+- **`simple-liquid-glass/interactive`** — opt-in subpath export with pointer-reactive
+  elasticity (a tiny zero-dep rAF spring leans the glass toward the cursor) and a
+  pointer-tracked specular highlight. Exposes `<LiquidGlassInteractive>` and the
+  `usePointerElastic(ref, options)` hook. Honors `prefers-reduced-motion`. The core
+  `import { LiquidGlass } from 'simple-liquid-glass'` is unchanged (still ~6.5 KB); the
+  interactive bundle is self-contained (~7.5 KB gzip, under its 9 KB budget).
+
 ### Improved
 
 - **Frosted CSS fallback (Safari/Firefox/iOS).** The fallback now reads as real frosted

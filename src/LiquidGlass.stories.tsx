@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
+import { LiquidGlassInteractive } from './interactive';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -412,6 +413,42 @@ export const ManyInstances: Story = {
           </LiquidGlass>
         </div>
       ))}
+    </div>
+  ),
+};
+
+export const Elastic: Story = {
+  parameters: { layout: 'fullscreen' },
+  args: {
+    // @ts-expect-error extra interactive prop
+    elasticity: 0.35,
+  },
+  render: (args) => (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+      }}
+    >
+      <div style={{ width: 340, height: 210 }}>
+        <LiquidGlassInteractive {...args} radius={28}>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 600,
+            }}
+          >
+            Move your cursor
+          </div>
+        </LiquidGlassInteractive>
+      </div>
     </div>
   ),
 };

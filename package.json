@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.esm.js",
       "require": "./dist/index.cjs"
+    },
+    "./interactive": {
+      "types": "./dist/interactive.d.ts",
+      "import": "./dist/interactive.esm.js",
+      "require": "./dist/interactive.cjs"
     }
   },
   "files": [
@@ -32,6 +37,12 @@
       "name": "core — import { LiquidGlass } (gzip)",
       "path": "dist/index.esm.js",
       "limit": "7 KB",
+      "ignore": ["react", "react-dom"]
+    },
+    {
+      "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
+      "path": "dist/interactive.esm.js",
+      "limit": "9 KB",
       "ignore": ["react", "react-dom"]
     }
   ],

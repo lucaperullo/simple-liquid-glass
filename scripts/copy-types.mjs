@@ -1,15 +1,23 @@
-import { mkdir, copyFile } from 'node:fs/promises';
+import { mkdir, copyFile, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const src = resolve(root, 'src', 'index.d.ts');
 const outDir = resolve(root, 'dist');
-const dest = resolve(outDir, 'index.d.ts');
 
 await mkdir(outDir, { recursive: true });
-await copyFile(src, dest);
-console.log(`[copy-types] Copied ${src} -> ${dest}`);
 
+// Core types: copy as-is.
+const coreSrc = resolve(root, 'src', 'index.d.ts');
+const coreDest = resolve(outDir, 'index.d.ts');
+await copyFile(coreSrc, coreDest);
+console.log(`[copy-types] Copied ${coreSrc} -> ${coreDest}`);
 
+// Interactive subpath types: dist is flat, so rewrite the source's '../index' import
+// (relative to src/interactive/) to './index' (relative to dist/).
+const interactiveSrc = resolve(root, 'src', 'interactive', 'index.d.ts');
+const interactiveDest = resolve(outDir, 'interactive.d.ts');
+const interactiveContent = (await readFile(interactiveSrc, 'utf8')).replace(/(['"])\.\.\/index\1/g, "$1./index$1");
+await writeFile(interactiveDest, interactiveContent);
+console.log(`[copy-types] Copied ${interactiveSrc} -> ${interactiveDest} (rewrote ../index -> ./index)`);

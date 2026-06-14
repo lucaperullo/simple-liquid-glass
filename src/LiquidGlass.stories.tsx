@@ -422,6 +422,19 @@ export const ManyInstances: Story = {
 function IOSMirrorDemo() {
   const bgRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<boolean | null>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const drag = useRef({ on: false, sx: 0, sy: 0, px: 0, py: 0 });
+  const onDown = (e: React.PointerEvent) => {
+    drag.current = { on: true, sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onMove = (e: React.PointerEvent) => {
+    if (!drag.current.on) return;
+    setPos({ x: drag.current.px + (e.clientX - drag.current.sx), y: drag.current.py + (e.clientY - drag.current.sy) });
+  };
+  const onUp = () => {
+    drag.current.on = false;
+  };
   const blocks = ['#ff5f6d', '#ffc371', '#2193b0', '#6dd5ed', '#c471f5', '#fa71cd'];
   return (
     <div style={{ position: 'relative', minHeight: '120vh' }}>
@@ -483,8 +496,14 @@ function IOSMirrorDemo() {
           >
             mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
           </div>
-          <div style={{ width: 320, height: 200 }}>
-            <LiquidGlassMirror backdropRef={bgRef} force mirrorScale={48} radius={28} onActiveChange={setActive}>
+          <div
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            style={{ width: 320, height: 200, transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', cursor: 'grab' }}
+          >
+            <LiquidGlassMirror backdropRef={bgRef} force track mirrorScale={48} radius={28} onActiveChange={setActive}>
               <div
                 style={{
                   width: '100%',
@@ -497,7 +516,7 @@ function IOSMirrorDemo() {
                   textShadow: '0 1px 2px rgba(0,0,0,0.4)',
                 }}
               >
-                iOS mirror refraction
+                drag me over the blocks
               </div>
             </LiquidGlassMirror>
           </div>

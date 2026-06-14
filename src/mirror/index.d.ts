@@ -12,6 +12,8 @@ export interface LiquidGlassMirrorProps extends LiquidGlassProps {
   force?: boolean;
   /** Called when the live mirror activates (true = real refraction) or degrades to blur (false). */
   onActiveChange?: (active: boolean) => void;
+  /** Continuously re-align the clone every frame — needed when the lens itself moves (drag/animation). */
+  track?: boolean;
 }
 
 export declare const LiquidGlassMirror: ForwardRefExoticComponent<

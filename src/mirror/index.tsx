@@ -37,6 +37,9 @@ export interface LiquidGlassMirrorProps extends LiquidGlassProps {
   force?: boolean;
   /** Called when the live mirror activates (true = real refraction) or degrades to blur (false). */
   onActiveChange?: (active: boolean) => void;
+  /** Continuously re-align the clone every frame — needed when the lens itself MOVES
+   *  (dragging, animation). Off by default; scroll/resize re-align is enough for static lenses. */
+  track?: boolean;
 }
 
 function supportsSvgBackdropFilter(): boolean {
@@ -49,7 +52,7 @@ function supportsSvgBackdropFilter(): boolean {
 
 export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirrorProps>(
   function LiquidGlassMirror(
-    { backdropRef, backdropSelector, mirrorScale = 48, force = false, onActiveChange, children, radius = 50, style, className, ...props },
+    { backdropRef, backdropSelector, mirrorScale = 48, force = false, onActiveChange, track = false, children, radius = 50, style, className, ...props },
     ref
   ) {
     // Chromium already refracts for real — don't mirror there unless explicitly forced.
@@ -168,14 +171,27 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
       });
       mo.observe(source, { childList: true, subtree: true, attributes: true, characterData: true });
 
+      // `track`: continuously re-align every frame, for lenses that MOVE (drag/animation) —
+      // scroll/resize don't fire when only the lens's own transform changes. Off by default
+      // (one rAF + 2 getBoundingClientRect per active visible instance per frame).
+      let trackRaf = 0;
+      if (track) {
+        const loop = () => {
+          sync();
+          trackRaf = requestAnimationFrame(loop);
+        };
+        trackRaf = requestAnimationFrame(loop);
+      }
+
       return () => {
         if (raf) cancelAnimationFrame(raf);
+        if (trackRaf) cancelAnimationFrame(trackRaf);
         window.removeEventListener('scroll', onChange, true);
         window.removeEventListener('resize', onChange);
         mo.disconnect();
         mirror.replaceChildren();
       };
-    }, [isVisible, backdropRef, backdropSelector]);
+    }, [isVisible, backdropRef, backdropSelector, track]);
 
     const containerStyle: React.CSSProperties = {
       position: 'relative',

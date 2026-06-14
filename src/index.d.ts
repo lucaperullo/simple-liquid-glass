@@ -161,6 +161,8 @@ export interface LiquidGlassProps extends HTMLAttributes<HTMLDivElement> {
 export interface LiquidGlassHandle {
   /** The root container element. */
   element: HTMLDivElement | null;
+  /** The currently resolved rendering quality (reflects autodetect, if enabled). */
+  getQuality(): 'low' | 'standard' | 'high' | 'extreme';
 }
 
 export declare const LiquidGlass: ForwardRefExoticComponent<LiquidGlassProps & RefAttributes<LiquidGlassHandle>>;

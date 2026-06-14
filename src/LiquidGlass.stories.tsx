@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import LiquidGlass from './index';
+import LiquidGlass, { type LiquidGlassHandle } from './index';
+import { LiquidGlassInteractive } from './interactive';
+import { LiquidGlassMirror } from './mirror';
+import './web-component'; // side-effect: registers <liquid-glass>
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -36,8 +39,10 @@ const meta: Meta<LiquidGlassComponent> = {
       options: ['preset', 'custom'],
     },
     quality: {
-      control: 'radio',
-      options: ['low', 'standard', 'high', 'extreme'],
+      control: 'select',
+      options: ['auto', 'low', 'standard', 'high', 'extreme'],
+      mapping: { auto: undefined },
+      description: 'Explicit quality tier. Choose "auto" (undefined) to let autodetectquality decide.',
     },
     autodetectquality: { control: 'boolean' },
     mobileFallback: {
@@ -75,7 +80,6 @@ const meta: Meta<LiquidGlassComponent> = {
   },
   args: {
     mode: 'preset',
-    quality: 'low',
     effectMode: 'auto',
     autodetectquality: false,
     radius: 50,
@@ -221,6 +225,42 @@ export const Draggable: Story = {
 };
 
 
+function AutodetectDemo(args: any) {
+  const ref = useRef<LiquidGlassHandle>(null);
+  const [tier, setTier] = useState<string>('detecting…');
+  useEffect(() => {
+    const read = () => {
+      const q = ref.current?.getQuality?.();
+      if (q) setTier(q);
+    };
+    read();
+    const id = setInterval(read, 200);
+    const stop = setTimeout(() => clearInterval(id), 5000);
+    return () => {
+      clearInterval(id);
+      clearTimeout(stop);
+    };
+  }, []);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      <div
+        style={{
+          fontSize: 13,
+          fontFamily: 'monospace',
+          padding: '4px 12px',
+          borderRadius: 8,
+          border: '1px solid rgba(127,127,127,0.35)',
+        }}
+      >
+        auto-detected quality: <strong>{tier}</strong>
+      </div>
+      <DraggableWrapper width={480} height={280}>
+        <LiquidGlass ref={ref} {...args} />
+      </DraggableWrapper>
+    </div>
+  );
+}
+
 export const AutodetectQuality: Story = {
   args: {
     autodetectquality: true,
@@ -239,11 +279,7 @@ export const AutodetectQuality: Story = {
       </div>
     ),
   },
-  render: (args) => (
-    <DraggableWrapper width={480} height={280}>
-      <LiquidGlass {...args} />
-    </DraggableWrapper>
-  ),
+  render: (args) => <AutodetectDemo {...args} />,
 };
 
 export const ExtremeQuality: Story = {
@@ -347,3 +383,227 @@ export const MobileCSSOnly: Story = {
   ),
 };
 
+export const ManyInstances: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <div
+      style={{
+        minHeight: '100vh',
+        padding: 24,
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+        gap: 16,
+      }}
+    >
+      {Array.from({ length: 100 }).map((_, i) => (
+        <div key={i} style={{ height: 110 }}>
+          <LiquidGlass {...args} radius={20}>
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 600,
+              }}
+            >
+              #{i + 1}
+            </div>
+          </LiquidGlass>
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+function IOSMirrorDemo() {
+  const bgRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<boolean | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ on: false, sx: 0, sy: 0, px: 0, py: 0 });
+  const onDown = (e: React.PointerEvent) => {
+    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(wrapRef.current?.style.transform || '');
+    drag.current = { on: true, sx: e.clientX, sy: e.clientY, px: m ? +m[1] : 0, py: m ? +m[2] : 0 };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onMove = (e: React.PointerEvent) => {
+    if (!drag.current.on || !wrapRef.current) return;
+    // Drive the transform via the ref — no React re-render per pointer move (keeps drag smooth).
+    const x = drag.current.px + (e.clientX - drag.current.sx);
+    const y = drag.current.py + (e.clientY - drag.current.sy);
+    wrapRef.current.style.transform = `translate(${x}px, ${y}px)`;
+  };
+  const onUp = () => {
+    drag.current.on = false;
+  };
+  const blocks = ['#ff5f6d', '#ffc371', '#2193b0', '#6dd5ed', '#c471f5', '#fa71cd'];
+  return (
+    <div style={{ position: 'relative', minHeight: '120vh' }}>
+      <div
+        ref={bgRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignContent: 'flex-start',
+          gap: 0,
+          background: '#0b1021',
+        }}
+      >
+        {Array.from({ length: 60 }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: '16.66%',
+              height: 90,
+              background: blocks[i % blocks.length],
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.92)',
+              fontWeight: 600,
+              fontSize: 22,
+            }}
+          >
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontFamily: 'system-ui, sans-serif',
+              color: '#fff',
+              background: 'rgba(0,0,0,0.45)',
+              padding: '6px 12px',
+              borderRadius: 8,
+            }}
+          >
+            Open on iPhone Safari — the blocks behind should bend (true refraction)
+          </div>
+          <div
+            style={{
+              fontSize: 14,
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: 700,
+              color: active ? '#7CFC9B' : '#ffd36b',
+              background: 'rgba(0,0,0,0.55)',
+              padding: '6px 14px',
+              borderRadius: 8,
+            }}
+          >
+            mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
+          </div>
+          <div
+            ref={wrapRef}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            style={{ width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
+          >
+            <LiquidGlassMirror backdropRef={bgRef} force track radius={28} onActiveChange={setActive}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 600,
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                }}
+              >
+                drag me over the blocks
+              </div>
+            </LiquidGlassMirror>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const IOSMirrorRefraction: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => <IOSMirrorDemo />,
+};
+
+export const WebComponent: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+      }}
+    >
+      {React.createElement(
+        'liquid-glass',
+        { radius: '24', frost: '0.12', scale: '120', style: { width: '320px', height: '200px', display: 'block' } },
+        React.createElement(
+          'div',
+          {
+            style: {
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 600,
+              color: '#fff',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            },
+          },
+          'Web component (no React)'
+        )
+      )}
+    </div>
+  ),
+};
+
+export const Elastic: Story = {
+  parameters: { layout: 'fullscreen' },
+  args: {
+    // @ts-expect-error extra interactive prop
+    elasticity: 0.35,
+  },
+  render: (args) => (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+      }}
+    >
+      <div style={{ width: 340, height: 210 }}>
+        <LiquidGlassInteractive {...args} radius={28}>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 600,
+            }}
+          >
+            Move your cursor
+          </div>
+        </LiquidGlassInteractive>
+      </div>
+    </div>
+  ),
+};

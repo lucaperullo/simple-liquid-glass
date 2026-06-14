@@ -53,6 +53,62 @@ function App() {
 }
 ```
 
+### Real refraction on iOS / Safari / Firefox — `LiquidGlassMirror`
+
+The core `<LiquidGlass>` SVG refraction only runs on **Chromium** — WebKit (Safari/iOS) and
+Firefox can't put SVG filters inside `backdrop-filter`, so there they show a frosted‑blur
+fallback. For **true distortion on iOS/Safari/Firefox**, use `LiquidGlassMirror` from the
+opt‑in `/mirror` subpath. Safari *does* support `feDisplacementMap` in a regular element
+`filter`, so the mirror renders a live, displaced **clone** of the content behind the lens.
+It auto‑selects per engine:
+
+- **Chromium** → delegates to the core `<LiquidGlass>` (real `backdrop-filter` refraction)
+- **Safari / iOS / Firefox** → live‑DOM‑mirror refraction (the real distortion)
+- **no source / unsupported layout** → frosted‑blur fallback
+
+```jsx
+import { useRef } from 'react';
+import { LiquidGlassMirror } from 'simple-liquid-glass/mirror';
+
+function Card() {
+  const bg = useRef(null);
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={bg}>{/* the content that sits behind the glass */}</div>
+      <LiquidGlassMirror backdropRef={bg} radius={24} track>
+        <div style={{ padding: 20 }}>Glass that refracts on iOS</div>
+      </LiquidGlassMirror>
+    </div>
+  );
+}
+```
+
+Point `backdropRef` (or `backdropSelector`) at the element whose content is behind the lens
+(it must **not** be an ancestor of the lens, or it would mirror itself). Add `track` when the
+lens itself moves (drag/animation) so the refraction follows it. Keep lenses modest in size —
+the iOS filter cost scales with lens area. `mirrorScale` tunes the distortion strength.
+
+### Pointer‑reactive elasticity — `LiquidGlassInteractive`
+
+```jsx
+import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive';
+
+// Leans toward the cursor with a tiny spring + a pointer‑tracked specular highlight.
+// Honors prefers-reduced-motion. Core import is unaffected (this is opt‑in).
+<LiquidGlassInteractive elasticity={0.3}>…</LiquidGlassInteractive>
+```
+
+### Framework‑agnostic web component — `<liquid-glass>`
+
+For Vue / Svelte / Angular / Astro / plain HTML (no React):
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/simple-liquid-glass/web-component"></script>
+<liquid-glass radius="20" frost="0.15" style="width:320px;height:200px;display:block">
+  Glass anywhere
+</liquid-glass>
+```
+
 ### Advanced Usage with Custom Settings
 
 ```jsx

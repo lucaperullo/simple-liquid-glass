@@ -13,6 +13,20 @@ All notable changes to this project are documented here. This project adheres to
   `usePointerElastic(ref, options)` hook. Honors `prefers-reduced-motion`. The core
   `import { LiquidGlass } from 'simple-liquid-glass'` is unchanged (still ~6.5 KB); the
   interactive bundle is self-contained (~7.5 KB gzip, under its 9 KB budget).
+- **`simple-liquid-glass/web-component`** — a framework-agnostic `<liquid-glass>` custom
+  element for vanilla JS / Vue / Svelte / Angular / Astro / plain HTML. Same refraction
+  (Chromium) + frosted fallback (Safari/Firefox/iOS) as the React component, sharing the new
+  canonical `core/displacementMap` generator. ~2.7 KB gzip, zero React.
+- **`core/displacementMap`** — the displacement-map generator extracted into a pure,
+  framework-agnostic, unit-tested module now shared by the React component and the web
+  component (single source of truth).
+
+### Experimental
+
+- **iOS/Safari true-refraction spike** (`src/experimental/MirrorGlass.tsx`, story-only, not a
+  package export): a live-DOM-mirror that applies the displacement via element `filter:url()`
+  (which Safari supports, unlike `backdrop-filter`). Awaiting real-device validation. See
+  `docs/ios-mirror-refraction-spike.md`.
 
 ### Improved
 

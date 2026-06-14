@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImperativeHandle } from 'react';
 import { parseCssColorToRgba, findNearestOpaqueBackground, isRgbColorDark } from './cssColor';
 import { cacheGet, cacheSet } from './displacementCache';
+import { quantizedSize, buildDisplacementDataUri } from './core/displacementMap';
 import { decisiveTier, classifyQuality } from './quality';
 import type { LiquidQuality } from './quality';
 
@@ -575,41 +576,25 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const { width, height } = dimensions;
     const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
     const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
-    const rawW = width / divisor;
-    const rawH = height / divisor;
-    const newwidth = Math.max(8, Math.round(rawW / quantStep) * quantStep);
-    const newheight = Math.max(8, Math.round(rawH / quantStep) * quantStep);
-    const borderWidth = Math.min(newwidth, newheight) * (config.border * 0.5);
-    
-    // Ensure radius doesn't exceed container constraints for consistent CSS/SVG behavior
-    const effectiveRadius = Math.min(config.radius, width / 2, height / 2) / (QUALITY_DIVISORS[resolvedQuality] || 3); // scale to viewBox resolution
+    const { newwidth, newheight } = quantizedSize(width, height, divisor, quantStep);
 
     // Shared cache key across instances to reuse identical displacement maps
     const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
     const cached = cacheGet(cacheKey);
     if (cached) return cached;
-    
-    const svgContent = `
-      <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="red" x1="100%" y1="0%" x2="0%" y2="0%">
-            <stop offset="0%" stop-color="#0000"/>
-            <stop offset="100%" stop-color="red"/>
-          </linearGradient>
-          <linearGradient id="blue" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#0000"/>
-            <stop offset="100%" stop-color="blue"/>
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width="${newwidth}" height="${newheight}" fill="black"/>
-        <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
-        <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${config.blend}" />
-        <rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.displace}px)" />
-      </svg>
-    `;
-    
-    const encoded = encodeURIComponent(svgContent);
-    const uri = `data:image/svg+xml,${encoded}`;
+
+    const uri = buildDisplacementDataUri({
+      width,
+      height,
+      divisor,
+      quantStep,
+      radius: config.radius,
+      border: config.border,
+      lightness: config.lightness,
+      alpha: config.alpha,
+      displace: config.displace,
+      blend: config.blend
+    });
     cacheSet(cacheKey, uri);
     return uri;
   }, [dimensions, config, resolvedQuality]);

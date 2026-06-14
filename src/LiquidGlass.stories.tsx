@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
 import { LiquidGlassInteractive } from './interactive';
 import { MirrorGlass } from './experimental/MirrorGlass';
+import './web-component'; // side-effect: registers <liquid-glass>
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -493,6 +494,42 @@ function IOSMirrorDemo() {
 export const IOSMirrorRefraction: Story = {
   parameters: { layout: 'fullscreen' },
   render: () => <IOSMirrorDemo />,
+};
+
+export const WebComponent: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+      }}
+    >
+      {React.createElement(
+        'liquid-glass',
+        { radius: '24', frost: '0.12', scale: '120', style: { width: '320px', height: '200px', display: 'block' } },
+        React.createElement(
+          'div',
+          {
+            style: {
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 600,
+              color: '#fff',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            },
+          },
+          'Web component (no React)'
+        )
+      )}
+    </div>
+  ),
 };
 
 export const Elastic: Story = {

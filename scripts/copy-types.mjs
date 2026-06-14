@@ -21,3 +21,9 @@ const interactiveDest = resolve(outDir, 'interactive.d.ts');
 const interactiveContent = (await readFile(interactiveSrc, 'utf8')).replace(/(['"])\.\.\/index\1/g, "$1./index$1");
 await writeFile(interactiveDest, interactiveContent);
 console.log(`[copy-types] Copied ${interactiveSrc} -> ${interactiveDest} (rewrote ../index -> ./index)`);
+
+// Web component types: self-contained, copy as-is.
+const wcSrc = resolve(root, 'src', 'web-component', 'index.d.ts');
+const wcDest = resolve(outDir, 'web-component.d.ts');
+await copyFile(wcSrc, wcDest);
+console.log(`[copy-types] Copied ${wcSrc} -> ${wcDest}`);

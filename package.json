@@ -16,6 +16,11 @@
       "types": "./dist/interactive.d.ts",
       "import": "./dist/interactive.esm.js",
       "require": "./dist/interactive.cjs"
+    },
+    "./web-component": {
+      "types": "./dist/web-component.d.ts",
+      "import": "./dist/web-component.esm.js",
+      "require": "./dist/web-component.cjs"
     }
   },
   "files": [
@@ -44,6 +49,11 @@
       "path": "dist/interactive.esm.js",
       "limit": "9 KB",
       "ignore": ["react", "react-dom"]
+    },
+    {
+      "name": "web-component — <liquid-glass> (gzip, no React)",
+      "path": "dist/web-component.esm.js",
+      "limit": "6 KB"
     }
   ],
   "repository": {

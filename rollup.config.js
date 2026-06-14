@@ -44,6 +44,15 @@ export default [
     ],
     plugins: jsPlugins(),
     external: ['react', 'react-dom']
+  },
+  // Framework-agnostic <liquid-glass> web component (./web-component) — vanilla, no React.
+  {
+    input: 'src/web-component/index.ts',
+    output: [
+      { file: 'dist/web-component.esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { file: 'dist/web-component.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: jsPlugins()
   }
   // Types are copied (with path rewrite for the flat dist layout) by scripts/copy-types.mjs.
 ];

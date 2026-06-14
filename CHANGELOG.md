@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased (2.3.0)
+
+### Improved
+
+- **Frosted CSS fallback (Safari/Firefox/iOS).** The fallback now reads as real frosted
+  glass — a blur frost floor on the centre (it was unblurred at the default `blur=0`), a
+  diagonal specular sheen, a warm/cool chromatic edge ring, stronger edge lensing, and soft
+  depth. Gated to the fallback path; the Chromium SVG path is unchanged.
+- **Multi-instance performance.** Off-screen instances now drop their `backdrop-filter`
+  via an `IntersectionObserver` (200px margin, no pop-in), so a page with many glass cards
+  only pays GPU cost for the ones in view (e.g. 60/100 disabled on a typical scroll).
+  Defaults to visible for SSR / first paint / no-IntersectionObserver.
+
 ## 2.2.0 — 2026-06-14
 
 Performance hardening. No public API changes; behavior-preserving. Core bundle ~6.5 KB gzip.

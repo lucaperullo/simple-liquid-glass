@@ -316,6 +316,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // True only while the element is actively resizing, so we can promote a compositor
   // layer transiently instead of holding `will-change` for every instance forever.
   const [isResizing, setIsResizing] = useState(false);
+  // Whether the element is on (or near) screen. Offscreen instances drop their expensive
+  // backdrop-filter so a page with many glass cards only pays for the visible ones.
+  const [isVisible, setIsVisible] = useState(true);
   const [effectiveTextColor, setEffectiveTextColor] = useState<string>(textOnLight);
   const textClassNameRef = useRef<string | null>(null);
   if (!textClassNameRef.current) {
@@ -481,6 +484,24 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       if (idleTimer !== undefined) clearTimeout(idleTimer);
       resizeObserver.disconnect();
     };
+  }, []);
+
+  // Pause the (GPU-expensive) effect while the element is off-screen, so pages with many
+  // glass instances only pay for the ones in view. Defaults to visible for SSR/first paint
+  // and where IntersectionObserver is unavailable, so nothing regresses.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const el = containerRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[entries.length - 1];
+        if (entry) setIsVisible(entry.isIntersecting);
+      },
+      { rootMargin: '200px' } // re-enable just before it scrolls into view (no pop-in)
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   // Auto-detect background and set text color for children; updates on resize/scroll/mutations
@@ -680,7 +701,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const fallbackFrostPx = isFallback
     ? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)
     : 0;
-  const backdropFilterValue = useSvgFilter
+  const backdropFilterValue = !isVisible
+    ? 'none'
+    : useSvgFilter
     ? `saturate(${config.saturation}%) url(#${filterId})`
     : isFallback
       ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 160)}%) brightness(1.04)`
@@ -719,7 +742,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // Layered CSS fallback (iOS/Firefox): a masked edge "ring" with a stronger
   // backdrop blur + brightness fakes the refraction band of the SVG path,
   // plus a specular highlight. Far closer to liquid glass than a flat blur.
-  const showEdgeLayer = !useSvgFilter && effectMode !== 'off';
+  const showEdgeLayer = !useSvgFilter && effectMode !== 'off' && isVisible;
   const edgeBandPx = Math.max(10, Math.round(Math.min(dimensions.width, dimensions.height) * 0.12));
   // Edge ring refracts harder than the centre (stronger blur + brightness), faking the
   // lensing band of real glass.
@@ -778,7 +801,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       {...props}
     >
       <div style={glassMorphismStyle}>
-        {useSvgFilter && effectMode !== 'off' && (
+        {useSvgFilter && effectMode !== 'off' && isVisible && (
         <svg 
           className="liquid-glass-filter"
           style={{

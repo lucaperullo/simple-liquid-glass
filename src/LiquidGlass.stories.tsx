@@ -380,3 +380,39 @@ export const MobileCSSOnly: Story = {
   ),
 };
 
+export const ManyInstances: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <div
+      style={{
+        minHeight: '100vh',
+        padding: 24,
+        background:
+          'repeating-linear-gradient(45deg, #ff5f6d 0 60px, #ffc371 60px 120px, #2193b0 120px 180px, #6dd5ed 180px 240px)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+        gap: 16,
+      }}
+    >
+      {Array.from({ length: 100 }).map((_, i) => (
+        <div key={i} style={{ height: 110 }}>
+          <LiquidGlass {...args} radius={20}>
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 600,
+              }}
+            >
+              #{i + 1}
+            </div>
+          </LiquidGlass>
+        </div>
+      ))}
+    </div>
+  ),
+};
+

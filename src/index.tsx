@@ -1,9 +1,10 @@
 import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImperativeHandle } from 'react';
 import { parseCssColorToRgba, findNearestOpaqueBackground, isRgbColorDark } from './cssColor';
+import { cacheGet, cacheSet } from './displacementCache';
+import { decisiveTier, classifyQuality } from './quality';
+import type { LiquidQuality } from './quality';
 
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
-
-type LiquidQuality = 'low' | 'standard' | 'high' | 'extreme';
 
 const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
   low: 5,
@@ -18,8 +19,6 @@ const QUALITY_QUANTIZATION_STEPS: Record<LiquidQuality, number> = {
   high: 16,
   extreme: 8
 };
-
-const DISPLACEMENT_CACHE: Map<string, string> = new Map();
 
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
@@ -195,6 +194,8 @@ function processBackground(background: string | undefined, alpha: number = 0.3):
 export interface LiquidGlassHandle {
   /** The root container element. */
   element: HTMLDivElement | null;
+  /** The currently resolved rendering quality (reflects autodetect, if enabled). */
+  getQuality(): LiquidQuality;
 }
 
 const DEFAULT_WIDTH = 400;
@@ -312,6 +313,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
   });
+  // True only while the element is actively resizing, so we can promote a compositor
+  // layer transiently instead of holding `will-change` for every instance forever.
+  const [isResizing, setIsResizing] = useState(false);
   const [effectiveTextColor, setEffectiveTextColor] = useState<string>(textOnLight);
   const textClassNameRef = useRef<string | null>(null);
   if (!textClassNameRef.current) {
@@ -323,6 +327,10 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const defaultQuality: LiquidQuality = 'low';
   const initialQuality: LiquidQuality = hasExplicitQuality ? (incomingQuality as LiquidQuality) : defaultQuality;
   const [resolvedQuality, setResolvedQuality] = useState<LiquidQuality>(initialQuality);
+  // Track the latest resolved quality in a ref so the imperative handle can expose it
+  // (getQuality) without recreating the handle on every quality change.
+  const resolvedQualityRef = useRef(resolvedQuality);
+  resolvedQualityRef.current = resolvedQuality;
 
   useEffect(() => {
     if (hasExplicitQuality) {
@@ -349,69 +357,117 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const CACHE_KEY = 'simpleLiquidGlass_quality_v1';
     const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
-    try {
-      const cached = sessionStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const data = JSON.parse(cached) as { q: LiquidQuality; t: number } | null;
-        if (data && data.q && typeof data.t === 'number' && Date.now() - data.t < CACHE_TTL_MS) {
-          setResolvedQuality(data.q);
-          return;
-        }
+    // localStorage persists across sessions; sessionStorage is the per-tab fallback.
+    const readCachedQuality = (): LiquidQuality | null => {
+      for (const getStore of [() => window.localStorage, () => window.sessionStorage]) {
+        try {
+          const raw = getStore().getItem(CACHE_KEY);
+          if (!raw) continue;
+          const data = JSON.parse(raw) as { q: LiquidQuality; t: number } | null;
+          if (data && data.q && typeof data.t === 'number' && Date.now() - data.t < CACHE_TTL_MS) {
+            return data.q;
+          }
+        } catch {}
       }
-    } catch {}
+      return null;
+    };
 
-    // Heuristics + micro-benchmark
+    const persistQuality = (q: LiquidQuality) => {
+      const payload = JSON.stringify({ q, t: Date.now() });
+      try { window.localStorage.setItem(CACHE_KEY, payload); } catch {}
+      try { window.sessionStorage.setItem(CACHE_KEY, payload); } catch {}
+    };
+
+    const cachedQuality = readCachedQuality();
+    if (cachedQuality) {
+      setResolvedQuality(cachedQuality);
+      return;
+    }
+
     const cores = (navigator as any).hardwareConcurrency || 4;
     const deviceMemory = (navigator as any).deviceMemory || 4;
     const ua = navigator.userAgent || '';
     const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
 
-    // micro-benchmark ~50ms
-    let operations = 0;
-    const start = performance.now();
-    while (performance.now() - start < 50) {
-      // simple math to stress FP unit
-      // avoid optimizations by mixing operations
-      for (let i = 0; i < 200; i++) {
-        const x = Math.sin(i + operations) * Math.cos(i * 1.3 + operations) + Math.sqrt(i + 1);
-        if (x > 1e9) {
-          // never happens; prevents dead-code elimination
-          operations -= 1;
+    // Fast path: when navigator hints are conclusive, skip the benchmark entirely.
+    const decisive = decisiveTier({ cores, deviceMemory });
+    if (decisive) {
+      setResolvedQuality(decisive);
+      persistQuality(decisive);
+      return;
+    }
+
+    // Otherwise measure FP throughput off the critical path (idle), capped at ~12ms.
+    let cancelled = false;
+    const runBenchmark = () => {
+      if (cancelled) return;
+      let operations = 0;
+      const start = performance.now();
+      while (performance.now() - start < 12) {
+        // mix operations to stress the FP unit and defeat dead-code elimination
+        for (let i = 0; i < 200; i++) {
+          const x = Math.sin(i + operations) * Math.cos(i * 1.3 + operations) + Math.sqrt(i + 1);
+          if (x > 1e9) operations -= 1; // never true
+          operations += 1;
         }
-        operations += 1;
       }
-    }
-    const elapsed = Math.max(1, performance.now() - start);
-    const opsPerMs = operations / elapsed;
+      const elapsed = Math.max(1, performance.now() - start);
+      const opsPerMs = operations / elapsed;
+      if (cancelled) return;
+      const q = classifyQuality({ cores, deviceMemory, isMobile, opsPerMs });
+      setResolvedQuality(q);
+      persistQuality(q);
+    };
 
-    let q: LiquidQuality = defaultQuality;
-    if (cores <= 2 || deviceMemory <= 1 || opsPerMs < 8000) {
-      q = 'low';
-    } else if (cores <= 4 || deviceMemory <= 2 || opsPerMs < 16000 || isMobile) {
-      q = 'standard';
-    } else if (cores >= 8 && deviceMemory >= 6 && opsPerMs >= 32000 && !isMobile) {
-      q = 'extreme';
+    const ric = (window as any).requestIdleCallback as
+      | ((cb: () => void, opts?: { timeout: number }) => number)
+      | undefined;
+    let idleId = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof ric === 'function') {
+      // Defer off the critical path, but cap the wait so the (opt-in) autodetect quality
+      // resolves soon after first paint rather than lingering at the 'low' default.
+      idleId = ric(runBenchmark, { timeout: 200 });
     } else {
-      q = 'high';
+      timeoutId = setTimeout(runBenchmark, 1);
     }
 
-    setResolvedQuality(q);
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ q, t: Date.now() }));
-    } catch {}
+    return () => {
+      cancelled = true;
+      const cic = (window as any).cancelIdleCallback as ((id: number) => void) | undefined;
+      if (idleId && typeof cic === 'function') cic(idleId);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    };
   }, [incomingQuality, autodetectquality]);
 
   // Update dimensions when the container size changes
   useEffect(() => {
     if (!containerRef.current) return;
 
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastW = -1;
+    let lastH = -1;
+    let measuredOnce = false;
     const updateDimensions = () => {
       if (!containerRef.current) return;
 
       const { width, height } = containerRef.current.getBoundingClientRect();
       if (width === 0 || height === 0) return;
-      
+      if (width === lastW && height === lastH) return; // ignore no-op (incl. ResizeObserver's initial fire)
+      lastW = width;
+      lastH = height;
+
       setDimensions({ width, height });
+
+      // Promote a compositor layer only for genuine resizes AFTER the initial measurement;
+      // release ~200ms after the last change. Just-mounted / idle instances stay at 'auto'
+      // (avoids a per-instance promote→clear toggle on first paint).
+      if (measuredOnce) {
+        setIsResizing(true);
+        if (idleTimer !== undefined) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => setIsResizing(false), 200);
+      }
+      measuredOnce = true;
     };
 
     // Initial measurement
@@ -421,51 +477,72 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(containerRef.current);
 
-    return () => resizeObserver.disconnect();
+    return () => {
+      if (idleTimer !== undefined) clearTimeout(idleTimer);
+      resizeObserver.disconnect();
+    };
   }, []);
 
   // Auto-detect background and set text color for children; updates on resize/scroll/mutations
   useEffect(() => {
     if (!autoTextColor) return;
 
+    // A single observer watches <body> + the nearest opaque ancestor (the node that
+    // actually determines the background), re-pointed when that ancestor changes —
+    // instead of one observer per ancestor up the whole tree.
+    // Trade-off: a mid-chain ancestor that toggles to opaque without itself mutating
+    // class/style is only picked up on the next scroll/resize, not instantly.
+    const observer = new MutationObserver(() => onChange());
+    let observedOpaque: HTMLElement | null = null;
+    let observerInitialized = false;
+
+    const findOpaqueAncestor = (start: HTMLElement | null): HTMLElement | null => {
+      let el: HTMLElement | null = start;
+      while (el) {
+        const parsed = parseCssColorToRgba(getComputedStyle(el).backgroundColor);
+        if (parsed && parsed.a > 0) return el;
+        el = el.parentElement;
+      }
+      return null;
+    };
+
+    const repointObserver = (opaque: HTMLElement | null) => {
+      if (observerInitialized && opaque === observedOpaque) return;
+      observer.disconnect();
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+      if (opaque && opaque !== document.body) {
+        observer.observe(opaque, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+      observedOpaque = opaque;
+      observerInitialized = true;
+    };
+
     const update = () => {
       const target = containerRef.current?.parentElement ?? null;
       if (!target) return;
       const bg = findNearestOpaqueBackground(target);
-      if (!bg) {
-        setEffectiveTextColor(textOnLight);
-        return;
-      }
-      const dark = isRgbColorDark(bg);
-      setEffectiveTextColor(dark ? textOnDark : textOnLight);
+      setEffectiveTextColor(bg && isRgbColorDark(bg) ? textOnDark : textOnLight);
+      repointObserver(findOpaqueAncestor(target));
+    };
+
+    // Coalesce scroll/resize/mutation bursts to a single recompute per animation frame.
+    let rafId = 0;
+    const onChange = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = 0; update(); });
     };
 
     update();
 
-    const onWindowChange = () => update();
-    window.addEventListener('resize', onWindowChange);
-    window.addEventListener('scroll', onWindowChange, true);
-
-    const observers: MutationObserver[] = [];
-    const observedNodes: HTMLElement[] = [];
-    let el: HTMLElement | null = containerRef.current?.parentElement ?? null;
-    while (el) {
-      observedNodes.push(el);
-      el = el.parentElement;
-    }
-    observedNodes.push(document.body);
-
-    for (const node of observedNodes) {
-      if (!node) continue;
-      const obs = new MutationObserver(update);
-      obs.observe(node, { attributes: true, attributeFilter: ['class', 'style'] });
-      observers.push(obs);
-    }
+    // passive: never blocks scrolling. capture: still reacts to inner scroll containers.
+    window.addEventListener('resize', onChange, { passive: true });
+    window.addEventListener('scroll', onChange, { passive: true, capture: true });
 
     return () => {
-      window.removeEventListener('resize', onWindowChange);
-      window.removeEventListener('scroll', onWindowChange, true);
-      observers.forEach(o => o.disconnect());
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onChange);
+      window.removeEventListener('scroll', onChange, true);
+      observer.disconnect();
     };
   }, [autoTextColor, textOnDark, textOnLight]);
 
@@ -488,7 +565,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
     // Shared cache key across instances to reuse identical displacement maps
     const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
-    const cached = DISPLACEMENT_CACHE.get(cacheKey);
+    const cached = cacheGet(cacheKey);
     if (cached) return cached;
     
     const svgContent = `
@@ -512,7 +589,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     
     const encoded = encodeURIComponent(svgContent);
     const uri = `data:image/svg+xml,${encoded}`;
-    DISPLACEMENT_CACHE.set(cacheKey, uri);
+    cacheSet(cacheKey, uri);
     return uri;
   }, [dimensions, config, resolvedQuality]);
 
@@ -589,6 +666,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   useImperativeHandle(ref, () => ({
     get element() {
       return containerRef.current;
+    },
+    getQuality() {
+      return resolvedQualityRef.current;
     }
   }), []);
 
@@ -611,7 +691,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     backdropFilter: backdropFilterValue,
     WebkitBackdropFilter: backdropFilterValue,
     overflow: 'hidden',
-    willChange: 'backdrop-filter, filter'
+    // Dynamic: only hint the compositor while actively resizing (see A4). Idle instances
+    // default to 'auto' so many cards on a page don't each pin a GPU layer.
+    willChange: isResizing ? 'backdrop-filter, filter' : 'auto'
   };
 
   // Layered CSS fallback (iOS/Firefox): a masked edge "ring" with a stronger

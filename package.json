@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "description": "A React component for creating liquid glass morphism effects with customizable distortion and blur",
   "main": "dist/index.cjs",
@@ -22,10 +22,19 @@
     "build": "rollup -c && node scripts/copy-types.mjs",
     "dev": "rollup -c -w",
     "test": "jest",
+    "size": "size-limit",
     "prepublishOnly": "npm run build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
+  "size-limit": [
+    {
+      "name": "core — import { LiquidGlass } (gzip)",
+      "path": "dist/index.esm.js",
+      "limit": "7 KB",
+      "ignore": ["react", "react-dom"]
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lucaperullo/simple-liquid-glass.git"
@@ -96,6 +105,8 @@
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "@storybook/addon-docs": "^10.4.4",
     "@storybook/react": "^10.4.4",
     "@storybook/react-vite": "^10.4.4",
     "@testing-library/jest-dom": "^6.1.4",
@@ -108,8 +119,8 @@
     "rollup": "^4.0.0",
     "rollup-plugin-dts": "^6.1.0",
     "rollup-plugin-peer-deps-external": "^2.2.4",
+    "size-limit": "^12.1.0",
     "storybook": "^10.4.4",
-    "vite": "^8.0.0",
-    "@storybook/addon-docs": "^10.4.4"
+    "vite": "^8.0.0"
   }
 }

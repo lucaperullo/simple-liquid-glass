@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import LiquidGlass from './index';
+import LiquidGlass, { type LiquidGlassHandle } from './index';
 
 type LiquidGlassComponent = typeof LiquidGlass;
 
@@ -36,8 +36,10 @@ const meta: Meta<LiquidGlassComponent> = {
       options: ['preset', 'custom'],
     },
     quality: {
-      control: 'radio',
-      options: ['low', 'standard', 'high', 'extreme'],
+      control: 'select',
+      options: ['auto', 'low', 'standard', 'high', 'extreme'],
+      mapping: { auto: undefined },
+      description: 'Explicit quality tier. Choose "auto" (undefined) to let autodetectquality decide.',
     },
     autodetectquality: { control: 'boolean' },
     mobileFallback: {
@@ -75,7 +77,6 @@ const meta: Meta<LiquidGlassComponent> = {
   },
   args: {
     mode: 'preset',
-    quality: 'low',
     effectMode: 'auto',
     autodetectquality: false,
     radius: 50,
@@ -221,6 +222,42 @@ export const Draggable: Story = {
 };
 
 
+function AutodetectDemo(args: any) {
+  const ref = useRef<LiquidGlassHandle>(null);
+  const [tier, setTier] = useState<string>('detecting…');
+  useEffect(() => {
+    const read = () => {
+      const q = ref.current?.getQuality?.();
+      if (q) setTier(q);
+    };
+    read();
+    const id = setInterval(read, 200);
+    const stop = setTimeout(() => clearInterval(id), 5000);
+    return () => {
+      clearInterval(id);
+      clearTimeout(stop);
+    };
+  }, []);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      <div
+        style={{
+          fontSize: 13,
+          fontFamily: 'monospace',
+          padding: '4px 12px',
+          borderRadius: 8,
+          border: '1px solid rgba(127,127,127,0.35)',
+        }}
+      >
+        auto-detected quality: <strong>{tier}</strong>
+      </div>
+      <DraggableWrapper width={480} height={280}>
+        <LiquidGlass ref={ref} {...args} />
+      </DraggableWrapper>
+    </div>
+  );
+}
+
 export const AutodetectQuality: Story = {
   args: {
     autodetectquality: true,
@@ -239,11 +276,7 @@ export const AutodetectQuality: Story = {
       </div>
     ),
   },
-  render: (args) => (
-    <DraggableWrapper width={480} height={280}>
-      <LiquidGlass {...args} />
-    </DraggableWrapper>
-  ),
+  render: (args) => <AutodetectDemo {...args} />,
 };
 
 export const ExtremeQuality: Story = {

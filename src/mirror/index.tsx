@@ -35,6 +35,8 @@ export interface LiquidGlassMirrorProps extends LiquidGlassProps {
   mirrorScale?: number;
   /** Render the mirror even on engines that support real backdrop refraction (testing/demo). */
   force?: boolean;
+  /** Called when the live mirror activates (true = real refraction) or degrades to blur (false). */
+  onActiveChange?: (active: boolean) => void;
 }
 
 function supportsSvgBackdropFilter(): boolean {
@@ -45,29 +47,9 @@ function supportsSvgBackdropFilter(): boolean {
   return /(chrome|chromium|edg|opr)\//i.test(ua);
 }
 
-/** True if any ancestor of `el` up to <body> uses a transform/zoom/filter/fixed/sticky that
- *  breaks the lens↔source rect math — in which case the mirror must degrade to blur. */
-function hasUnsupportedAncestor(el: HTMLElement | null): boolean {
-  let node: HTMLElement | null = el;
-  while (node && node !== document.body) {
-    const s = getComputedStyle(node);
-    if (
-      (s.transform && s.transform !== 'none') ||
-      (s.zoom && s.zoom !== 'normal' && s.zoom !== '1') ||
-      (s.filter && s.filter !== 'none') ||
-      s.position === 'fixed' ||
-      s.position === 'sticky'
-    ) {
-      return true;
-    }
-    node = node.parentElement;
-  }
-  return false;
-}
-
 export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirrorProps>(
   function LiquidGlassMirror(
-    { backdropRef, backdropSelector, mirrorScale = 48, force = false, children, radius = 50, style, className, ...props },
+    { backdropRef, backdropSelector, mirrorScale = 48, force = false, onActiveChange, children, radius = 50, style, className, ...props },
     ref
   ) {
     // Chromium already refracts for real — don't mirror there unless explicitly forced.
@@ -83,9 +65,16 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mirrorRef = useRef<HTMLDivElement | null>(null);
     const [mirrorActive, setMirrorActive] = useState(false);
-    const [isVisible, setIsVisible] = useState(false); // start false so off-screen instances never clone
+    // Start visible so the lens activates on mount; the IntersectionObserver only pauses it
+    // once it confirms the element is off-screen (so visible instances always clone).
+    const [isVisible, setIsVisible] = useState(true);
     const rawId = useId();
     const filterId = `lg-mirror-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+    const activate = (a: boolean) => {
+      setMirrorActive(a);
+      if (onActiveChange) onActiveChange(a);
+    };
 
     useImperativeHandle(ref, () => ({
       get element() {
@@ -125,14 +114,16 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
       const source: HTMLElement | null =
         backdropRef?.current ?? (backdropSelector ? document.querySelector<HTMLElement>(backdropSelector) : null);
 
-      // Degrade to blur if: no source, source contains the lens (self-mirror), or an
-      // unsupported (transformed/fixed/sticky/filtered) ancestor breaks the rect math.
-      if (!source || source.contains(lens) || hasUnsupportedAncestor(source)) {
+      // Degrade to blur only if there's no source, or the source contains the lens (which
+      // would mirror the glass into itself — visual recursion). Ancestor transforms can mildly
+      // misalign the clone but don't break it, so we no longer disable on them (that guard
+      // false-positived on Safari and silently killed the effect — see real-device testing).
+      if (!source || source.contains(lens)) {
         if (source && source.contains(lens) && typeof console !== 'undefined') {
           // eslint-disable-next-line no-console
           console.warn('[LiquidGlassMirror] backdrop source must not be an ancestor of the lens; falling back to blur.');
         }
-        setMirrorActive(false);
+        activate(false);
         return;
       }
 
@@ -147,10 +138,10 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
           // Strip any nested liquid-glass lenses so they don't render as frozen clones.
           c.querySelectorAll('[data-liquid-glass]').forEach((n) => n.remove());
           mirror.replaceChildren(c);
-          setMirrorActive(true);
+          activate(true);
         } catch {
           mirror.replaceChildren();
-          setMirrorActive(false);
+          activate(false);
         }
       };
 

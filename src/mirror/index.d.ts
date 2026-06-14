@@ -10,6 +10,8 @@ export interface LiquidGlassMirrorProps extends LiquidGlassProps {
   mirrorScale?: number;
   /** Render the mirror even on engines that support real backdrop refraction (testing/demo). */
   force?: boolean;
+  /** Called when the live mirror activates (true = real refraction) or degrades to blur (false). */
+  onActiveChange?: (active: boolean) => void;
 }
 
 export declare const LiquidGlassMirror: ForwardRefExoticComponent<

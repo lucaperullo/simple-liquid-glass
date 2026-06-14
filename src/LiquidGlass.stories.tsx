@@ -421,6 +421,7 @@ export const ManyInstances: Story = {
 
 function IOSMirrorDemo() {
   const bgRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<boolean | null>(null);
   const blocks = ['#ff5f6d', '#ffc371', '#2193b0', '#6dd5ed', '#c471f5', '#fa71cd'];
   return (
     <div style={{ position: 'relative', minHeight: '120vh' }}>
@@ -469,8 +470,21 @@ function IOSMirrorDemo() {
           >
             Open on iPhone Safari — the blocks behind should bend (true refraction)
           </div>
+          <div
+            style={{
+              fontSize: 14,
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: 700,
+              color: active ? '#7CFC9B' : '#ffd36b',
+              background: 'rgba(0,0,0,0.55)',
+              padding: '6px 14px',
+              borderRadius: 8,
+            }}
+          >
+            mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
+          </div>
           <div style={{ width: 320, height: 200 }}>
-            <LiquidGlassMirror backdropRef={bgRef} force mirrorScale={48} radius={28}>
+            <LiquidGlassMirror backdropRef={bgRef} force mirrorScale={48} radius={28} onActiveChange={setActive}>
               <div
                 style={{
                   width: '100%',
@@ -570,3 +584,57 @@ export const Elastic: Story = {
   ),
 };
 
+
+// Self-contained iOS diagnostic: applies feDisplacementMap DIRECTLY to checkerboard tiles
+// (no DOM-mirror machinery), so one iPhone screenshot reveals whether feDisplacementMap
+// distorts at all on Safari, and under which color-interpolation / blur config.
+function DiagTile({ label, filterId, children }: { label: string; filterId?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+      <div style={{ fontSize: 13, color: '#fff', fontFamily: 'system-ui' }}>{label}</div>
+      <div
+        style={{
+          width: 200,
+          height: 140,
+          borderRadius: 16,
+          overflow: 'hidden',
+          background: 'repeating-linear-gradient(45deg, #111 0 16px, #fff 16px 32px)',
+          filter: filterId ? `url(#${filterId})` : undefined,
+          WebkitFilter: filterId ? `url(#${filterId})` : undefined,
+        }}
+      />
+      {children}
+    </div>
+  );
+}
+
+export const FilterDiagnostic: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div style={{ minHeight: '100vh', background: '#0b1021', padding: 20, display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'center', alignContent: 'flex-start' }}>
+      <div style={{ width: '100%', color: '#fff', fontFamily: 'system-ui', fontSize: 15 }}>
+        feDisplacementMap diagnostic — the checkerboards should look WAVY/warped if displacement works.
+        "control" must stay straight.
+      </div>
+      <DiagTile label="A: turbulence sRGB no-blur" filterId="diagA" />
+      <DiagTile label="B: turbulence linearRGB" filterId="diagB" />
+      <DiagTile label="C: turbulence + blur (current-ish)" filterId="diagC" />
+      <DiagTile label="D: control (no filter)" />
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <filter id="diagA" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03 0.03" numOctaves={2} seed={5} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={90} xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="diagB" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03 0.03" numOctaves={2} seed={5} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={90} xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="diagC" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.014 0.018" numOctaves={2} seed={11} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={48} xChannelSelector="R" yChannelSelector="G" result="d" />
+          <feGaussianBlur in="d" stdDeviation="1.2" />
+        </filter>
+      </svg>
+    </div>
+  ),
+};

@@ -8,8 +8,11 @@ Paste-ready launch copy for the v2.4.0 growth push. Strategy + sequencing live i
 
 ## ⛔️ Pre-flight — do these BEFORE posting anything
 
-1. **Deploy the live demo** to `simple-liquid-glass.vercel.app` (`vercel --prod` from `demo/`). Every
-   post links to it; without it, all this copy points at nothing.
+1. **Deploy the live demo** to `simple-liquid-glass.vercel.app`. The conversion-focused landing page
+   lives in [`examples/`](../../examples/) (built + verified). From the **repo root** run
+   `vercel --prod` — `vercel.json` already builds `examples/` and serves `examples/dist` (root must
+   stay the repo so the `../src` alias resolves). Every post links to this; without it, the copy
+   points at nothing.
 2. **Verify the iOS refraction on a real iPhone** (Safari, not the simulator). The whole pitch is
    "real refraction on iPhone" — if it regressed, the launch backfires. This is the single
    must-pass gate.

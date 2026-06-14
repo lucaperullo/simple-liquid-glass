@@ -1,9 +1,11 @@
 # Spike: true refraction on iOS / Safari via a live DOM mirror (P4)
 
-**Status:** productized as the opt-in `simple-liquid-glass/mirror` export
-([src/mirror/index.tsx](../src/mirror/index.tsx)) — mechanism verified in Chromium,
-**awaiting real-device validation on iOS Safari**. (The original `src/experimental/MirrorGlass.tsx`
-POC has been retired in favor of the production component.)
+**Status:** SHIPPED in v2.3.0 as the opt-in `simple-liquid-glass/mirror` export
+([src/mirror/index.tsx](../src/mirror/index.tsx)) — **validated on a real iPhone** (drag the
+lens to see the distortion). The original `src/experimental/MirrorGlass.tsx` POC was retired
+in favor of the production component. Perf notes: the filter is applied to a lens-sized element
+(not the full-page clone) and the live re-align is throttled to ~30fps to keep iOS smooth; keep
+lenses modest in size. Use `track` for a moving/dragged lens.
 
 ## The problem
 

@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased (2.3.0)
+## 2.3.0 — 2026-06-14
 
 ### Added
 
@@ -25,8 +25,11 @@ All notable changes to this project are documented here. This project adheres to
   `filter`, so `<LiquidGlassMirror backdropRef={…}>` renders a live, displaced **clone** of the
   content behind the lens (true distortion). Opt-in subpath (~7.7 KB gzip; core unchanged),
   gated to the fallback engines, off-screen-paused, and degrades to blur when no backdrop
-  source is given or the layout is unsupported (transformed/fixed/sticky ancestors). The final
-  iOS look is pending real-device validation. (Supersedes the earlier experimental POC.)
+  source is given. **Validated on a real iPhone** (drag the lens to see the distortion). Supports
+  `backdropRef`/`backdropSelector` (the element behind the lens), `mirrorScale`, and `track`
+  (continuous re-align for a moving/dragged lens). Off-screen-paused; the filter is applied to a
+  lens-sized element + the re-align is throttled to ~30fps to keep iOS smooth. Supersedes the
+  earlier experimental POC.
 
 ### Improved
 

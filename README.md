@@ -1,10 +1,37 @@
 # Simple Liquid Glass
 
-A tiny, zero-dependency React component that renders a beautiful “liquid” glassmorphism panel using an SVG displacement map. It supports chromatic aberration, adjustable saturation, gradient borders, a configurable semi‑transparent glass color, and automatic text color based on the surrounding background.
+> **The only zero-dependency liquid glass component with _real refraction on iPhone &amp; Safari_ — not a blur fallback. Works on React 16.8–19.**
 
-![npm version](https://img.shields.io/npm/v/simple-liquid-glass)
-![license](https://img.shields.io/npm/l/simple-liquid-glass)
-![bundle size](https://deno.bundlejs.com/badge?q=simple-liquid-glass)
+A tiny, zero-dependency **React liquid glass component**. It renders Apple-style “liquid glass” with an SVG displacement map — and, uniquely, delivers **real refraction on iOS, Safari, and Firefox**, where every other library falls back to a plain blur. Chromatic aberration, gradient borders, automatic text color, SSR-safe, plus a framework-agnostic web component — all in ~6.5 KB.
+
+[![npm version](https://img.shields.io/npm/v/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
+[![npm downloads](https://img.shields.io/npm/dw/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
+[![bundle size](https://deno.bundlejs.com/badge?q=simple-liquid-glass)](https://bundlejs.com/?q=simple-liquid-glass)
+[![GitHub stars](https://img.shields.io/github/stars/lucaperullo/simple-liquid-glass?style=flat)](https://github.com/lucaperullo/simple-liquid-glass)
+[![license](https://img.shields.io/npm/l/simple-liquid-glass)](https://github.com/lucaperullo/simple-liquid-glass/blob/main/LICENSE)
+
+**[🔗 Live demo](https://simple-liquid-glass.vercel.app/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
+
+> [!IMPORTANT]
+> **For real refraction on iOS / Safari / Firefox, pass `backdropRef`** pointing at the element behind the lens (a sibling/background element, *not* an ancestor). Without it you still get a polished frosted-glass CSS fallback — just not the true distortion. See **Real refraction on iOS / Safari / Firefox** below.
+
+## Why simple-liquid-glass?
+
+|  | **simple-liquid-glass** | liquid-glass-react | @specy/liquid-glass |
+|---|:--:|:--:|:--:|
+| Real refraction on **Safari / iOS** | ✅ | ❌ | ❌ (WebGL) |
+| React **16.8 – 19** | ✅ | ❌ (19 only) | ✅ |
+| Bundle (gzip) | **~6.5 KB** | ~33 KB | 6.8 MB |
+| Zero runtime deps | ✅ | ✅ | ❌ (Three.js) |
+| SSR-safe (Next.js) | ✅ | ⚠️ | ❌ |
+| Web component (Vue / Svelte / vanilla) | ✅ | ❌ | ❌ |
+| Actively maintained (2026) | ✅ | ❌ (since Jun 2025) | ❌ |
+
+### Choose your path
+
+- **React, simple** → `import { LiquidGlass } from 'simple-liquid-glass'`
+- **Pointer-reactive / “alive”** → `import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'`
+- **Vue / Svelte / Astro / plain HTML** → `import 'simple-liquid-glass/web-component'` → `<liquid-glass>`
 
 ## Features
 

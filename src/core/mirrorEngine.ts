@@ -1,5 +1,8 @@
 import { useEffect, useState, type RefObject } from 'react';
 
+// Fire the "no backdrop → blur on iOS" hint at most once per page load, so it nudges without spamming.
+let warnedNoBackdrop = false;
+
 export interface MirrorEngineOptions {
   /** Run the engine (caller gates this on: fallback engine + visible + `mirror` prop). */
   enabled: boolean;
@@ -51,11 +54,22 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
     // latter is the iOS crash path (cloning a page-sized ancestor every mutation) AND would mirror
     // the glass into itself — so it's a hard "use blur" rather than a best-effort.
     if (!source || source.contains(lens)) {
-      if (source && source.contains(lens) && typeof console !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.warn(
-          '[simple-liquid-glass] backdropRef must point at a sibling/background element, not an ancestor of the lens — using the blur fallback.'
-        );
+      if (typeof console !== 'undefined') {
+        if (!source && !warnedNoBackdrop) {
+          // We're on a fallback engine (the caller only enables the engine there) and no backdrop
+          // was given — the lens will blur instead of refracting. Nudge once so devs don't read the
+          // blur as "broken on iOS".
+          warnedNoBackdrop = true;
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[simple-liquid-glass] No `backdropRef`/`backdropSelector` set — on iOS/Safari/Firefox this shows the frosted-blur fallback, not real refraction. Pass `backdropRef={el}` (the element behind the lens) for true distortion, or set `mirror={false}` to silence this.'
+          );
+        } else if (source && source.contains(lens)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[simple-liquid-glass] backdropRef must point at a sibling/background element, not an ancestor of the lens — using the blur fallback.'
+          );
+        }
       }
       setActive(false);
       return;

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import LiquidGlass, { type LiquidGlassHandle } from './index';
 import { LiquidGlassInteractive } from './interactive';
+import { LiquidGlassMirror } from './mirror';
 import './web-component'; // side-effect: registers <liquid-glass>
 
 type LiquidGlassComponent = typeof LiquidGlass;
@@ -419,6 +420,8 @@ export const ManyInstances: Story = {
 };
 
 function IOSMirrorDemo() {
+  const bgRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<boolean | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ on: false, sx: 0, sy: 0, px: 0, py: 0 });
   const onDown = (e: React.PointerEvent) => {
@@ -428,6 +431,7 @@ function IOSMirrorDemo() {
   };
   const onMove = (e: React.PointerEvent) => {
     if (!drag.current.on || !wrapRef.current) return;
+    // Drive the transform via the ref — no React re-render per pointer move (keeps drag smooth).
     const x = drag.current.px + (e.clientX - drag.current.sx);
     const y = drag.current.py + (e.clientY - drag.current.sy);
     wrapRef.current.style.transform = `translate(${x}px, ${y}px)`;
@@ -436,76 +440,92 @@ function IOSMirrorDemo() {
     drag.current.on = false;
   };
   const blocks = ['#ff5f6d', '#ffc371', '#2193b0', '#6dd5ed', '#c471f5', '#fa71cd'];
-  // The lens lives INSIDE the backdrop container, so the core auto-detects the backdrop (no
-  // backdropRef needed). mobileFallback="css-only" forces the fallback path on Chromium; on iOS
-  // it's the fallback engine anyway.
   return (
-    <div
-      style={{
-        position: 'relative',
-        minHeight: '120vh',
-        background: '#0b1021',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignContent: 'flex-start',
-      }}
-    >
-      {Array.from({ length: 60 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: '16.66%',
-            height: 90,
-            background: blocks[i % blocks.length],
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'rgba(255,255,255,0.92)',
-            fontWeight: 600,
-            fontSize: 22,
-          }}
-        >
-          {i + 1}
-        </div>
-      ))}
-      <div style={{ position: 'absolute', top: 20, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
-        <span
-          style={{
-            fontSize: 13,
-            fontFamily: 'system-ui, sans-serif',
-            color: '#fff',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '6px 12px',
-            borderRadius: 8,
-          }}
-        >
-          &lt;LiquidGlass&gt; auto-mirror — drag the card; the blocks behind should bend (iOS)
-        </span>
-      </div>
+    <div style={{ position: 'relative', minHeight: '120vh' }}>
       <div
-        ref={wrapRef}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-        style={{ position: 'absolute', top: '34%', left: 'calc(50% - 160px)', width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
+        ref={bgRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignContent: 'flex-start',
+          gap: 0,
+          background: '#0b1021',
+        }}
       >
-        <LiquidGlass mobileFallback="css-only" track radius={28}>
+        {Array.from({ length: 60 }).map((_, i) => (
           <div
+            key={i}
             style={{
-              width: '100%',
-              height: '100%',
+              width: '16.66%',
+              height: 90,
+              background: blocks[i % blocks.length],
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              color: 'rgba(255,255,255,0.92)',
               fontWeight: 600,
-              color: '#fff',
-              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              fontSize: 22,
             }}
           >
-            drag me over the blocks
+            {i + 1}
           </div>
-        </LiquidGlass>
+        ))}
+      </div>
+      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontFamily: 'system-ui, sans-serif',
+              color: '#fff',
+              background: 'rgba(0,0,0,0.45)',
+              padding: '6px 12px',
+              borderRadius: 8,
+            }}
+          >
+            Open on iPhone Safari — the blocks behind should bend (true refraction)
+          </div>
+          <div
+            style={{
+              fontSize: 14,
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: 700,
+              color: active ? '#7CFC9B' : '#ffd36b',
+              background: 'rgba(0,0,0,0.55)',
+              padding: '6px 14px',
+              borderRadius: 8,
+            }}
+          >
+            mirror status: {active === null ? '…' : active ? 'ACTIVE — live clone (should refract)' : 'BLUR FALLBACK (not cloning)'}
+          </div>
+          <div
+            ref={wrapRef}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            style={{ width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
+          >
+            <LiquidGlassMirror backdropRef={bgRef} force track radius={28} onActiveChange={setActive}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 600,
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                }}
+              >
+                drag me over the blocks
+              </div>
+            </LiquidGlassMirror>
+          </div>
+        </div>
       </div>
     </div>
   );

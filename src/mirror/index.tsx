@@ -52,7 +52,7 @@ function supportsSvgBackdropFilter(): boolean {
 
 export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirrorProps>(
   function LiquidGlassMirror(
-    { backdropRef, backdropSelector, mirrorScale = 48, force = false, onActiveChange, track = false, children, radius = 50, style, className, ...props },
+    { backdropRef, backdropSelector, mirrorScale = 26, force = false, onActiveChange, track = false, children, radius = 50, style, className, ...props },
     ref
   ) {
     // Chromium already refracts for real — don't mirror there unless explicitly forced.
@@ -180,8 +180,15 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
       // (one rAF + 2 getBoundingClientRect per active visible instance per frame).
       let trackRaf = 0;
       if (track) {
-        const loop = () => {
-          sync();
+        // Throttle the live re-align to ~30fps: the filter only re-rasterizes when the clone
+        // moves, so re-aligning half as often halves the GPU filter work during a drag (the
+        // lens itself still moves at full frame rate; only the refraction realign is capped).
+        let lastT = 0;
+        const loop = (t: number) => {
+          if (t - lastT >= 32) {
+            lastT = t;
+            sync();
+          }
           trackRaf = requestAnimationFrame(loop);
         };
         trackRaf = requestAnimationFrame(loop);
@@ -257,9 +264,9 @@ export const LiquidGlassMirror = forwardRef<LiquidGlassHandle, LiquidGlassMirror
         />
         <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
           <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.016" numOctaves={2} seed={11} result="noise" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.009 0.011" numOctaves={1} seed={11} result="noise" />
             <feDisplacementMap in="SourceGraphic" in2="noise" scale={mirrorScale} xChannelSelector="R" yChannelSelector="G" result="disp" />
-            <feGaussianBlur in="disp" stdDeviation="1.2" />
+            <feGaussianBlur in="disp" stdDeviation="0.8" />
           </filter>
         </svg>
         <div style={{ position: 'relative', zIndex: 2, width: '100%', height: '100%' }}>{children}</div>

@@ -508,7 +508,7 @@ function IOSMirrorDemo() {
             onPointerCancel={onUp}
             style={{ width: 320, height: 200, touchAction: 'none', cursor: 'grab' }}
           >
-            <LiquidGlassMirror backdropRef={bgRef} force track mirrorScale={48} radius={28} onActiveChange={setActive}>
+            <LiquidGlassMirror backdropRef={bgRef} force track radius={28} onActiveChange={setActive}>
               <div
                 style={{
                   width: '100%',

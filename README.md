@@ -145,6 +145,8 @@ For Vue / Svelte / Angular / Astro / plain HTML (no React):
 </liquid-glass>
 ```
 
+**Per-framework guides:** [Vue 3 / Nuxt](docs/frameworks/vue.md) · [Svelte / SvelteKit](docs/frameworks/svelte.md) · [Astro](docs/frameworks/astro.md) · [plain HTML / vanilla JS / Angular](docs/frameworks/vanilla.md). (The web component does Chromium refraction + a frosted fallback on Safari/iOS; for real iOS refraction use the React `backdropRef` path above.)
+
 ### Advanced Usage with Custom Settings
 
 ```jsx

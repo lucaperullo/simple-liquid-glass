@@ -594,3 +594,49 @@ export const Elastic: Story = {
     </div>
   ),
 };
+
+const BUSY_BG =
+  'repeating-linear-gradient(60deg, #ff5f6d 0 48px, #ffc371 48px 96px, #2193b0 96px 144px, #6dd5ed 144px 192px, #c471f5 192px 240px)';
+
+function Stage({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <div style={{ width: 240, height: 150 }}>{children}</div>
+      <span style={{ fontFamily: 'system-ui, sans-serif', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.55)', padding: '4px 12px', borderRadius: 8 }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/** Side-by-side quality presets — internal SVG resolution scales fidelity vs cost. */
+export const QualityTiers: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div style={{ minHeight: '100vh', padding: 40, background: BUSY_BG, display: 'flex', flexWrap: 'wrap', gap: 28, alignContent: 'center', justifyContent: 'center' }}>
+      {(['low', 'standard', 'high', 'extreme'] as const).map((q) => (
+        <Stage key={q} label={`quality="${q}"`}>
+          <LiquidGlass quality={q} radius={24} scale={180}>
+            <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{q}</div>
+          </LiquidGlass>
+        </Stage>
+      ))}
+    </div>
+  ),
+};
+
+/** Chromatic aberration — Apple's signature red/blue edge separation, tunable per instance. */
+export const ChromaticAberration: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div style={{ minHeight: '100vh', padding: 40, background: BUSY_BG, display: 'flex', flexWrap: 'wrap', gap: 28, alignContent: 'center', justifyContent: 'center' }}>
+      {[0, 1, 2, 4].map((a) => (
+        <Stage key={a} label={`aberrationIntensity={${a}}`}>
+          <LiquidGlass aberrationIntensity={a} radius={24} scale={180} dispersion={60} quality="high">
+            <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{a}</div>
+          </LiquidGlass>
+        </Stage>
+      ))}
+    </div>
+  ),
+};

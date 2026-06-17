@@ -319,6 +319,32 @@ glass.setAttribute('alpha', '0.85');
 
 // Update border color (any CSS color string)
 glass.setAttribute('border-color', 'rgba(200, 100, 100, 0.8)');
+
+// New in 3.0.0 ---------------------------------------------------------------
+
+// Update angle (refraction direction in degrees, shape-adapted)
+glass.setAttribute('angle', '45');
+
+// Toggle shape-adapt (aspect-faithful + isotropic; "false" = legacy ≤2.x map)
+glass.setAttribute('shape-adapt', 'false');
+
+// Update lens field shape ("classic" | "convex" | "shift" | "rim")
+glass.setAttribute('lens', 'convex');
+
+// Update lens-strength (magnitude of the lens field; 0 disables it)
+glass.setAttribute('lens-strength', '1.5');
+
+// Update lens-center for convex/rim ("x,y", each 0–1)
+glass.setAttribute('lens-center', '0.3,0.7');
+
+// Update liquid (real animated refraction: "ripple" | "flow" | "wobble")
+glass.setAttribute('liquid', 'ripple');
+
+// Update liquid-speed (motion rate)
+glass.setAttribute('liquid-speed', '1.5');
+
+// Update liquid-scale (distortion amplitude in px)
+glass.setAttribute('liquid-scale', '12');
 ```
 
 ### Reading Attributes Back
@@ -360,6 +386,14 @@ All attributes are **optional**. Sensible defaults ship with the component.
 | `lightness` | number | `53` | Brightness of the glass, 0–100 (HSL lightness) |
 | `alpha` | number | `0.9` | Overall opacity of the glass layer (0–1) |
 | `border-color` | string | `"rgba(120,120,120,0.7)"` | Any valid CSS color (hex, rgb, rgba, hsl, etc.) |
+| `angle` | number | `0` | **New in 3.0.0.** Refraction direction in degrees. Shape-adapted so the on-screen angle stays faithful on any aspect ratio (Chromium SVG path) |
+| `shape-adapt` | string | `"on"` | **New in 3.0.0.** Aspect-faithful + isotropic refraction so the lens reads like glass cut to the element's shape (a long navbar / tall sidebar refracts evenly). Set `"false"` to disable and use the legacy ≤2.x map |
+| `lens` | string | `"classic"` | **New in 3.0.0.** Lens field shape: `classic` (linear radial), `convex` (one coherent dome magnifier, no top/bottom split), `shift` (uniform directional offset, straight lines stay straight), `rim` (clear flat center, refraction only at a soft perimeter band) |
+| `lens-strength` | number | `1` | **New in 3.0.0.** Manual magnitude of the lens field; `0` disables it |
+| `lens-center` | string | `"0.5,0.5"` | **New in 3.0.0.** Lens center for `convex`/`rim`, as `"x,y"` with each value 0–1 |
+| `liquid` | string | — | **New in 3.0.0.** Real animated refraction—the backdrop genuinely warps: `ripple`, `flow`, or `wobble`. Opt-in, GPU-real: animates only while on-screen, pauses on `prefers-reduced-motion`, Chromium SVG path only |
+| `liquid-speed` | number | `1` | **New in 3.0.0.** Motion rate for `liquid` |
+| `liquid-scale` | number | — | **New in 3.0.0.** Distortion amplitude in px for `liquid` (defaults per preset) |
 
 ### Default Element in Action
 
@@ -369,6 +403,9 @@ All attributes are **optional**. Sensible defaults ship with the component.
 
 <!-- Mix defaults with custom values -->
 <liquid-glass radius="24" frost="0.2">Your content</liquid-glass>
+
+<!-- New in 3.0.0: a coherent dome magnifier with a 45° refraction direction -->
+<liquid-glass radius="24" lens="convex" angle="45">Your content</liquid-glass>
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 > **The only zero-dependency liquid glass component with _real refraction on iPhone &amp; Safari_ — not a blur fallback. Works on React 16.8–19.**
 
-A tiny, zero-dependency **React liquid glass component**. It renders Apple-style “liquid glass” with an SVG displacement map — and, uniquely, delivers **real refraction on iOS, Safari, and Firefox**, where every other library falls back to a plain blur. Chromatic aberration, gradient borders, automatic text color, SSR-safe, plus a framework-agnostic web component — all in ~6.5 KB.
+A tiny, zero-dependency **React liquid glass component**. It renders Apple-style “liquid glass” with an SVG displacement map — and, uniquely, delivers **real refraction on iOS, Safari, and Firefox**, where every other library falls back to a plain blur. Chromatic aberration, gradient borders, automatic text color, SSR-safe, plus a framework-agnostic web component — the React core is ~10 KB (the web component ~5 KB).
 
 [![npm version](https://img.shields.io/npm/v/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
 [![npm downloads](https://img.shields.io/npm/dw/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
@@ -21,7 +21,7 @@ A tiny, zero-dependency **React liquid glass component**. It renders Apple-style
 |---|:--:|:--:|:--:|
 | Real refraction on **Safari / iOS** | ✅ | ❌ | ❌ (WebGL) |
 | React **16.8 – 19** | ✅ | ❌ (19 only) | ✅ |
-| Bundle (gzip) | **~6.5 KB** | ~33 KB | 6.8 MB |
+| Bundle (gzip) | **~10 KB** (web component ~5 KB) | ~33 KB | 6.8 MB |
 | Zero runtime deps | ✅ | ✅ | ❌ (Three.js) |
 | SSR-safe (Next.js) | ✅ | ⚠️ | ❌ |
 | Web component (Vue / Svelte / vanilla) | ✅ | ❌ | ❌ |
@@ -231,6 +231,16 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
+| `angle` | `number` | `0` | Refraction direction in degrees (in-plane lean, not light tilt). `0` = baseline; positive = clockwise. **Shape-adapted** so the on-screen angle is faithful on any aspect ratio. Chromium SVG path. |
+| `shapeAdapt` | `boolean` | `true` | Aspect-faithful + isotropic refraction so the lens reads like glass cut to the element's shape (long navbar / tall sidebar refract evenly). `false` restores the legacy ≤2.x map. |
+| `lens` | `'classic' \| 'convex' \| 'shift' \| 'rim'` | `'classic'` | Lens field shape. `classic` = linear radial; `convex` = one coherent dome magnifier (no top/bottom split); `shift` = uniform directional offset (straight stays straight); `rim` = clear flat center, refraction only at a soft perimeter band. |
+| `lensStrength` | `number` | `1` | Manual magnitude of the lens field. `0` disables the lens displacement. |
+| `lensCenter` | `[number, number]` | `[0.5, 0.5]` | Normalized `0..1` center for `convex` / `rim`. |
+| `liquid` | `'ripple' \| 'flow' \| 'wobble' \| false` | `false` | **Real animated refraction** — the backdrop genuinely warps. Opt-in, GPU-real: runs only while on-screen, pauses on `prefers-reduced-motion`, Chromium SVG path only. |
+| `liquidSpeed` | `number` | `1` | Motion rate multiplier for `liquid`. |
+| `liquidScale` | `number` | preset | Distortion amplitude (px) for `liquid`. Defaults to the preset's amplitude. |
+
+> **`LiquidGlassInteractive`** (from `simple-liquid-glass/interactive`) adds two more: `liquidTrigger` (`'always' \| 'hover' \| 'press'`, default `'always'` — `hover`/`press` stay idle until you interact) and `followPointer` (`boolean`, a refractive bump that distorts the backdrop toward the cursor).
 
 ## Examples
 

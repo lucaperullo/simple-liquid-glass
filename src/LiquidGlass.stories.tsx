@@ -76,6 +76,22 @@ const meta: Meta<LiquidGlassComponent> = {
     textOnDark: { control: 'color' },
     textOnLight: { control: 'color' },
     forceTextColor: { control: 'boolean' },
+    angle: { control: { type: 'range', min: 0, max: 360, step: 1 }, description: 'Refraction direction (deg). Shape-adapted: faithful on any aspect.' },
+    shapeAdapt: { control: 'boolean', description: 'Aspect-faithful + isotropic refraction (default on). Off = legacy map.' },
+    lens: {
+      control: 'select',
+      options: ['classic', 'convex', 'shift', 'rim'],
+      description: 'Lens field: classic radial / single convex dome / uniform shift / perimeter rim.',
+    },
+    lensStrength: { control: { type: 'range', min: 0, max: 2, step: 0.05 }, description: 'Manual magnitude of the lens field.' },
+    liquid: {
+      control: 'select',
+      options: ['off', 'ripple', 'flow', 'wobble'],
+      mapping: { off: false },
+      description: 'Real animated refraction preset (Chromium; pauses on reduced-motion / offscreen).',
+    },
+    liquidSpeed: { control: { type: 'range', min: 0.1, max: 4, step: 0.1 } },
+    liquidScale: { control: { type: 'range', min: 0, max: 60, step: 1 } },
   },
   args: {
     mode: 'preset',
@@ -100,6 +116,12 @@ const meta: Meta<LiquidGlassComponent> = {
     forceTextColor: false,
     iosMinBlur: 7,
     iosBlurMode: 'auto',
+    angle: 0,
+    shapeAdapt: true,
+    lens: 'classic',
+    lensStrength: 1,
+    liquid: 'off',
+    liquidSpeed: 1,
   },
 };
 

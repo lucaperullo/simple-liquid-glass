@@ -19,7 +19,15 @@ export declare function usePointerElastic(
   options?: PointerElasticOptions
 ): void;
 
-export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerElasticOptions {}
+/** When the animated refraction runs: always, only on hover, or only while pressed. */
+export type LiquidTrigger = 'always' | 'hover' | 'press';
+
+export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerElasticOptions {
+  /** When the animated refraction runs. `hover`/`press` are idle (zero cost) until interaction. @default 'always' */
+  liquidTrigger?: LiquidTrigger;
+  /** A refractive bump that distorts the backdrop toward the cursor. @default false */
+  followPointer?: boolean;
+}
 
 export declare const LiquidGlassInteractive: ForwardRefExoticComponent<
   LiquidGlassInteractiveProps & RefAttributes<LiquidGlassHandle>

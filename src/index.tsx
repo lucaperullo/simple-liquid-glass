@@ -1,7 +1,10 @@
 import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImperativeHandle } from 'react';
 import { parseCssColorToRgba, findNearestOpaqueBackground, isRgbColorDark } from './cssColor';
 import { cacheGet, cacheSet } from './displacementCache';
-import { quantizedSize, buildDisplacementDataUri } from './core/displacementMap';
+import { quantizedSize, buildDisplacementDataUri, normalizeAngle } from './core/displacementMap';
+import type { LensMode } from './core/displacementMap';
+import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
+import type { LiquidPreset } from './core/liquid';
 import { useMirrorEngine } from './core/mirrorEngine';
 import { decisiveTier, classifyQuality } from './quality';
 import type { LiquidQuality } from './quality';
@@ -59,6 +62,17 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   backdropSelector?: string; // alternative to backdropRef: a CSS selector resolved on mount
   mirrorScale?: number; // mirror displacement strength (default 26)
   track?: boolean; // re-align the clone every frame when the lens itself moves (drag/animation)
+  // Directional + shape-adaptive refraction
+  angle?: number; // refraction direction in degrees (0 = baseline; positive = clockwise on screen)
+  shapeAdapt?: boolean; // aspect-faithful + isotropic refraction (default true); false = legacy map
+  // Lens field shape + manual tuning
+  lens?: LensMode; // 'classic' | 'convex' | 'shift' | 'rim'
+  lensStrength?: number; // manual magnitude of the lens field (default 1)
+  lensCenter?: [number, number]; // normalized 0..1 center for convex/rim (default [0.5, 0.5])
+  // Real animated refraction (Chromium SVG path; gated to in-view + reduced-motion off)
+  liquid?: LiquidPreset | false; // 'ripple' | 'flow' | 'wobble'
+  liquidSpeed?: number; // motion rate multiplier (default 1)
+  liquidScale?: number; // distortion amplitude in px (default per preset)
 }
 
 function isSemiTransparentColor(input: string | undefined | null): boolean {
@@ -259,6 +273,14 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   backdropSelector,
   mirrorScale = 26,
   track = false,
+  angle = 0,
+  shapeAdapt = true,
+  lens = 'classic',
+  lensStrength = 1,
+  lensCenter,
+  liquid = false,
+  liquidSpeed = 1,
+  liquidScale,
   ...props
 }: LiquidGlassProps, ref) {
   // Configuration based on mode
@@ -324,6 +346,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mirrorHolderRef = useRef<HTMLDivElement | null>(null);
+  const turbRef = useRef<SVGFETurbulenceElement | null>(null);
   const [dimensions, setDimensions] = useState({
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
@@ -334,6 +357,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // Whether the element is on (or near) screen. Offscreen instances drop their expensive
   // backdrop-filter so a page with many glass cards only pays for the visible ones.
   const [isVisible, setIsVisible] = useState(true);
+  // Pause animated refraction when the user prefers reduced motion.
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [effectiveTextColor, setEffectiveTextColor] = useState<string>(textOnLight);
   const textClassNameRef = useRef<string | null>(null);
   if (!textClassNameRef.current) {
@@ -519,6 +544,16 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     return () => io.disconnect();
   }, []);
 
+  // Track prefers-reduced-motion so animated refraction can pause for it.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+
   // Auto-detect background and set text color for children; updates on resize/scroll/mutations
   useEffect(() => {
     if (!autoTextColor) return;
@@ -592,8 +627,12 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
     const { newwidth, newheight } = quantizedSize(width, height, divisor, quantStep);
 
-    // Shared cache key across instances to reuse identical displacement maps
-    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
+    // Shared cache key across instances to reuse identical displacement maps. `angle` is
+    // normalized so 0/360/NaN/float-noise never spawn duplicate-look entries, and `shapeAdapt`
+    // is keyed so an adapted and a legacy map can never collide.
+    const normAngle = normalizeAngle(angle);
+    const lcKey = lensCenter ? `${lensCenter[0]},${lensCenter[1]}` : '0.5,0.5';
+    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}|ang:${normAngle}|sa:${shapeAdapt ? 1 : 0}|ln:${lens}|ls:${lensStrength}|lc:${lcKey}`;
     const cached = cacheGet(cacheKey);
     if (cached) return cached;
 
@@ -607,11 +646,16 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       lightness: config.lightness,
       alpha: config.alpha,
       displace: config.displace,
-      blend: config.blend
+      blend: config.blend,
+      angle: normAngle,
+      shapeAdapt,
+      lens,
+      lensStrength,
+      lensCenter
     });
     cacheSet(cacheKey, uri);
     return uri;
-  }, [dimensions, config, resolvedQuality]);
+  }, [dimensions, config, resolvedQuality, angle, shapeAdapt, lens, lensStrength, lensCenter]);
 
   // Generate a unique ID for the SVG filter
   const uniqueFilterId = useId();
@@ -683,6 +727,37 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const base = (resolvedQuality === 'low' || isMobile || effectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;
     return Math.max(0, base);
   })();
+
+  // Real animated refraction ("liquid"). Resolved here so the inline filter graph and the rAF
+  // driver agree on whether it's active. Gated: a valid preset, the SVG (Chromium) path, on-screen,
+  // and reduced-motion off. The amplitude is capped on mobile / low quality.
+  const liquidPreset = isLiquidPreset(liquid) ? liquid : null;
+  const liquidActive = !!liquidPreset && useSvgFilter && isVisible && !reducedMotion && effectMode !== 'off';
+  const liquidCfg = liquidPreset
+    ? liquidConfig(liquidPreset, {
+        speed: liquidSpeed,
+        scale: liquidScale,
+        maxScale: isMobile || resolvedQuality === 'low' ? 14 : undefined
+      })
+    : null;
+
+  // Animate the live turbulence node's baseFrequency off rAF — no per-frame React render and no
+  // displacement-map re-encode. Stops automatically when offscreen / reduced-motion / liquid off.
+  useEffect(() => {
+    if (!liquidActive || !liquidPreset) return;
+    const node = turbRef.current;
+    if (!node) return;
+    let raf = 0;
+    let start = 0;
+    const tick = (now: number) => {
+      if (!start) start = now;
+      const [bx, by] = liquidBaseFrequency(liquidPreset, (now - start) / 1000, liquidSpeed);
+      node.setAttribute('baseFrequency', `${bx} ${by}`);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [liquidActive, liquidPreset, liquidSpeed]);
 
   useImperativeHandle(ref, () => ({
     get element() {
@@ -826,9 +901,10 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
                     yChannelSelector={config.y}
                     result="output"
                   />
-                  <feGaussianBlur 
+                  <feGaussianBlur
                     in="output"
                     stdDeviation={feBlurStdDev}
+                    result={liquidActive ? 'lqBase' : undefined}
                   />
                 </>
               ) : (
@@ -890,9 +966,29 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
                     mode="screen"
                     result="output"
                   />
-                  <feGaussianBlur 
+                  <feGaussianBlur
                     in="output"
                     stdDeviation={feBlurStdDev}
+                    result={liquidActive ? 'lqBase' : undefined}
+                  />
+                </>
+              )}
+              {liquidActive && liquidCfg && (
+                <>
+                  <feTurbulence
+                    ref={turbRef}
+                    type="fractalNoise"
+                    baseFrequency={`${liquidCfg.baseFrequencyX} ${liquidCfg.baseFrequencyY}`}
+                    numOctaves={liquidCfg.numOctaves}
+                    seed={liquidCfg.seed}
+                    result="lqNoise"
+                  />
+                  <feDisplacementMap
+                    in="lqBase"
+                    in2="lqNoise"
+                    scale={liquidCfg.scale}
+                    xChannelSelector="R"
+                    yChannelSelector="G"
                   />
                 </>
               )}

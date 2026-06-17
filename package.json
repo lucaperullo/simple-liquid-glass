@@ -1,8 +1,8 @@
 {
   "name": "simple-liquid-glass",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "type": "module",
-  "description": "Zero-dependency React liquid glass with REAL refraction on iOS/Safari/Firefox (not just blur). SSR-safe, ~6.5KB, React 16.8–19. Web-component included.",
+  "description": "Zero-dependency React liquid glass with REAL refraction on iOS/Safari/Firefox (not just blur). Directional + animated 'liquid' refraction, lens modes. SSR-safe, ~10KB (web component ~5KB), React 16.8–19. Web-component included.",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -46,19 +46,19 @@
     {
       "name": "core — import { LiquidGlass } (gzip, includes iOS mirror engine)",
       "path": "dist/index.esm.js",
-      "limit": "8.5 KB",
+      "limit": "10.5 KB",
       "ignore": ["react", "react-dom"]
     },
     {
       "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
       "path": "dist/interactive.esm.js",
-      "limit": "9 KB",
+      "limit": "11.5 KB",
       "ignore": ["react", "react-dom"]
     },
     {
       "name": "mirror — import { LiquidGlassMirror } (gzip, bundles core)",
       "path": "dist/mirror.esm.js",
-      "limit": "9 KB",
+      "limit": "10.5 KB",
       "ignore": ["react", "react-dom"]
     },
     {

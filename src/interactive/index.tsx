@@ -1,7 +1,42 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef, type RefObject } from 'react';
+import React, { useEffect, useRef, useState, useId, useImperativeHandle, forwardRef, type RefObject } from 'react';
 import LiquidGlass, { type LiquidGlassProps, type LiquidGlassHandle } from '../index';
 import { stepSpring, isSettled, clamp, type SpringState } from './spring';
 import { resolveElasticOptions } from './options';
+
+/** When the animated refraction runs: always, only on hover, or only while pressed. */
+export type LiquidTrigger = 'always' | 'hover' | 'press';
+
+interface PointerState {
+  inside: boolean;
+  pressing: boolean;
+}
+
+/** Tracks coarse pointer state on the glass element (for liquidTrigger + followPointer gating). */
+function usePointerState(ref: RefObject<LiquidGlassHandle | null>, enabled: boolean): PointerState {
+  const [state, setState] = useState<PointerState>({ inside: false, pressing: false });
+  useEffect(() => {
+    if (!enabled) return;
+    const el = ref.current?.element;
+    if (!el) return;
+    const enter = () => setState((s) => ({ ...s, inside: true }));
+    const leave = () => setState({ inside: false, pressing: false });
+    const down = () => setState((s) => ({ ...s, pressing: true }));
+    const up = () => setState((s) => ({ ...s, pressing: false }));
+    el.addEventListener('pointerenter', enter);
+    el.addEventListener('pointerleave', leave);
+    el.addEventListener('pointercancel', leave);
+    el.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', up);
+    return () => {
+      el.removeEventListener('pointerenter', enter);
+      el.removeEventListener('pointerleave', leave);
+      el.removeEventListener('pointercancel', leave);
+      el.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointerup', up);
+    };
+  }, [ref, enabled]);
+  return enabled ? state : { inside: false, pressing: false };
+}
 
 export interface PointerElasticOptions {
   /** How far the glass leans toward the cursor. 0 = rigid. Default 0.15. */
@@ -109,7 +144,12 @@ export function usePointerElastic(
   }, [ref, elasticity, maxShift, stiffness, damping, specular]);
 }
 
-export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerElasticOptions {}
+export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerElasticOptions {
+  /** When the animated refraction runs. `hover`/`press` are idle (zero cost) until interaction. Default 'always'. */
+  liquidTrigger?: LiquidTrigger;
+  /** A refractive bump that distorts the backdrop toward the cursor. Default false. */
+  followPointer?: boolean;
+}
 
 /**
  * LiquidGlass + pointer-reactive elasticity and a tracked specular highlight. Opt-in: import
@@ -117,15 +157,65 @@ export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerEl
  */
 export const LiquidGlassInteractive = forwardRef<LiquidGlassHandle, LiquidGlassInteractiveProps>(
   function LiquidGlassInteractive(
-    { elasticity, maxShift, stiffness, damping, specular = true, children, ...props },
+    {
+      elasticity,
+      maxShift,
+      stiffness,
+      damping,
+      specular = true,
+      liquid = false,
+      liquidTrigger = 'always',
+      followPointer = false,
+      children,
+      ...props
+    },
     ref
   ) {
     const innerRef = useRef<LiquidGlassHandle | null>(null);
     useImperativeHandle(ref, () => innerRef.current as LiquidGlassHandle, []);
-    usePointerElastic(innerRef, { elasticity, maxShift, stiffness, damping, specular });
+    // followPointer needs the pointer vars too, so enable specular tracking when either is on.
+    usePointerElastic(innerRef, { elasticity, maxShift, stiffness, damping, specular: specular || followPointer });
+
+    // Pointer state drives both the trigger gating and the follow-pointer bump visibility.
+    const needsPointerState = liquidTrigger !== 'always' || followPointer;
+    const { inside, pressing } = usePointerState(innerRef, needsPointerState);
+    const engaged = liquidTrigger === 'always' || (liquidTrigger === 'hover' ? inside : pressing);
+    const resolvedLiquid = liquid && engaged ? liquid : false;
+
+    const bumpId = `lg-bump-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
     return (
-      <LiquidGlass ref={innerRef} {...props}>
+      <LiquidGlass ref={innerRef} liquid={resolvedLiquid} {...props}>
+        {followPointer && (
+          <>
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: 'var(--lg-mx, 50%)',
+                top: 'var(--lg-my, 50%)',
+                width: 104,
+                height: 104,
+                marginLeft: -52,
+                marginTop: -52,
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                zIndex: 4,
+                opacity: inside ? 1 : 0,
+                transition: 'left 120ms ease-out, top 120ms ease-out, opacity 180ms ease',
+                backdropFilter: `url(#${bumpId})`,
+                WebkitBackdropFilter: `url(#${bumpId})`,
+                boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5)'
+              }}
+            />
+            <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+              <filter id={bumpId} x="-50%" y="-50%" width="200%" height="200%" colorInterpolationFilters="sRGB">
+                <feTurbulence type="fractalNoise" baseFrequency="0.02 0.02" numOctaves={2} seed={9} result="n" />
+                <feDisplacementMap in="SourceGraphic" in2="n" scale={22} xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </svg>
+          </>
+        )}
         {specular && (
           <span
             aria-hidden="true"

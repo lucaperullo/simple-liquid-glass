@@ -8,7 +8,8 @@
  *   <script type="module" src="…/simple-liquid-glass/web-component"></script>
  *   <liquid-glass radius="20" frost="0.15" style="width:320px;height:200px"> … </liquid-glass>
  */
-import { buildDisplacementDataUri } from '../core/displacementMap';
+import { buildDisplacementDataUri, normalizeAngle } from '../core/displacementMap';
+import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from '../core/liquid';
 
 const TAG = 'liquid-glass';
 let uid = 0;
@@ -31,12 +32,13 @@ const SHEEN =
 
 export class LiquidGlassElement extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha'];
+    return ['radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha', 'angle', 'shape-adapt', 'lens', 'lens-strength', 'lens-center', 'liquid', 'liquid-speed', 'liquid-scale'];
   }
 
   private readonly filterId = `lg-wc-${++uid}`;
   private readonly root: ShadowRoot;
   private ro?: ResizeObserver;
+  private liquidRaf = 0;
 
   constructor() {
     super();
@@ -53,6 +55,7 @@ export class LiquidGlassElement extends HTMLElement {
 
   disconnectedCallback(): void {
     this.ro?.disconnect();
+    if (this.liquidRaf) cancelAnimationFrame(this.liquidRaf);
   }
 
   attributeChangedCallback(): void {
@@ -70,6 +73,28 @@ export class LiquidGlassElement extends HTMLElement {
     const alpha = attrNum(this, 'alpha', 0.9);
     const border = 0.05;
     const borderColor = this.getAttribute('border-color') || 'rgba(120, 120, 120, 0.7)';
+    const angle = normalizeAngle(attrNum(this, 'angle', 0));
+    const shapeAdapt = this.getAttribute('shape-adapt') !== 'false';
+    const lensAttr = this.getAttribute('lens');
+    const lens = (['classic', 'convex', 'shift', 'rim'] as const).includes(lensAttr as never)
+      ? (lensAttr as 'classic' | 'convex' | 'shift' | 'rim')
+      : 'classic';
+    const lensStrength = attrNum(this, 'lens-strength', 1);
+    const lensCenterAttr = this.getAttribute('lens-center');
+    const lensCenter = (() => {
+      if (!lensCenterAttr) return undefined;
+      const parts = lensCenterAttr.split(/[ ,]+/).map(parseFloat);
+      return parts.length === 2 && parts.every(Number.isFinite) ? ([parts[0], parts[1]] as [number, number]) : undefined;
+    })();
+    const liquidAttr = this.getAttribute('liquid');
+    const liquidPreset = isLiquidPreset(liquidAttr) ? liquidAttr : null;
+    const liquidSpeed = attrNum(this, 'liquid-speed', 1);
+    const liquidScale = this.getAttribute('liquid-scale') != null ? attrNum(this, 'liquid-scale', NaN) : undefined;
+    const reduce =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const liquidActive = !!liquidPreset && !reduce;
 
     const r = this.getBoundingClientRect();
     const width = r.width || 300;
@@ -83,11 +108,18 @@ export class LiquidGlassElement extends HTMLElement {
 
     if (chromium) {
       const uri = buildDisplacementDataUri({
-        width, height, divisor: 3, quantStep: 24, radius, border, lightness, alpha, displace, blend: 'difference'
+        width, height, divisor: 3, quantStep: 24, radius, border, lightness, alpha, displace, blend: 'difference', angle, shapeAdapt, lens, lensStrength, lensCenter
       });
       backdrop = `saturate(${saturation}%) url(#${this.filterId})`;
       glassBg = `hsl(0 0% 100% / ${frost})`;
-      svg = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="${this.filterId}" color-interpolation-filters="sRGB"><feImage href="${uri}" x="0" y="0" width="100%" height="100%" result="map"/><feDisplacementMap in="SourceGraphic" in2="map" scale="${scale}" xChannelSelector="R" yChannelSelector="B" result="out"/><feGaussianBlur in="out" stdDeviation="${blur}"/></filter></svg>`;
+      let blurResult = '';
+      let lqStage = '';
+      if (liquidActive && liquidPreset) {
+        const cfg = liquidConfig(liquidPreset, { speed: liquidSpeed, scale: liquidScale });
+        blurResult = ' result="lqBase"';
+        lqStage = `<feTurbulence type="fractalNoise" baseFrequency="${cfg.baseFrequencyX} ${cfg.baseFrequencyY}" numOctaves="${cfg.numOctaves}" seed="${cfg.seed}" result="lqNoise" data-lg-turb="1"/><feDisplacementMap in="lqBase" in2="lqNoise" scale="${cfg.scale}" xChannelSelector="R" yChannelSelector="G"/>`;
+      }
+      svg = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="${this.filterId}" color-interpolation-filters="sRGB"><feImage href="${uri}" x="0" y="0" width="100%" height="100%" result="map"/><feDisplacementMap in="SourceGraphic" in2="map" scale="${scale}" xChannelSelector="R" yChannelSelector="B" result="out"/><feGaussianBlur in="out" stdDeviation="${blur}"${blurResult}/>${lqStage}</filter></svg>`;
     } else {
       const frostPx = Math.max(blur, 9);
       backdrop = `blur(${frostPx}px) saturate(${Math.max(saturation, 160)}%) brightness(1.04)`;
@@ -111,6 +143,25 @@ export class LiquidGlassElement extends HTMLElement {
       <div class="lg-content"><slot></slot></div>
       ${svg}
     `;
+
+    // The shadow DOM was just rebuilt, so any prior rAF points at a detached node — restart it.
+    if (this.liquidRaf) {
+      cancelAnimationFrame(this.liquidRaf);
+      this.liquidRaf = 0;
+    }
+    if (liquidActive && liquidPreset) {
+      const turb = this.root.querySelector('[data-lg-turb]') as SVGFETurbulenceElement | null;
+      if (turb) {
+        let startT = 0;
+        const tick = (now: number) => {
+          if (!startT) startT = now;
+          const [bx, by] = liquidBaseFrequency(liquidPreset, (now - startT) / 1000, liquidSpeed);
+          turb.setAttribute('baseFrequency', `${bx} ${by}`);
+          this.liquidRaf = requestAnimationFrame(tick);
+        };
+        this.liquidRaf = requestAnimationFrame(tick);
+      }
+    }
   }
 }
 

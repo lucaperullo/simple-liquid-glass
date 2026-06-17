@@ -3,6 +3,38 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## 3.0.0 — 2026-06-17
+
+### Added
+
+- **Shape-adaptive refraction (`shapeAdapt`, default on).** The displacement map is now built in
+  aspect-true pixel space, so the lens reads like glass *cut to the element's shape* — a long
+  navbar or tall sidebar refracts evenly instead of over-bending on its short axis. Free: it lives
+  entirely in the baked map; the GPU filter graph is unchanged.
+- **Directional refraction (`angle`, degrees).** Point the refraction lean any direction. It's
+  shape-adapted, so `45°` reads as a true 45° on any aspect ratio (not a flattened lean). `0` =
+  baseline; positive = clockwise. Chromium SVG path.
+- **Lens field modes (`lens`) + manual tuning (`lensStrength`, `lensCenter`).** Choose how the glass
+  bends light: `classic` (linear radial), `convex` (one coherent dome magnifier — no top/bottom
+  split), `shift` (uniform directional offset; straight lines stay straight), or `rim` (clear flat
+  center, refraction only at a soft perimeter band). Each is a distinct displacement field with
+  fold-safe defaults at the standard `scale`.
+- **Real animated refraction (`liquid: 'ripple' | 'flow' | 'wobble'`).** The backdrop genuinely
+  warps via a live `feTurbulence` → `feDisplacementMap` stage — not a compositor overlay. Tunable
+  with `liquidSpeed` / `liquidScale`. Opt-in and GPU-gated: animates only while on-screen, pauses on
+  `prefers-reduced-motion`, Chromium-only, amplitude-capped on mobile/low quality.
+- **Pointer interaction on `LiquidGlassInteractive`:** `liquidTrigger` (`'always' | 'hover' |
+  'press'` — `hover`/`press` stay idle, zero cost, until you interact) and `followPointer` (a
+  refractive bump that distorts the backdrop toward the cursor).
+- New shared core modules `core/liquid` (preset → turbulence params, pure/tested) and
+  `normalizeAngle` in `core/displacementMap`.
+
+### Changed
+
+- **BREAKING (visual):** `shapeAdapt` defaults to `true`, which changes how **non-square** lenses
+  refract at `angle: 0` (square lenses are visually unchanged). Set `shapeAdapt={false}` to restore
+  the byte-for-byte legacy ≤2.x map.
+
 ## 2.4.0 — 2026-06-15
 
 ### Added

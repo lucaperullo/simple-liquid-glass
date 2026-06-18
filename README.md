@@ -33,6 +33,16 @@ A tiny, zero-dependency **React liquid glass component**. It renders Apple-style
 - **Pointer-reactive / “alive”** → `import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'`
 - **Vue / Svelte / Astro / plain HTML** → `import 'simple-liquid-glass/web-component'` → `<liquid-glass>`
 
+## ✨ New in 3.0.0
+
+- **Shape-adaptive refraction** — the lens reads like glass *cut to the element's shape*; a long navbar or tall sidebar refracts evenly instead of skewing.
+- **Directional `angle`** — point the refraction lean any direction; faithful on any aspect ratio.
+- **Lens modes (`lens`)** — `classic` (radial), `convex` (one coherent dome magnifier), `shift` (uniform offset — straight stays straight), `rim` (clear center, refractive edge) + manual `lensStrength` / `lensCenter`.
+- **Real animated “liquid” refraction (`liquid`)** — `ripple` / `flow` / `wobble`; the backdrop genuinely warps. GPU-gated: in-view only, pauses on reduced-motion.
+- **Pointer interaction** (`LiquidGlassInteractive`) — `followPointer` refraction and water-like click ripples (`clickRipple` → `ripple` / `drop`).
+
+> Earlier highlights and the full per-version history are in the **[Changelog](CHANGELOG.md)**.
+
 ## Features
 
 - **Liquid glassmorphism** with SVG displacement

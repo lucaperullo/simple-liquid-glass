@@ -7,6 +7,13 @@ All notable changes to this project are documented here. This project adheres to
 
 A quick tour of the big moments (newest first). Full per-version detail follows below.
 
+- **4.0.0 — Chromium-only refraction, frosted everywhere else.** Removed the DOM-mirror engine and
+  the `simple-liquid-glass/mirror` entry point. Real SVG refraction renders on **Chromium (Chrome /
+  Edge / Android Chrome)**; **Safari / iOS / Firefox** get a polished frosted-glass fallback (no
+  refraction). The live-displaced-clone was unreliable on real iOS, so it's gone.
+- **3.2.0 — Web-component refraction parity.** The `<liquid-glass>` web component gained the
+  live-displaced-clone engine and matching `backdrop-selector` / `mirror-scale` / `track` attributes.
+  *(Removed in 4.0.0.)*
 - **3.1.0 — Water ripples & polish.** Click ripples (`clickRipple: 'ripple' | 'drop'`) on
   `LiquidGlassInteractive`, a smoother pointer bump, `specular` now opt-in, and a sharper-by-default
   base refraction (clean edges at the same cost). Plus LLM onboarding (`llms.txt` + a Claude skill).
@@ -14,8 +21,8 @@ A quick tour of the big moments (newest first). Full per-version detail follows 
   four lens modes (`classic` / `convex` / `shift` / `rim`), real animated **liquid** refraction
   (`ripple` / `flow` / `wobble`), and pointer interaction on `LiquidGlassInteractive` (follow-pointer
   bump, hover/press triggers).
-- **2.3.0 – 2.4.0 — Real refraction everywhere.** True refraction on **Safari / iOS / Firefox** via a
-  live displaced DOM clone (not just a blur) — folded into the core `<LiquidGlass>` — plus an opt-in
+- **2.3.0 – 2.4.0 — DOM-mirror & ecosystem.** A live-displaced-DOM-clone "mirror" path for the
+  fallback engines (since *removed in 4.0.0*), folded into the core `<LiquidGlass>`, plus an opt-in
   pointer-reactive `/interactive` build and a framework-agnostic `<liquid-glass>` **web component**
   for Vue / Svelte / Astro / vanilla.
 - **2.0.0 – 2.2.0 — Lean & fast.** Dropped the heavy WebGL + html2canvas path, added **React 19**
@@ -26,6 +33,62 @@ A quick tour of the big moments (newest first). Full per-version detail follows 
 - **1.2.x — Foundations.** The SVG-displacement core: `saturation` + chromatic aberration, automatic
   text color, `glassColor` / `background` props, iOS blur fallbacks, and the radius/blur fixes that
   made it solid.
+
+## 4.0.0 — 2026-06-19
+
+### Removed (breaking)
+
+- **The live-DOM-mirror engine is gone.** Removed the `simple-liquid-glass/mirror` entry point and
+  its `LiquidGlassMirror` export, the shared `core/mirrorEngine`, and the core/web-component mirror
+  props/attributes: `backdropRef`, `backdropSelector`, `mirror`, `mirrorScale`, `track` (React) and
+  `backdrop-selector`, `backdrop`, `mirror`, `mirror-scale`, `track` (`<liquid-glass>`). The
+  displaced-clone path was never reliable on real iOS — cloning live page content can't track moving
+  backdrops, and the ancestor/memory edge cases degraded to blur anyway — so it's removed rather than
+  shipped half-working.
+
+### Changed
+
+- **BREAKING:** refraction is now **Chromium-only** with a deliberate **frosted-glass fallback** on
+  Safari / iOS / Firefox. Real refraction is an SVG displacement map inside CSS `backdrop-filter`,
+  which only WebKit-incompatible Chromium (Chrome / Edge / Android Chrome) can run; WebKit and Gecko
+  can't run SVG filters in `backdrop-filter`, and no web API exposes a live page backdrop to refract.
+  On those engines `<LiquidGlass>` and `<liquid-glass>` render polished frosted glass (blur +
+  saturation + subtle tint + gradient border) — real glass, just not refraction.
+
+  | Engine | Refraction |
+  | --- | --- |
+  | Chrome / Edge / Android Chrome (Chromium) | ✅ real SVG refraction |
+  | Safari / iOS / Firefox | frosted glass (no refraction) |
+
+  Everything else is unchanged: lens modes (`classic` / `convex` / `shift` / `rim`), `angle`,
+  `shapeAdapt`, animated `liquid` (`ripple` / `flow` / `wobble`), the `/interactive` export
+  (`followPointer`, `clickRipple`, `elasticity`), the `<liquid-glass>` web component, quality presets,
+  and all visual props.
+
+## 3.2.0 — 2026-06-18
+
+### Added
+
+- **Real refraction in the `<liquid-glass>` web component on iOS / Safari / Firefox.** Ported the
+  live-DOM-mirror engine (clone + align + scroll/resize/track) from the React core into the custom
+  element's shadow DOM, so the non-Chromium engines refract a displaced clone of the backdrop instead
+  of only blurring. New attributes/property:
+  - `backdrop-selector` — CSS selector for the element behind the lens (resolved against `document`).
+  - `backdrop` — a JS **property** (`el.backdrop = node`), the ref-style equivalent of React's
+    `backdropRef`; takes precedence over the selector.
+  - `mirror` — `"false"` forces the blur fallback even with a backdrop set (default on).
+  - `mirror-scale` — mirror displacement strength (default `26`).
+  - `track` — boolean attribute; re-align the clone every frame for a moving/dragged lens.
+
+  The same safety rule as the React engine is enforced: the backdrop **must not be an ancestor** of
+  the lens (cloning a page-sized ancestor crashed iOS Safari) — a missing or ancestor backdrop
+  hard-degrades to the frosted-blur fallback with a one-time console warning. Chromium is unchanged
+  (it keeps the backdrop-filter SVG path).
+
+### Changed
+
+- The web-component bundle is now ~6.5 KB (was ~5 KB) — the live-mirror engine added ~1.2 KB; its
+  size budget moved from 6 KB → 6.5 KB.
 
 ## 3.1.0 — 2026-06-18
 

@@ -2,7 +2,7 @@
  * `<liquid-glass>` custom element — framework-agnostic (vanilla / Vue / Svelte / Angular /
  * Astro / plain HTML). Reuses the canonical displacement-map generator so the look matches
  * the React component. Chromium gets the SVG-in-backdrop-filter refraction; other engines get
- * the frosted CSS fallback. SSR-safe (only touches the DOM when defined in a browser).
+ * the frosted CSS fallback (refraction is Chromium-only — a platform limitation). SSR-safe.
  *
  * Usage:
  *   <script type="module" src="…/simple-liquid-glass/web-component"></script>
@@ -130,13 +130,13 @@ export class LiquidGlassElement extends HTMLElement {
     this.root.innerHTML = `
       <style>
         :host { display: block; position: relative; }
-        .lg-glass { position: absolute; inset: 0; border-radius: ${radius}px; overflow: hidden;
+        .lg-glass { position: absolute; inset: 0; z-index: 0; border-radius: ${radius}px; overflow: hidden;
           background: ${glassBg}; backdrop-filter: ${backdrop}; -webkit-backdrop-filter: ${backdrop}; ${glassShadow} }
-        .lg-border { position: absolute; inset: 0; border-radius: ${radius}px; pointer-events: none;
+        .lg-border { position: absolute; inset: 0; z-index: 2; border-radius: ${radius}px; pointer-events: none;
           background: linear-gradient(315deg, ${borderColor} 0%, rgba(120,120,120,0) 30%, rgba(120,120,120,0) 70%, ${borderColor} 100%) border-box;
           -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor;
           mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); mask-composite: exclude; border: 1px solid transparent; }
-        .lg-content { position: relative; z-index: 2; width: 100%; height: 100%; }
+        .lg-content { position: relative; z-index: 3; width: 100%; height: 100%; }
       </style>
       <div class="lg-glass"></div>
       <div class="lg-border"></div>

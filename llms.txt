@@ -1,0 +1,204 @@
+# simple-liquid-glass
+
+> Zero-dependency React "liquid glass" component with REAL refraction on iOS, Safari and Firefox
+> (not just a blur). It renders Apple-style liquid glass with an SVG displacement map, and ships a
+> framework-agnostic `<liquid-glass>` web component for Vue/Svelte/Astro/vanilla. React 16.8–19,
+> SSR-safe. ~10 KB React core / ~5 KB web component, gzip.
+
+This file is written for LLMs/agents: it contains the complete public API, copy-paste recipes, and
+the constraints needed to use the library correctly and autonomously. When in doubt, prefer the
+patterns here over guessing. Version: 3.x.
+
+## Install
+
+```bash
+npm install simple-liquid-glass
+```
+
+Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no React.
+
+## Entry points (exports)
+
+- `simple-liquid-glass` → `LiquidGlass` (default and named export). Types: `LiquidGlassProps`,
+  `LiquidGlassHandle`, `LiquidPreset` (`'ripple' | 'flow' | 'wobble'`), `LensMode`
+  (`'classic' | 'convex' | 'shift' | 'rim'`).
+- `simple-liquid-glass/interactive` → `LiquidGlassInteractive`, `usePointerElastic(ref, options)`.
+  Types: `LiquidGlassInteractiveProps`, `PointerElasticOptions`, `RippleEffect` (`'ripple' | 'drop'`),
+  `LiquidTrigger` (`'always' | 'hover' | 'press'`).
+- `simple-liquid-glass/web-component` → side-effect import; registers the `<liquid-glass>` custom
+  element. Also exports `defineLiquidGlass(tag?)` and `LiquidGlassElement`.
+- `simple-liquid-glass/mirror` → `LiquidGlassMirror` (thin back-compat wrapper; prefer the core
+  `<LiquidGlass>` with `backdropRef` instead).
+
+## How refraction works — and the #1 thing to get right
+
+The real refraction is an SVG displacement map driven through `feDisplacementMap` inside
+`backdrop-filter`. **That only runs on Chromium** (Chrome/Edge/Brave/Opera). On Safari, iOS, and
+Firefox, `backdrop-filter` cannot run SVG filters, so:
+
+- **Default there** → a polished frosted-glass CSS blur fallback (no true distortion).
+- **Real refraction there** → pass **`backdropRef`** (a React ref) or **`backdropSelector`** pointing
+  at the element directly BEHIND the lens. The library then refracts a live, displaced clone of it.
+  - ⚠️ **The backdrop MUST be a sibling/background element, never an ancestor of the lens.** Pointing
+    it at an ancestor clones a page-sized subtree every mutation and crashed iOS Safari. The library
+    hard-degrades to blur if the source is missing or is an ancestor.
+
+## `<LiquidGlass>` props (React core)
+
+| prop | type | default | notes |
+|---|---|---|---|
+| `children` | ReactNode | — | content inside the glass |
+| `mode` | `'preset' \| 'custom'` | `'preset'` | preset applies tuned defaults; props still override |
+| `scale` | number | `160` | displacement strength (negative inverts the bend) |
+| `radius` | number | `50` | border radius (px) |
+| `border` | number | `0.05` | border thickness 0–0.5 |
+| `lightness` | number | `53` | glass lightness 0–100 |
+| `displace` | number | `5` | displacement-map blur amount |
+| `alpha` | number | `0.9` | glass alpha 0–1 |
+| `blur` | number | `0` | post blur |
+| `dispersion` | number | `50` | chromatic dispersion |
+| `saturation` | number | `140` | CSS saturate() % |
+| `aberrationIntensity` | number | `0` | chromatic aberration multiplier |
+| `frost` | number | `0.1` | frost intensity 0–1 |
+| `borderColor` | string | `rgba(120,120,120,0.7)` | gradient border color |
+| `glassColor` | string | `rgba(255,255,255,0.4)` | must be semi-transparent |
+| `background` | string | — | solid/gradient; auto made semi-transparent |
+| `autoTextColor` | boolean | `false` | auto pick text color from background luminance |
+| `textOnDark` / `textOnLight` | string | `#ffffff` / `#111111` | text colors for autoTextColor |
+| `forceTextColor` | boolean | `false` | force computed text color on descendants |
+| `angle` | number | `0` | **3.0** refraction direction in degrees; positive = clockwise; shape-adapted so it's faithful on any aspect. Chromium SVG path. |
+| `shapeAdapt` | boolean | `true` | **3.0** aspect-faithful + isotropic refraction (glass cut to the element's shape). `false` = legacy ≤2.x map. |
+| `lens` | `'classic' \| 'convex' \| 'shift' \| 'rim'` | `'classic'` | **3.0** displacement field: classic radial / dome magnifier / uniform offset / clear-center rim |
+| `lensStrength` | number | `1` | **3.0** lens magnitude (0 = off) |
+| `lensCenter` | `[number, number]` | `[0.5, 0.5]` | **3.0** lens center (0–1) for convex/rim |
+| `liquid` | `'ripple' \| 'flow' \| 'wobble' \| false` | `false` | **3.0** real animated refraction (Chromium; in-view + reduced-motion gated) |
+| `liquidSpeed` | number | `1` | **3.0** animation rate |
+| `liquidScale` | number | preset | **3.0** distortion amplitude (px) |
+| `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | map resolution / pass count. `low` = clean single-pass; `standard`+ add 3-pass chromatic aberration |
+| `autodetectquality` | boolean | `false` | pick quality from device performance |
+| `mobileFallback` | `'css-only' \| 'svg'` | css-only on mobile | mobile render strategy |
+| `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | force a strategy |
+| `mirror` | boolean | `true` | enable the live-clone refraction on fallback engines (needs backdropRef) |
+| `backdropRef` | RefObject<HTMLElement> | — | element behind the lens for iOS/Safari/Firefox real refraction (sibling, NOT ancestor) |
+| `backdropSelector` | string | — | CSS selector alternative to backdropRef |
+| `mirrorScale` | number | `26` | mirror displacement strength |
+| `track` | boolean | `false` | re-align the clone every frame (for a moving/dragged lens) |
+| `className` / `style` | — | — | standard; plus any HTML div attributes |
+
+Ref (`LiquidGlassHandle`): `{ element: HTMLDivElement | null; getQuality(): quality }`.
+
+## `<LiquidGlassInteractive>` — extra props (import from `simple-liquid-glass/interactive`)
+
+Extends all `LiquidGlassProps` and adds pointer reactivity:
+
+| prop | type | default | notes |
+|---|---|---|---|
+| `elasticity` | number | `0.15` | how far the glass leans toward the cursor (0 = rigid) |
+| `maxShift` | number | `18` | max lean translate (px) |
+| `stiffness` / `damping` | number | `0.18` / `0.78` | spring tuning |
+| `specular` | boolean | `false` | pointer-tracked specular highlight (opt-in) |
+| `followPointer` | boolean | `false` | a refractive bump that distorts the backdrop toward the cursor |
+| `clickRipple` | `boolean \| 'ripple' \| 'drop'` | `false` | real water-like ripple on click (`true` = `'ripple'`; `'drop'` = droplet-in-water rings). Lag-free, compositor-driven, reduced-motion-aware |
+| `rippleIntensity` | number | `1` | ripple brightness/reach |
+| `liquidTrigger` | `'always' \| 'hover' \| 'press'` | `'always'` | when `liquid` animates (hover/press stay idle/zero-cost until interaction) |
+
+Also: `usePointerElastic(ref, options)` — apply the elastic spring to any `LiquidGlassHandle` ref.
+
+## `<liquid-glass>` web-component attributes (kebab-case, all optional)
+
+`radius`, `frost`, `blur`, `saturation`, `displace`, `scale`, `border-color`, `lightness`, `alpha`,
+`angle`, `shape-adapt` (`"false"` to disable), `lens`, `lens-strength`, `lens-center` (`"x,y"`),
+`liquid`, `liquid-speed`, `liquid-scale`.
+
+Note: pointer interaction props (`followPointer`, `clickRipple`, `rippleIntensity`, `liquidTrigger`,
+elasticity) are **React-only** (`LiquidGlassInteractive`) — they are NOT web-component attributes.
+Give the element an explicit size and place it over a background.
+
+## Recipes
+
+### React — basic
+```tsx
+import { LiquidGlass } from 'simple-liquid-glass'
+
+<LiquidGlass radius={24} style={{ width: 320, height: 180 }}>
+  <div style={{ padding: 20 }}>Frosted, refractive glass</div>
+</LiquidGlass>
+```
+
+### React — REAL refraction on iOS/Safari/Firefox (backdropRef)
+```tsx
+import { useRef } from 'react'
+import { LiquidGlass } from 'simple-liquid-glass'
+
+function Card() {
+  const bg = useRef<HTMLDivElement>(null)
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={bg} className="background-behind-the-lens" />{/* sibling, NOT an ancestor */}
+      <LiquidGlass backdropRef={bg} track radius={24} style={{ width: 320, height: 180 }}>
+        Refracts on iPhone too
+      </LiquidGlass>
+    </div>
+  )
+}
+```
+
+### React — lens modes + directional angle (3.0)
+```tsx
+<LiquidGlass lens="convex" lensStrength={1.2} style={{ width: 200, height: 200 }} />
+<LiquidGlass lens="shift" angle={30} style={{ width: 420, height: 64 }} /> {/* navbar */}
+<LiquidGlass lens="rim" style={{ width: 160, height: 160 }} />
+```
+
+### React — real animated "liquid" refraction (3.0)
+```tsx
+<LiquidGlass liquid="ripple" liquidSpeed={1} style={{ width: 320, height: 200 }}>
+  {/* backdrop genuinely warps; pauses off-screen + on prefers-reduced-motion; Chromium */}
+</LiquidGlass>
+```
+
+### React — interactive: follow pointer + click ripples (3.0)
+```tsx
+import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'
+
+<LiquidGlassInteractive elasticity={0.3} followPointer clickRipple="drop">
+  Move me, then click for a water-drop ripple
+</LiquidGlassInteractive>
+```
+
+### Vue / Svelte / Astro / plain HTML — web component
+```html
+<script type="module"
+  src="https://cdn.jsdelivr.net/npm/simple-liquid-glass/web-component"></script>
+
+<liquid-glass radius="20" frost="0.15" lens="convex" angle="20"
+  style="width:320px;height:200px;display:block">
+  Glass anywhere
+</liquid-glass>
+```
+
+### Next.js / SSR
+SSR-safe out of the box — it only touches the DOM in effects. Use it in client components; no
+`'use client'` gymnastics needed beyond your normal component boundaries.
+
+## Constraints & gotchas (read before generating code)
+
+- **Refraction (SVG displacement) is Chromium-only.** Safari/iOS/Firefox get the frosted fallback
+  unless you pass `backdropRef`/`backdropSelector` (then they get a live-clone refraction).
+- **`backdropRef` must be a sibling/background, never an ancestor** of the lens.
+- **`liquid` and `followPointer`/`clickRipple` are GPU-real and gated**: animate only while on-screen,
+  pause on `prefers-reduced-motion`, Chromium SVG path; treat `liquid` as a per-element design choice,
+  not for hundreds of cards. `liquidTrigger: 'hover' | 'press'` costs nothing until interaction.
+- **`shapeAdapt` defaults to `true` in 3.0** and changes how non-square lenses look at `angle: 0`
+  versus 2.x (square lenses are unchanged). Set `shapeAdapt={false}` for the exact legacy map.
+- **`glassColor` must be semi-transparent** (rgba/hsla/hex-with-alpha); opaque values fall back to frost.
+- Give the element an explicit size; the effect fills 100% of its box.
+- Many glass instances? They auto-drop their `backdrop-filter` when off-screen (IntersectionObserver).
+- `clickRipple` / `rippleIntensity` / `followPointer` / `liquidTrigger` are on `LiquidGlassInteractive`
+  only (the `/interactive` import), not the base component or the web component.
+
+## Links
+
+- npm: https://www.npmjs.com/package/simple-liquid-glass
+- repo: https://github.com/lucaperullo/simple-liquid-glass
+- changelog: https://github.com/lucaperullo/simple-liquid-glass/blob/main/CHANGELOG.md

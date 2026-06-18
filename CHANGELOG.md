@@ -3,6 +3,58 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## What's new — highlights
+
+A quick tour of the big moments (newest first). Full per-version detail follows below.
+
+- **3.1.0 — Water ripples & polish.** Click ripples (`clickRipple: 'ripple' | 'drop'`) on
+  `LiquidGlassInteractive`, a smoother pointer bump, `specular` now opt-in, and a sharper-by-default
+  base refraction (clean edges at the same cost). Plus LLM onboarding (`llms.txt` + a Claude skill).
+- **3.0.0 — Shape & motion.** Refraction that *adapts to the element's shape*, a directional `angle`,
+  four lens modes (`classic` / `convex` / `shift` / `rim`), real animated **liquid** refraction
+  (`ripple` / `flow` / `wobble`), and pointer interaction on `LiquidGlassInteractive` (follow-pointer
+  bump, hover/press triggers).
+- **2.3.0 – 2.4.0 — Real refraction everywhere.** True refraction on **Safari / iOS / Firefox** via a
+  live displaced DOM clone (not just a blur) — folded into the core `<LiquidGlass>` — plus an opt-in
+  pointer-reactive `/interactive` build and a framework-agnostic `<liquid-glass>` **web component**
+  for Vue / Svelte / Astro / vanilla.
+- **2.0.0 – 2.2.0 — Lean & fast.** Dropped the heavy WebGL + html2canvas path, added **React 19**
+  support, and hardened performance (bounded LRU map cache, passive/coalesced listeners, dynamic
+  `will-change`, faster device auto-detect) behind a CI bundle-size budget.
+- **1.3.0 – 1.4.x — Quality tiers & the WebGL era.** Quality presets + device auto-detection,
+  mobile/`effectMode` fallbacks, and a (later-removed) WebGL refraction path for iOS/Firefox.
+- **1.2.x — Foundations.** The SVG-displacement core: `saturation` + chromatic aberration, automatic
+  text color, `glassColor` / `background` props, iOS blur fallbacks, and the radius/blur fixes that
+  made it solid.
+
+## 3.1.0 — 2026-06-18
+
+### Added
+
+- **Click ripples on `LiquidGlassInteractive` (`clickRipple`, `rippleIntensity`).** Each click sends a
+  real water-like ripple from the click point — `clickRipple="ripple"` (a single wave) or `"drop"`
+  (a splash + concentric waves). Compositor-driven and spawned imperatively, so it stays lag-free even
+  under rapid clicking; pauses on `prefers-reduced-motion`.
+- **LLM / agent onboarding.** A paste-anywhere [`llms.txt`](llms.txt) (full API + recipes + gotchas)
+  and a Claude Code skill (`skills/simple-liquid-glass/SKILL.md`), both shipped in the package.
+
+### Changed
+
+- **`specular` now defaults to `false`** on `LiquidGlassInteractive` (was `true` in 3.0.0) — the
+  pointer-tracked highlight is opt-in. Pass `specular` if you relied on the old default.
+- The default **`low`** quality tier now uses a **full-resolution** displacement map at the same
+  single-pass render cost — cleaner refraction by default, with no per-frame cost change.
+
+### Fixed
+
+- **Interactive overlays are clipped to the glass radius** — the specular highlight, follow-pointer
+  bump, and click ripples no longer overflow the rounded corners as squares.
+- **Smoother follow-pointer bump** — gentler, blurred turbulence + a feathered edge remove the hard
+  fringe around the cursor.
+- **Click ripple reads like water** — a subtle `soft-light` caustic instead of a visible white ring.
+- **No more frizzy/folded edge on the base refraction** — a baked rim-blur keeps the displacement
+  gradient gentle at the rounded perimeter (zero per-frame cost).
+
 ## 3.0.0 — 2026-06-17
 
 ### Added
@@ -143,6 +195,17 @@ Performance hardening. No public API changes; behavior-preserving. Core bundle ~
 
 - `effectMode` no longer accepts `'webgl'` — it is now `'auto' | 'svg' | 'blur' | 'off'`. The Chromium SVG-in-`backdrop-filter` path and the layered CSS fallback (masked edge ring + specular highlight) remain. `LiquidGlassHandle` now exposes only `element`.
 
+## 1.4.2 — 2026-06-12
+
+### Fixed
+
+- WebGL: detect **late-applied backgrounds** (e.g. Storybook's backgrounds addon) so the captured
+  snapshot isn't stale when the page background changes after first paint.
+
+### Internal
+
+- Migrated Storybook to v10 (react-vite).
+
 ## 1.4.1 — 2026-06-12
 
 ### Fixed
@@ -170,3 +233,86 @@ Performance hardening. No public API changes; behavior-preserving. Core bundle ~
 ### Changed
 
 - `effectMode` accepts `'webgl'`.
+
+## 1.3.0 — 2025-09-03
+
+### Added
+
+- **Rendering quality presets** — `quality: 'low' | 'standard' | 'high' | 'extreme'` controlling the
+  internal displacement-map resolution, plus **`autodetectquality`** (device-performance detection).
+  Default tier is `'low'`.
+- **`mobileFallback`** and **`effectMode`** controls; mobile defaults to a CSS-only fallback.
+
+### Improved
+
+- Multi-instance performance at the `'low'` tier.
+
+## 1.2.9 — 2025-08-25
+
+### Added
+
+- **`background` prop** — accepts a solid color or gradient and automatically converts it to
+  semi-transparent. Default tuning updated.
+
+## 1.2.8 — 2025-08-15
+
+### Docs
+
+- README bundle-size badge update.
+
+## 1.2.7 — 2025-08-15
+
+### Added
+
+- **`autoTextColorMode`** and **`perPixelTargetSelector`** for richer automatic text-color adaptation.
+
+## 1.2.6 — 2025-08-10
+
+### Fixed
+
+- Stricter iOS **real-device detection** (excludes emulators / Android) for the iOS blur fallback.
+
+## 1.2.5 — 2025-08-10
+
+### Added
+
+- **iOS blur fallback** controls — `iosMinBlur` and `iosBlurMode` (force a minimal blur on iOS where
+  SVG `backdrop-filter` refraction is unsupported).
+
+## 1.2.4 — 2025-08-10
+
+### Changed
+
+- Default values updated to `blur=0`, `displace=5`.
+
+## 1.2.3 — 2025-08-10
+
+### Fixed
+
+- Sync the border radius between the SVG filter and the CSS; clamp `radius`; add
+  `-webkit-backdrop-filter` and `overflow: hidden` (iOS fixes).
+
+## 1.2.2 — 2025-08-10
+
+### Fixed
+
+- Correct the blur/displace mapping — the inner frost uses `displace`, the final blur uses `blur`.
+
+## 1.2.1 — 2025-08-10
+
+### Added
+
+- **`saturation`** and **`aberrationIntensity`** props on the SVG path.
+
+### Changed
+
+- Pruned non-SVG dependencies.
+
+## 1.2.0 — 2025-08-10
+
+Earliest release in this tracked history (any 1.0 / 1.1 releases predate it).
+
+### Added
+
+- **Automatic text color** (`autoTextColor`, `forceTextColor`), a semi-transparent **`glassColor`**,
+  and Storybook controls.

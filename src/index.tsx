@@ -12,14 +12,17 @@ import type { LiquidQuality } from './quality';
 type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
 
 const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
-  low: 5,
+  // 'low' = cheapest RENDER (single displacement pass, no chromatic dispersion) but a full-resolution
+  // map — map resolution is ~free per-frame (rasterized once, sampled as a texture), so there's no
+  // reason to also starve it. This is what fixes the jagged/folded edge on the default tier.
+  low: 3,
   standard: 3,
   high: 2.5,
   extreme: 2
 };
 
 const QUALITY_QUANTIZATION_STEPS: Record<LiquidQuality, number> = {
-  low: 32,
+  low: 24,
   standard: 24,
   high: 16,
   extreme: 8

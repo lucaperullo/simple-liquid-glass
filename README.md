@@ -240,7 +240,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `liquidSpeed` | `number` | `1` | Motion rate multiplier for `liquid`. |
 | `liquidScale` | `number` | preset | Distortion amplitude (px) for `liquid`. Defaults to the preset's amplitude. |
 
-> **`LiquidGlassInteractive`** (from `simple-liquid-glass/interactive`) adds two more: `liquidTrigger` (`'always' \| 'hover' \| 'press'`, default `'always'` — `hover`/`press` stay idle until you interact) and `followPointer` (`boolean`, a refractive bump that distorts the backdrop toward the cursor).
+> **`LiquidGlassInteractive`** (from `simple-liquid-glass/interactive`) adds: `liquidTrigger` (`'always' \| 'hover' \| 'press'`, default `'always'` — `hover`/`press` stay idle until you interact), `followPointer` (`boolean`, a refractive bump that distorts the backdrop toward the cursor), and `clickRipple` (`boolean`, a real refractive ripple that expands + fades from each click). `specular` (the pointer-tracked highlight) is now **opt-in** (default `false`). All overlays are clipped to the glass radius.
 
 ## Examples
 

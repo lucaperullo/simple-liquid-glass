@@ -24,8 +24,12 @@ All notable changes to this project are documented here. This project adheres to
   with `liquidSpeed` / `liquidScale`. Opt-in and GPU-gated: animates only while on-screen, pauses on
   `prefers-reduced-motion`, Chromium-only, amplitude-capped on mobile/low quality.
 - **Pointer interaction on `LiquidGlassInteractive`:** `liquidTrigger` (`'always' | 'hover' |
-  'press'` — `hover`/`press` stay idle, zero cost, until you interact) and `followPointer` (a
-  refractive bump that distorts the backdrop toward the cursor).
+  'press'` — `hover`/`press` stay idle, zero cost, until you interact), `followPointer` (a
+  refractive bump that distorts the backdrop toward the cursor), and `clickRipple` (a real
+  refractive ripple that expands + fades from each click; compositor-driven, reduced-motion-aware).
+- **`LiquidGlassInteractive` fixes:** all overlays are now clipped to the glass radius (they no
+  longer overflow the rounded corners as squares), and the pointer-tracked specular highlight is
+  now opt-in — `specular` defaults to `false`.
 - New shared core modules `core/liquid` (preset → turbulence params, pure/tested) and
   `normalizeAngle` in `core/displacementMap`.
 

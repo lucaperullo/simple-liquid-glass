@@ -52,7 +52,7 @@
     {
       "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
       "path": "dist/interactive.esm.js",
-      "limit": "11.5 KB",
+      "limit": "12.5 KB",
       "ignore": ["react", "react-dom"]
     },
     {

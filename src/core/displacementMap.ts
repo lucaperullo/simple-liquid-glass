@@ -258,14 +258,23 @@ export function buildDisplacementSvg(p: DisplacementParams): string {
 
   const defs = shapeAdapt ? adaptedGradients(newwidth, newheight, angle) : legacyGradients(angle);
 
+  // Bake a small, resolution-consistent blur into the gradient rects so the displacement field's
+  // gradient stays gentle at the rounded-rect rim. Without it, the sharp gradient→edge transition
+  // makes the displacement fold at the perimeter (the frizzy band). It's part of the cached map
+  // raster, so it costs nothing per frame. (Blurring red+blue together is safe: they carry
+  // orthogonal R/B channels, so the difference-composite result is unchanged.)
+  const rimSoft = Math.max(0.6, Math.min(newwidth, newheight) * 0.01);
+
   return `
       <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
         <defs>
 ${defs}
         </defs>
         <rect x="0" y="0" width="${newwidth}" height="${newheight}" fill="black"/>
-        <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
-        <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${blend}" />
+        <g style="filter:blur(${rimSoft}px)">
+          <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
+          <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${blend}" />
+        </g>
         <rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${lightness}% / ${alpha})" style="filter:blur(${displace}px)" />
       </svg>
     `;

@@ -7,10 +7,13 @@ All notable changes to this project are documented here. This project adheres to
 
 A quick tour of the big moments (newest first). Full per-version detail follows below.
 
+- **3.1.0 — Water ripples & polish.** Click ripples (`clickRipple: 'ripple' | 'drop'`) on
+  `LiquidGlassInteractive`, a smoother pointer bump, `specular` now opt-in, and a sharper-by-default
+  base refraction (clean edges at the same cost). Plus LLM onboarding (`llms.txt` + a Claude skill).
 - **3.0.0 — Shape & motion.** Refraction that *adapts to the element's shape*, a directional `angle`,
   four lens modes (`classic` / `convex` / `shift` / `rim`), real animated **liquid** refraction
   (`ripple` / `flow` / `wobble`), and pointer interaction on `LiquidGlassInteractive` (follow-pointer
-  bump, water-like click ripples). The default quality tier was also made accurate *and* performant.
+  bump, hover/press triggers).
 - **2.3.0 – 2.4.0 — Real refraction everywhere.** True refraction on **Safari / iOS / Firefox** via a
   live displaced DOM clone (not just a blur) — folded into the core `<LiquidGlass>` — plus an opt-in
   pointer-reactive `/interactive` build and a framework-agnostic `<liquid-glass>` **web component**
@@ -23,6 +26,34 @@ A quick tour of the big moments (newest first). Full per-version detail follows 
 - **1.2.x — Foundations.** The SVG-displacement core: `saturation` + chromatic aberration, automatic
   text color, `glassColor` / `background` props, iOS blur fallbacks, and the radius/blur fixes that
   made it solid.
+
+## 3.1.0 — 2026-06-18
+
+### Added
+
+- **Click ripples on `LiquidGlassInteractive` (`clickRipple`, `rippleIntensity`).** Each click sends a
+  real water-like ripple from the click point — `clickRipple="ripple"` (a single wave) or `"drop"`
+  (a splash + concentric waves). Compositor-driven and spawned imperatively, so it stays lag-free even
+  under rapid clicking; pauses on `prefers-reduced-motion`.
+- **LLM / agent onboarding.** A paste-anywhere [`llms.txt`](llms.txt) (full API + recipes + gotchas)
+  and a Claude Code skill (`skills/simple-liquid-glass/SKILL.md`), both shipped in the package.
+
+### Changed
+
+- **`specular` now defaults to `false`** on `LiquidGlassInteractive` (was `true` in 3.0.0) — the
+  pointer-tracked highlight is opt-in. Pass `specular` if you relied on the old default.
+- The default **`low`** quality tier now uses a **full-resolution** displacement map at the same
+  single-pass render cost — cleaner refraction by default, with no per-frame cost change.
+
+### Fixed
+
+- **Interactive overlays are clipped to the glass radius** — the specular highlight, follow-pointer
+  bump, and click ripples no longer overflow the rounded corners as squares.
+- **Smoother follow-pointer bump** — gentler, blurred turbulence + a feathered edge remove the hard
+  fringe around the cursor.
+- **Click ripple reads like water** — a subtle `soft-light` caustic instead of a visible white ring.
+- **No more frizzy/folded edge on the base refraction** — a baked rim-blur keeps the displacement
+  gradient gentle at the rounded perimeter (zero per-frame cost).
 
 ## 3.0.0 — 2026-06-17
 
@@ -45,12 +76,8 @@ A quick tour of the big moments (newest first). Full per-version detail follows 
   with `liquidSpeed` / `liquidScale`. Opt-in and GPU-gated: animates only while on-screen, pauses on
   `prefers-reduced-motion`, Chromium-only, amplitude-capped on mobile/low quality.
 - **Pointer interaction on `LiquidGlassInteractive`:** `liquidTrigger` (`'always' | 'hover' |
-  'press'` — `hover`/`press` stay idle, zero cost, until you interact), `followPointer` (a
-  refractive bump that distorts the backdrop toward the cursor), and `clickRipple` (a real
-  refractive ripple that expands + fades from each click; compositor-driven, reduced-motion-aware).
-- **`LiquidGlassInteractive` fixes:** all overlays are now clipped to the glass radius (they no
-  longer overflow the rounded corners as squares), and the pointer-tracked specular highlight is
-  now opt-in — `specular` defaults to `false`.
+  'press'` — `hover`/`press` stay idle, zero cost, until you interact) and `followPointer` (a
+  refractive bump that distorts the backdrop toward the cursor).
 - New shared core modules `core/liquid` (preset → turbulence params, pure/tested) and
   `normalizeAngle` in `core/displacementMap`.
 

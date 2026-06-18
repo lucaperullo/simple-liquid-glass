@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "description": "Zero-dependency React liquid glass with REAL refraction on iOS/Safari/Firefox (not just blur). Directional + animated 'liquid' refraction, lens modes. SSR-safe, ~10KB (web component ~5KB), React 16.8–19. Web-component included.",
   "main": "dist/index.cjs",
@@ -31,7 +31,9 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "llms.txt",
+    "skills"
   ],
   "scripts": {
     "build": "rollup -c && node scripts/copy-types.mjs",

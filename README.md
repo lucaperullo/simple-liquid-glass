@@ -33,7 +33,7 @@ A tiny, zero-dependency **React liquid glass component**. It renders Apple-style
 - **Pointer-reactive / “alive”** → `import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'`
 - **Vue / Svelte / Astro / plain HTML** → `import 'simple-liquid-glass/web-component'` → `<liquid-glass>`
 
-## ✨ New in 3.0.0
+## ✨ New in 3.x
 
 - **Shape-adaptive refraction** — the lens reads like glass *cut to the element's shape*; a long navbar or tall sidebar refracts evenly instead of skewing.
 - **Directional `angle`** — point the refraction lean any direction; faithful on any aspect ratio.
@@ -427,6 +427,39 @@ npm run storybook
 ```
 
 Switch the Backgrounds toolbar between light/dark to see text color adapt in real time.
+
+## Use with AI / LLMs
+
+This library ships an LLM-friendly reference so any assistant can use it correctly and autonomously.
+
+- **[`llms.txt`](llms.txt)** — the complete API, recipes, and gotchas in one paste-anywhere file
+  (the [llms.txt convention](https://llmstxt.org)). Feed it to any model.
+- **Claude Code skill** — [`skills/simple-liquid-glass/SKILL.md`](skills/simple-liquid-glass/SKILL.md).
+  Install it so Claude auto-loads the API when you work with the library:
+
+  ```bash
+  # copy into your user skills (or a project's .claude/skills/)
+  mkdir -p ~/.claude/skills/simple-liquid-glass
+  curl -fsSL https://raw.githubusercontent.com/lucaperullo/simple-liquid-glass/main/skills/simple-liquid-glass/SKILL.md \
+    -o ~/.claude/skills/simple-liquid-glass/SKILL.md
+  ```
+
+**Copy-paste prompt** (drop into any chat assistant):
+
+```
+You are helping me build UI with the npm package `simple-liquid-glass` (React + a <liquid-glass>
+web component; Apple-style liquid glass with real SVG-displacement refraction). Use this reference
+as the source of truth for its API and constraints:
+https://raw.githubusercontent.com/lucaperullo/simple-liquid-glass/main/llms.txt
+
+Key rules: real refraction is Chromium-only — for iOS/Safari/Firefox pass `backdropRef` pointing at a
+SIBLING/background element (never an ancestor); give the element an explicit size; `clickRipple`/
+`followPointer` are on `LiquidGlassInteractive` only. Now: <your task>.
+```
+
+System-prompt one-liner (for agents): *"For `simple-liquid-glass`, follow its llms.txt; refraction is
+Chromium-only (use `backdropRef` to a sibling for iOS/Safari/Firefox); interaction props live on the
+`/interactive` export."*
 
 ## License
 

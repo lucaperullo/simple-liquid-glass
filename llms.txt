@@ -1,9 +1,12 @@
 # simple-liquid-glass
 
-> Zero-dependency React "liquid glass" component with REAL refraction on iOS, Safari and Firefox
-> (not just a blur). It renders Apple-style liquid glass with an SVG displacement map, and ships a
-> framework-agnostic `<liquid-glass>` web component for Vue/Svelte/Astro/vanilla. React 16.8–19,
-> SSR-safe. ~10 KB React core / ~5 KB web component, gzip.
+> Zero-dependency React "liquid glass" component. It renders Apple-style liquid glass with an SVG
+> displacement map (real refraction on Chromium), and ships a framework-agnostic `<liquid-glass>`
+> web component for Vue/Svelte/Astro/vanilla. React 16.8–19, SSR-safe. ~10 KB React core /
+> ~6.5 KB web component, gzip.
+>
+> **Support rule:** refraction is Chromium-only; Safari/iOS/Firefox render frosted glass (no
+> refraction); there is no `backdropRef`/`mirror`.
 
 This file is written for LLMs/agents: it contains the complete public API, copy-paste recipes, and
 the constraints needed to use the library correctly and autonomously. When in doubt, prefer the
@@ -27,21 +30,21 @@ Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no Rea
   `LiquidTrigger` (`'always' | 'hover' | 'press'`).
 - `simple-liquid-glass/web-component` → side-effect import; registers the `<liquid-glass>` custom
   element. Also exports `defineLiquidGlass(tag?)` and `LiquidGlassElement`.
-- `simple-liquid-glass/mirror` → `LiquidGlassMirror` (thin back-compat wrapper; prefer the core
-  `<LiquidGlass>` with `backdropRef` instead).
 
 ## How refraction works — and the #1 thing to get right
 
 The real refraction is an SVG displacement map driven through `feDisplacementMap` inside
-`backdrop-filter`. **That only runs on Chromium** (Chrome/Edge/Brave/Opera). On Safari, iOS, and
-Firefox, `backdrop-filter` cannot run SVG filters, so:
+`backdrop-filter`. **That only runs on Chromium** (Chrome/Edge/Android Chrome). On Safari, iOS, and
+Firefox, `backdrop-filter` cannot run SVG filters, so the component renders a deliberate, polished
+**frosted glass** (blur + saturation + subtle tint + gradient border) — real glass, just not
+refraction. This is a hard platform limitation: WebKit can't run SVG filters in `backdrop-filter`,
+and no web API exposes a live page backdrop to WebGL/canvas. There is no `backdropRef`/`mirror` and
+no workaround that delivers live refraction on those engines.
 
-- **Default there** → a polished frosted-glass CSS blur fallback (no true distortion).
-- **Real refraction there** → pass **`backdropRef`** (a React ref) or **`backdropSelector`** pointing
-  at the element directly BEHIND the lens. The library then refracts a live, displaced clone of it.
-  - ⚠️ **The backdrop MUST be a sibling/background element, never an ancestor of the lens.** Pointing
-    it at an ancestor clones a page-sized subtree every mutation and crashed iOS Safari. The library
-    hard-degrades to blur if the source is missing or is an ancestor.
+| Engine | Refraction |
+|---|---|
+| Chrome / Edge / Android Chrome (Chromium) | ✅ real SVG refraction |
+| Safari / iOS / Firefox | frosted glass (no refraction) |
 
 ## `<LiquidGlass>` props (React core)
 
@@ -78,11 +81,6 @@ Firefox, `backdrop-filter` cannot run SVG filters, so:
 | `autodetectquality` | boolean | `false` | pick quality from device performance |
 | `mobileFallback` | `'css-only' \| 'svg'` | css-only on mobile | mobile render strategy |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | force a strategy |
-| `mirror` | boolean | `true` | enable the live-clone refraction on fallback engines (needs backdropRef) |
-| `backdropRef` | RefObject<HTMLElement> | — | element behind the lens for iOS/Safari/Firefox real refraction (sibling, NOT ancestor) |
-| `backdropSelector` | string | — | CSS selector alternative to backdropRef |
-| `mirrorScale` | number | `26` | mirror displacement strength |
-| `track` | boolean | `false` | re-align the clone every frame (for a moving/dragged lens) |
 | `className` / `style` | — | — | standard; plus any HTML div attributes |
 
 Ref (`LiquidGlassHandle`): `{ element: HTMLDivElement | null; getQuality(): quality }`.
@@ -110,6 +108,10 @@ Also: `usePointerElastic(ref, options)` — apply the elastic spring to any `Liq
 `angle`, `shape-adapt` (`"false"` to disable), `lens`, `lens-strength`, `lens-center` (`"x,y"`),
 `liquid`, `liquid-speed`, `liquid-scale`.
 
+Like the React core, the web component renders real SVG refraction on Chromium and a frosted-glass
+fallback on Safari/iOS/Firefox. There is no `backdrop-selector`/`backdrop`/`mirror`/`mirror-scale`/
+`track` — and no refraction on the non-Chromium engines.
+
 Note: pointer interaction props (`followPointer`, `clickRipple`, `rippleIntensity`, `liquidTrigger`,
 elasticity) are **React-only** (`LiquidGlassInteractive`) — they are NOT web-component attributes.
 Give the element an explicit size and place it over a background.
@@ -123,24 +125,6 @@ import { LiquidGlass } from 'simple-liquid-glass'
 <LiquidGlass radius={24} style={{ width: 320, height: 180 }}>
   <div style={{ padding: 20 }}>Frosted, refractive glass</div>
 </LiquidGlass>
-```
-
-### React — REAL refraction on iOS/Safari/Firefox (backdropRef)
-```tsx
-import { useRef } from 'react'
-import { LiquidGlass } from 'simple-liquid-glass'
-
-function Card() {
-  const bg = useRef<HTMLDivElement>(null)
-  return (
-    <div style={{ position: 'relative' }}>
-      <div ref={bg} className="background-behind-the-lens" />{/* sibling, NOT an ancestor */}
-      <LiquidGlass backdropRef={bg} track radius={24} style={{ width: 320, height: 180 }}>
-        Refracts on iPhone too
-      </LiquidGlass>
-    </div>
-  )
-}
 ```
 
 ### React — lens modes + directional angle (3.0)
@@ -183,9 +167,9 @@ SSR-safe out of the box — it only touches the DOM in effects. Use it in client
 
 ## Constraints & gotchas (read before generating code)
 
-- **Refraction (SVG displacement) is Chromium-only.** Safari/iOS/Firefox get the frosted fallback
-  unless you pass `backdropRef`/`backdropSelector` (then they get a live-clone refraction).
-- **`backdropRef` must be a sibling/background, never an ancestor** of the lens.
+- **Refraction (SVG displacement) is Chromium-only.** Chrome/Edge/Android Chrome get real refraction;
+  Safari/iOS/Firefox render frosted glass (blur + saturation + subtle tint + gradient border). There
+  is no `backdropRef`/`mirror` and no way to get live refraction on the non-Chromium engines.
 - **`liquid` and `followPointer`/`clickRipple` are GPU-real and gated**: animate only while on-screen,
   pause on `prefers-reduced-motion`, Chromium SVG path; treat `liquid` as a per-element design choice,
   not for hundreds of cards. `liquidTrigger: 'hover' | 'press'` costs nothing until interaction.

@@ -44,19 +44,13 @@
       "name": "core — import { LiquidGlass } (gzip)",
       "path": "dist/index.esm.js",
       "limit": "10.5 KB",
-      "ignore": [
-        "react",
-        "react-dom"
-      ]
+      "ignore": ["react", "react-dom"]
     },
     {
       "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
       "path": "dist/interactive.esm.js",
       "limit": "12.5 KB",
-      "ignore": [
-        "react",
-        "react-dom"
-      ]
+      "ignore": ["react", "react-dom"]
     },
     {
       "name": "web-component — <liquid-glass> (gzip, no React)",

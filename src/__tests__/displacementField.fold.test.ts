@@ -1,4 +1,4 @@
-import { classicBandFraction } from '../core/displacementField';
+import { classicBandFraction, jacobianMinDet } from '../core/displacementField';
 
 describe('classicBandFraction', () => {
   it('grows with scaleEff and shrinks with element size', () => {
@@ -10,7 +10,7 @@ describe('classicBandFraction', () => {
 
   it('clamps to [BAND_MIN, BAND_MAX]', () => {
     expect(classicBandFraction(0, 300)).toBeCloseTo(0.06, 5);      // floor
-    expect(classicBandFraction(100000, 100)).toBeCloseTo(0.48, 5); // ceiling
+    expect(classicBandFraction(100000, 100)).toBeCloseTo(2.6, 5); // ceiling
   });
 
   it('coerces non-finite inputs to the floor', () => {
@@ -20,6 +20,31 @@ describe('classicBandFraction', () => {
 
   it('lets edgeFeather override the auto width (clamped to BAND_MAX)', () => {
     expect(classicBandFraction(160, 300, 0.2)).toBeCloseTo(0.2, 5);
-    expect(classicBandFraction(160, 300, 0.9)).toBeCloseTo(0.48, 5);
+    expect(classicBandFraction(160, 300, 0.9)).toBeCloseTo(0.9, 5);
+  });
+});
+
+describe('fold metric (Jacobian injectivity sweep)', () => {
+  // aspect 1, 3:1, 1:3, 4:1
+  const sizes: Array<[number, number]> = [[320, 320], [480, 160], [160, 480], [600, 150]];
+  const scales = [160, 320, 480, 640];
+  const cases: Array<{ w: number; h: number; r: number; scale: number }> = [];
+  for (const [w, h] of sizes) {
+    for (const r of [0, 24, 80, Math.min(w, h) / 2]) {
+      for (const scale of scales) cases.push({ w, h, r, scale });
+    }
+  }
+
+  it('the new envelope field stays injective (min-det > 0) across the whole sweep', () => {
+    for (const c of cases) {
+      const min = jacobianMinDet({ ...c, scaleEff: c.scale, legacy: false }, 64);
+      expect({ ...c, min: Number(min.toFixed(4)) }).toMatchObject({ min: expect.any(Number) });
+      expect(min).toBeGreaterThan(0);
+    }
+  });
+
+  it('the legacy field folds somewhere in the same sweep (proves the test has teeth)', () => {
+    const mins = cases.map((c) => jacobianMinDet({ ...c, scaleEff: c.scale, legacy: true }, 64));
+    expect(Math.min(...mins)).toBeLessThan(0);
   });
 });

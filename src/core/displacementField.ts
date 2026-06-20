@@ -1,9 +1,11 @@
 /**
  * Pure math for the fold-free `classic` displacement field — no DOM, no SVG strings.
  * `classicBandFraction` is the production lever used by `buildDisplacementSvg`; the
- * `sampleClassicField` / `jacobianMinDet` pair is the canonical field model the fold
- * test grades for injectivity. The SVG in `displacementMap.ts` renders this same math;
- * the browser pixel-Jacobian (verify/lens.html) confirms the rendering matches.
+ * `sampleClassicField` / `jacobianMinDet` pair is the field model the fold test grades for
+ * injectivity. The SVG encodes the SAME injectivity guarantee, but with a Gaussian-blur envelope
+ * rather than this model's `smoothstep` — so the model is a conservative slope proxy, not a
+ * byte-exact mirror of the raster. The browser pixel-Jacobian (verify/fold-check.html) confirms
+ * the real emitted SVG is fold-free to the 8-bit map's quantization floor.
  */
 
 // Peak channel deviation of the classic ramp (R spans 0..1 → ±0.5).

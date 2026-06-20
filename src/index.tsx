@@ -618,7 +618,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
     // Shared cache key across instances to reuse identical displacement maps. `angle` is
     // normalized so 0/360/NaN/float-noise never spawn duplicate-look entries, and `shapeAdapt`
-    // is keyed so an adapted and a legacy map can never collide.
+    // is keyed so an adapted and a legacy map can never collide. (If `edgeFeather` is ever surfaced
+    // as a prop and passed into the build below, add it to this key too, or two feathers will collide.)
     const normAngle = normalizeAngle(angle);
     const lcKey = lensCenter ? `${lensCenter[0]},${lensCenter[1]}` : '0.5,0.5';
     // Largest of the four chromatic-aberration feDisplacementMap nodes; sizes the fold-free edge band.

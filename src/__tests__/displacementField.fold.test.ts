@@ -50,7 +50,7 @@ describe('fold metric (Jacobian injectivity sweep)', () => {
   it('the new envelope field stays injective (min-det > 0) across the whole sweep', () => {
     for (const c of cases) {
       const min = jacobianMinDet({ ...c, scaleEff: c.scale, legacy: false }, 64);
-      expect({ ...c, min: Number(min.toFixed(4)) }).toMatchObject({ min: expect.any(Number) });
+      expect(Number.isFinite(min)).toBe(true); // guard against NaN/undefined slipping past `> 0`
       expect(min).toBeGreaterThan(0);
     }
   });

@@ -105,8 +105,9 @@ describe('lens modes', () => {
     const svg = buildDisplacementSvg(base);
     expect(svg).toContain('linearGradient id="red"');
     expect(svg).toContain('mask id="clsEnv"');
-    expect(svg).toContain('fill="rgb(128,128,128)"'); // neutral plate, not black
-    expect(svg).not.toContain('fill="black"');         // shapeAdapt:true never uses the black plate
+    // the displacement plate is neutral (zero displacement at the rim), replacing the old black
+    // plate. (We don't assert `not fill="black"` — the clsEnv mask legitimately uses #000 internally.)
+    expect(svg).toContain('fill="rgb(128,128,128)"');
     expect(svg).not.toContain('cvxMask');
     expect(svg).not.toContain('shiftMask');
     expect(svg).not.toContain('rimMask');

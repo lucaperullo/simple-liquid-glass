@@ -47,7 +47,10 @@ export interface DisplacementParams {
   lensCenter?: [number, number];
   /** Effective displacement scale (largest of the aberration nodes); sizes the fold-free edge band. */
   scale?: number;
-  /** Override the auto edge-band width as a fraction of the short side (else derived from `scale`). */
+  /**
+   * Override the auto edge-band width as a fraction of the short side (else derived from `scale`).
+   * `0` suppresses displacement entirely (zero band, zero amplitude). Internal lever — not a public prop.
+   */
   edgeFeather?: number;
 }
 

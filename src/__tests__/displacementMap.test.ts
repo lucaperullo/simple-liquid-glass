@@ -101,12 +101,31 @@ describe('buildDisplacementSvg', () => {
 describe('lens modes', () => {
   const base = { width: 320, height: 320, divisor: 5, quantStep: 32, radius: 50, border: 0.05, lightness: 53, alpha: 0.9, displace: 5 };
 
-  it('defaults to classic (linear ramps) and is unaffected by lens props when classic', () => {
+  it('defaults to classic and renders the fold-free envelope (neutral plate + edge mask)', () => {
     const svg = buildDisplacementSvg(base);
     expect(svg).toContain('linearGradient id="red"');
+    expect(svg).toContain('mask id="clsEnv"');
+    expect(svg).toContain('fill="rgb(128,128,128)"'); // neutral plate, not black
+    expect(svg).not.toContain('fill="black"');         // shapeAdapt:true never uses the black plate
     expect(svg).not.toContain('cvxMask');
     expect(svg).not.toContain('shiftMask');
     expect(svg).not.toContain('rimMask');
+  });
+
+  it('widens the classic envelope band as scale rises', () => {
+    const inset = (svg: string) => Number(/<rect x="([0-9.]+)"[^>]*fill="white"/.exec(svg)![1]);
+    const lo = buildDisplacementSvg({ ...base, scale: 120 });
+    const hi = buildDisplacementSvg({ ...base, scale: 600 });
+    expect(inset(hi)).toBeGreaterThan(inset(lo));
+  });
+
+  it('keeps shapeAdapt:false byte-for-byte legacy (black plate, no envelope mask)', () => {
+    const svg = buildDisplacementSvg({ ...base, shapeAdapt: false });
+    expect(svg).toContain('fill="black"');
+    expect(svg).not.toContain('clsEnv');
+    expect(buildDisplacementSvg({ ...base, shapeAdapt: false })).toBe(
+      buildDisplacementSvg({ ...base, shapeAdapt: false, scale: 999 })
+    );
   });
 
   describe('convex', () => {

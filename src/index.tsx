@@ -618,10 +618,15 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
     // Shared cache key across instances to reuse identical displacement maps. `angle` is
     // normalized so 0/360/NaN/float-noise never spawn duplicate-look entries, and `shapeAdapt`
-    // is keyed so an adapted and a legacy map can never collide.
+    // is keyed so an adapted and a legacy map can never collide. (If `edgeFeather` is ever surfaced
+    // as a prop and passed into the build below, add it to this key too, or two feathers will collide.)
     const normAngle = normalizeAngle(angle);
     const lcKey = lensCenter ? `${lensCenter[0]},${lensCenter[1]}` : '0.5,0.5';
-    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}|ang:${normAngle}|sa:${shapeAdapt ? 1 : 0}|ln:${lens}|ls:${lensStrength}|lc:${lcKey}`;
+    // Largest of the four chromatic-aberration feDisplacementMap nodes; sizes the fold-free edge band.
+    // `Math.abs` so a negative dispersion/aberration still yields the LARGEST node (= scale + |d·ai|).
+    const scaleEff = config.scale + Math.abs(config.dispersion * config.aberrationIntensity);
+    const qScale = Math.round(scaleEff / 8) * 8; // quantize so continuous scale doesn't explode the cache
+    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}|ang:${normAngle}|sa:${shapeAdapt ? 1 : 0}|ln:${lens}|ls:${lensStrength}|lc:${lcKey}|sc:${qScale}`;
     const cached = cacheGet(cacheKey);
     if (cached) return cached;
 
@@ -640,7 +645,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       shapeAdapt,
       lens,
       lensStrength,
-      lensCenter
+      lensCenter,
+      scale: scaleEff,
     });
     cacheSet(cacheKey, uri);
     return uri;

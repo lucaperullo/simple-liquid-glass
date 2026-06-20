@@ -39,7 +39,12 @@ Real refraction is an SVG displacement map inside CSS `backdrop-filter`, which r
 - **Pointer-reactive / “alive”** → `import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'`
 - **Vue / Svelte / Astro / plain HTML** → `import 'simple-liquid-glass/web-component'` → `<liquid-glass>`
 
-## ✨ New in 3.x
+## ✨ New in 4.x
+
+- **Fold-free corners (4.1)** — the `classic` lens no longer shears or tears the backdrop along rounded-rect corners at high `scale`; the edge field fades to neutral over a scale-aware band instead of cliffing (with graceful amplitude falloff at extreme scale/aspect).
+- **Chromium-only refraction (4.0)** — real SVG refraction runs on Chrome / Edge / Android Chrome; Safari / iOS / Firefox get a polished frosted-glass fallback (the DOM-mirror engine was removed).
+
+**Earlier (3.x):**
 
 - **Shape-adaptive refraction** — the lens reads like glass *cut to the element's shape*; a long navbar or tall sidebar refracts evenly instead of skewing.
 - **Directional `angle`** — point the refraction lean any direction; faithful on any aspect ratio.

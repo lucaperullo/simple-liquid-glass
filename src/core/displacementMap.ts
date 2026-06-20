@@ -4,6 +4,8 @@
  * as the feImage in the refraction filter. No DOM, no React.
  */
 
+import { classicBandFraction, classicAmpScale } from './displacementField';
+
 /**
  * Lens field shape:
  * - `classic` — linear radial field (the historical look; reads as a split/mirror at high scale).
@@ -43,6 +45,13 @@ export interface DisplacementParams {
   lensStrength?: number;
   /** Lens center for `convex`/`rim`, normalized 0..1 (default `[0.5, 0.5]`). */
   lensCenter?: [number, number];
+  /** Effective displacement scale (largest of the aberration nodes); sizes the fold-free edge band. */
+  scale?: number;
+  /**
+   * Override the auto edge-band width as a fraction of the short side (else derived from `scale`).
+   * `0` suppresses displacement entirely (zero band, zero amplitude). Internal lever — not a public prop.
+   */
+  edgeFeather?: number;
 }
 
 /** Quantized internal map dimensions for a given rendered size + quality. */
@@ -256,15 +265,48 @@ export function buildDisplacementSvg(p: DisplacementParams): string {
     `;
   }
 
-  const defs = shapeAdapt ? adaptedGradients(newwidth, newheight, angle) : legacyGradients(angle);
+  const band = `<rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${lightness}% / ${alpha})" style="filter:blur(${displace}px)" />`;
 
-  // Bake a small, resolution-consistent blur into the gradient rects so the displacement field's
-  // gradient stays gentle at the rounded-rect rim. Without it, the sharp gradient→edge transition
-  // makes the displacement fold at the perimeter (the frizzy band). It's part of the cached map
-  // raster, so it costs nothing per frame. (Blurring red+blue together is safe: they carry
-  // orthogonal R/B channels, so the difference-composite result is unchanged.)
+  if (shapeAdapt) {
+    // Fold-free classic: window the affine ramp by a boundary-conformant envelope (mask, inset+blurred
+    // rounded rect = an SDF level set, radial-normal at corners) over a NEUTRAL plate so the field
+    // fades to neutral at the rim instead of cliffing. The band widens with `scale`; when even the
+    // bounded band can't carry full amplitude fold-free, a group `opacity` attenuates the ramp.
+    const defs = adaptedGradients(newwidth, newheight, angle);
+    const minElem = Math.min(width, height);
+    const scaleEff = Number.isFinite(p.scale as number) ? (p.scale as number) : 0;
+    const bandFrac = classicBandFraction(scaleEff, minElem, p.edgeFeather);
+    const att = classicAmpScale(scaleEff, minElem, p.edgeFeather);
+    const minMap = Math.min(newwidth, newheight);
+    const W = Math.max(0.5, bandFrac * minMap);
+    const innerRx = Math.max(0, effectiveRadius - W);
+    const envBlur = Math.max(0.5, W * 0.5);
+    const rimSoft = Math.max(0.6, minMap * 0.01);
+    const attOpacity = att < 0.999 ? ` opacity="${Math.round(att * 1000) / 1000}"` : '';
+    return `
+      <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+${defs}
+          <mask id="clsEnv" maskUnits="userSpaceOnUse" x="0" y="0" width="${newwidth}" height="${newheight}">
+            <rect x="0" y="0" width="${newwidth}" height="${newheight}" fill="#000"/>
+            <rect x="${W}" y="${W}" width="${newwidth - W * 2}" height="${newheight - W * 2}" rx="${innerRx}" fill="white" style="filter:blur(${envBlur}px)"/>
+          </mask>
+        </defs>
+        <rect x="0" y="0" width="${newwidth}" height="${newheight}" fill="rgb(128,128,128)"/>
+        <g${attOpacity}>
+          <g mask="url(#clsEnv)" style="filter:blur(${rimSoft}px)">
+            <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
+            <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${blend}" />
+          </g>
+        </g>
+        ${band}
+      </svg>
+    `;
+  }
+
+  // shapeAdapt:false — legacy (≤2.x) block, byte-for-byte unchanged.
+  const defs = legacyGradients(angle);
   const rimSoft = Math.max(0.6, Math.min(newwidth, newheight) * 0.01);
-
   return `
       <svg viewBox="0 0 ${newwidth} ${newheight}" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -275,7 +317,7 @@ ${defs}
           <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#red)" />
           <rect x="0" y="0" width="${newwidth}" height="${newheight}" rx="${effectiveRadius}" fill="url(#blue)" style="mix-blend-mode: ${blend}" />
         </g>
-        <rect x="${borderWidth}" y="${borderWidth}" width="${newwidth - borderWidth * 2}" height="${newheight - borderWidth * 2}" rx="${effectiveRadius}" fill="hsl(0 0% ${lightness}% / ${alpha})" style="filter:blur(${displace}px)" />
+        ${band}
       </svg>
     `;
 }

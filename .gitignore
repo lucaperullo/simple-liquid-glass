@@ -62,3 +62,6 @@ Desktop.ini
 # Brainstorming mockups + local verification scratch
 .superpowers/
 verify/
+
+# generated fold-check fixture (npx jest _genFoldMaps)
+verify/fold-maps.json

@@ -7,6 +7,10 @@ All notable changes to this project are documented here. This project adheres to
 
 A quick tour of the big moments (newest first). Full per-version detail follows below.
 
+- **4.1.0 — Fold-free corner refraction.** The `classic` lens no longer shears or tears the backdrop
+  along rounded-rect corners at high `scale`. The edge field now fades to neutral over a `scale`-aware
+  band (with graceful amplitude falloff at extreme scale/aspect) instead of cliffing. `shapeAdapt:false`
+  is byte-for-byte unchanged.
 - **4.0.0 — Chromium-only refraction, frosted everywhere else.** Removed the DOM-mirror engine and
   the `simple-liquid-glass/mirror` entry point. Real SVG refraction renders on **Chromium (Chrome /
   Edge / Android Chrome)**; **Safari / iOS / Firefox** get a polished frosted-glass fallback (no
@@ -33,6 +37,26 @@ A quick tour of the big moments (newest first). Full per-version detail follows 
 - **1.2.x — Foundations.** The SVG-displacement core: `saturation` + chromatic aberration, automatic
   text color, `glassColor` / `background` props, iOS blur fallbacks, and the radius/blur fixes that
   made it solid.
+
+## 4.1.0 — 2026-06-20
+
+### Fixed
+
+- **`classic` refraction is now fold-free at the corners.** At higher `scale`, the classic
+  displacement field used to shear/tear the backdrop along the rounded-rect corner arc — the field
+  was maximal at the boundary and cliffed to the opposite extreme just outside it, softened only by a
+  fixed, `scale`-blind blur. The field now fades to a **neutral** plate across a boundary-hugging band
+  whose width grows with the effective displacement, so the per-pixel slope stays bounded → injective
+  → no tear, at any `scale`. Verified by a Jacobian-injectivity sweep (the math model) and a browser
+  pixel-Jacobian on the real emitted maps (legacy folds `−9e-4…−3.3e-3`; the new field is injective to
+  the 8-bit map's quantization floor).
+
+### Changed
+
+- At extreme `scale × aspect` (e.g. a thin bar at very high `scale`), classic refraction **amplitude
+  attenuates gracefully** instead of folding — the honest tradeoff of fold-free-by-design (an element
+  can't carry full-amplitude refraction past a certain scale without tearing). Square-ish elements at
+  default scale keep full strength. `shapeAdapt:false` (the legacy escape hatch) is unchanged.
 
 ## 4.0.0 — 2026-06-19
 

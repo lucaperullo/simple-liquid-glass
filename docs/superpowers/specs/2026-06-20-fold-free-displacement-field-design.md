@@ -59,6 +59,17 @@ The displacement field is `field(p) = ramp(p) · envelope(p)`, neutral plate und
    and blurred by `~W/2` — its soft alpha contours are the concentric offset rounded-rects (an SDF
    level set), automatically radial-normal at corners.
 
+   **`Wfrac` is bounded (`BAND_MAX = 0.45`) so the inset rounded-rect stays valid** (`min(w,h) − 2W > 0`).
+   For extreme `scale × aspect`, a band alone can't absorb the full-amplitude edge displacement without
+   exceeding that bound, so a second lever kicks in: **amplitude attenuation.** `classicAmpScale =
+   clamp(0,1, W / (k · peakAmp · scaleEff))` (same `k`) pulls the ramp toward neutral *uniformly* just
+   enough to stay injective — realized in SVG as a group `opacity` over the neutral plate, leaving the
+   gradient encoding untouched. `att = 1` whenever the geometry has room (the common case: square-ish
+   elements at default scale keep full refraction strength); `att < 1` only at high `scale` on thin
+   elements, where the tradeoff is graceful strength loss instead of a tear. This is the honest
+   consequence of "fold-free by design": at some `scale`, an element simply cannot carry full-amplitude
+   refraction without folding, so the amplitude — not injectivity — is what yields.
+
 2. **Neutral exterior plate (Brief, root-cause #1).** `fill="black"` → `fill="rgb(128,128,128)"` so the
    rim and everything outside the shape is zero-displacement instead of `−0.5·scale`. Removes the
    residual half-amplitude cliff at the rounded-rect edge.

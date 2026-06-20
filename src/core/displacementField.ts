@@ -8,10 +8,11 @@
 
 // Peak channel deviation of the classic ramp (R spans 0..1 → ±0.5).
 export const CLASSIC_PEAK_AMP = 0.5;
-// Fold-safety factor: band ≥ k × max-displacement so scaleEff·slope ≈ 1/k < 1. Calibrated in Task 6.
-export const BAND_K = 1.2;
+// Fold-safety factor: ties BOTH the band width and the amplitude attenuation to the displacement so
+// scaleEff·(field slope) stays < 1 (injective). Calibrated by the fold sweep below.
+export const BAND_K = 1.5;
 export const BAND_MIN = 0.06; // floor: a soft edge even at low scale
-export const BAND_MAX = 2.6; // ceiling: the band must not swallow the pane
+export const BAND_MAX = 0.45; // ceiling: keeps the mask inset valid (W ≤ 0.45·minSide)
 
 /** Envelope band width as a fraction of the element's short side. */
 export function classicBandFraction(scaleEff: number, minElem: number, edgeFeather?: number): number {
@@ -23,6 +24,19 @@ export function classicBandFraction(scaleEff: number, minElem: number, edgeFeath
   }
   const frac = (BAND_K * CLASSIC_PEAK_AMP * scaleEff) / minElem;
   return Math.max(BAND_MIN, Math.min(BAND_MAX, frac));
+}
+
+/**
+ * Ramp-amplitude multiplier in (0,1]. When the bounded band can fully accommodate the edge
+ * displacement the ramp keeps full strength (1). When scale/aspect would otherwise fold past the band
+ * ceiling, the amplitude is attenuated just enough to stay injective — graceful strength loss instead
+ * of a tear. (Same `BAND_K` as the band width, so the two stay consistent.)
+ */
+export function classicAmpScale(scaleEff: number, minElem: number, edgeFeather?: number): number {
+  if (!Number.isFinite(scaleEff) || scaleEff <= 0 || !Number.isFinite(minElem) || minElem <= 0) return 1;
+  const bandFrac = classicBandFraction(scaleEff, minElem, edgeFeather);
+  const Wpx = bandFrac * minElem;
+  return Math.max(0, Math.min(1, Wpx / (BAND_K * CLASSIC_PEAK_AMP * scaleEff)));
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -52,8 +66,9 @@ export interface FieldOpts {
  */
 export function sampleClassicField(nx: number, ny: number, o: FieldOpts): [number, number] {
   const long = Math.max(o.w, o.h);
-  const ampX = CLASSIC_PEAK_AMP * (o.w / long);
-  const ampY = CLASSIC_PEAK_AMP * (o.h / long);
+  const att = o.legacy ? 1 : classicAmpScale(o.scaleEff, Math.min(o.w, o.h), o.edgeFeather);
+  const ampX = CLASSIC_PEAK_AMP * (o.w / long) * att;
+  const ampY = CLASSIC_PEAK_AMP * (o.h / long) * att;
   const rampX = ampX * (2 * nx - 1);
   const rampY = ampY * (2 * ny - 1);
   // depth inside the boundary, in px (negative outside)

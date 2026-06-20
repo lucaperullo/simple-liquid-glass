@@ -1,4 +1,4 @@
-import { classicBandFraction, jacobianMinDet } from '../core/displacementField';
+import { classicBandFraction, classicAmpScale, jacobianMinDet } from '../core/displacementField';
 
 describe('classicBandFraction', () => {
   it('grows with scaleEff and shrinks with element size', () => {
@@ -10,7 +10,7 @@ describe('classicBandFraction', () => {
 
   it('clamps to [BAND_MIN, BAND_MAX]', () => {
     expect(classicBandFraction(0, 300)).toBeCloseTo(0.06, 5);      // floor
-    expect(classicBandFraction(100000, 100)).toBeCloseTo(2.6, 5); // ceiling
+    expect(classicBandFraction(100000, 100)).toBeCloseTo(0.45, 5); // ceiling
   });
 
   it('coerces non-finite inputs to the floor', () => {
@@ -20,7 +20,19 @@ describe('classicBandFraction', () => {
 
   it('lets edgeFeather override the auto width (clamped to BAND_MAX)', () => {
     expect(classicBandFraction(160, 300, 0.2)).toBeCloseTo(0.2, 5);
-    expect(classicBandFraction(160, 300, 0.9)).toBeCloseTo(0.9, 5);
+    expect(classicBandFraction(160, 300, 0.9)).toBeCloseTo(0.45, 5);
+  });
+});
+
+describe('classicAmpScale', () => {
+  it('is full strength (1) when the geometry has room', () => {
+    expect(classicAmpScale(160, 320)).toBe(1);     // square at default scale
+    expect(classicAmpScale(0, 320)).toBe(1);       // degenerate scale → no attenuation
+  });
+  it('attenuates (<1, >0) at extreme scale on a thin element', () => {
+    const att = classicAmpScale(640, 150);
+    expect(att).toBeLessThan(1);
+    expect(att).toBeGreaterThan(0);
   });
 });
 

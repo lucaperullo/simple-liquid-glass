@@ -623,7 +623,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const normAngle = normalizeAngle(angle);
     const lcKey = lensCenter ? `${lensCenter[0]},${lensCenter[1]}` : '0.5,0.5';
     // Largest of the four chromatic-aberration feDisplacementMap nodes; sizes the fold-free edge band.
-    const scaleEff = config.scale + config.dispersion * config.aberrationIntensity;
+    // `Math.abs` so a negative dispersion/aberration still yields the LARGEST node (= scale + |d·ai|).
+    const scaleEff = config.scale + Math.abs(config.dispersion * config.aberrationIntensity);
     const qScale = Math.round(scaleEff / 8) * 8; // quantize so continuous scale doesn't explode the cache
     const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}|ang:${normAngle}|sa:${shapeAdapt ? 1 : 0}|ln:${lens}|ls:${lensStrength}|lc:${lcKey}|sc:${qScale}`;
     const cached = cacheGet(cacheKey);

@@ -20,7 +20,7 @@
 - **Modify** `src/__tests__/displacementMap.test.ts` — update the classic structural expectations intentionally (neutral plate + envelope mask), assert legacy unchanged.
 - **Modify** `src/index.tsx` — compute `scaleEff`, add it (quantized) to the cache key, pass it into the build call.
 - **Modify** `src/web-component/index.ts` — pass `scale` into the build call (`scaleEff = scale`; no aberration there).
-- **Modify** `verify/lens.html` — a side-by-side / scale-slider classic before-after for the browser ground-truth check.
+- **Modify** `verify/fold-check.html` — a side-by-side / scale-slider classic before-after for the browser ground-truth check.
 
 > **Convention used throughout:** `scaleEff = scale + dispersion·aberrationIntensity` (the largest of the four chromatic-aberration `feDisplacementMap` nodes). `peakAmp = 0.5` (the classic ramp's peak channel deviation; `R` spans `0→1`).
 
@@ -79,7 +79,7 @@ Create `src/core/displacementField.ts`:
  * `classicBandFraction` is the production lever used by `buildDisplacementSvg`; the
  * `sampleClassicField` / `jacobianMinDet` pair is the canonical field model the fold
  * test grades for injectivity. The SVG in `displacementMap.ts` renders this same math;
- * the browser pixel-Jacobian (verify/lens.html) confirms the rendering matches.
+ * the browser pixel-Jacobian (verify/fold-check.html) confirms the rendering matches.
  */
 
 // Peak channel deviation of the classic ramp (R spans 0..1 → ±0.5).
@@ -467,12 +467,12 @@ git commit -m "feat(wc): pass scale into the displacement map for the fold-free 
 ## Task 6: Browser ground-truth — pixel Jacobian + calibration (+ conditional corner term)
 
 **Files:**
-- Modify: `verify/lens.html`
+- Modify: `verify/fold-check.html`
 - Possibly modify: `src/core/displacementMap.ts`, `src/core/displacementField.ts` (constants / corner term)
 
 This is the truth check: the jest fold test grades the design *model*; here we rasterize the **real** emitted SVG, sample its pixels, and confirm both that the SVG matches the model and that the rasterized field is injective.
 
-- [ ] **Step 1: Add a measurable classic before/after to `verify/lens.html`**
+- [ ] **Step 1: Add a measurable classic before/after to `verify/fold-check.html`**
 
 Add a panel that renders `LiquidGlass`/the web component as `classic` over a high-frequency checkerboard backdrop, with a `scale` slider (120→640) and a `radius` slider, plus a button that runs the pixel-Jacobian readout below. Use this in-page measurement script (rasterize the map data-URI to a canvas, compute the discrete Jacobian min-det of `p ↦ p + scale·(channel−0.5)`):
 
@@ -521,7 +521,7 @@ If, after calibration, the browser pixel-Jacobian still dips `≤ 0` *specifical
 - [ ] **Step 5: Commit**
 
 ```bash
-git add verify/lens.html src/core/displacementField.ts src/core/displacementMap.ts
+git add verify/fold-check.html src/core/displacementField.ts src/core/displacementMap.ts
 git commit -m "test(verify): browser pixel-Jacobian for classic + calibrate fold-free band"
 ```
 

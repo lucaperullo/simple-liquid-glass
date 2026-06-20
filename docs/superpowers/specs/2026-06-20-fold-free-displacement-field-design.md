@@ -1,6 +1,6 @@
 # Fold-free displacement field (SDF-envelope `classic`)
 
-**Status:** design / approved direction
+**Status:** implemented (4.1.0)
 **Date:** 2026-06-20
 **Branch:** `feat/refraction-angle`
 **Extends / supersedes:** `2026-06-17-liquid-refraction-shape-and-motion-design.md` — replaces that spec's

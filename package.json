@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "type": "module",
   "description": "Zero-dependency React liquid glass with real SVG-displacement refraction on Chromium/Edge/Android-Chrome (a polished frosted-glass fallback on Safari/iOS/Firefox). Directional + animated 'liquid' refraction, lens modes. SSR-safe, ~10KB (web component ~6KB), React 16.8–19. Web-component included.",
   "main": "dist/index.cjs",
@@ -44,13 +44,19 @@
       "name": "core — import { LiquidGlass } (gzip)",
       "path": "dist/index.esm.js",
       "limit": "10.5 KB",
-      "ignore": ["react", "react-dom"]
+      "ignore": [
+        "react",
+        "react-dom"
+      ]
     },
     {
       "name": "interactive — import { LiquidGlassInteractive } (gzip, bundles core)",
       "path": "dist/interactive.esm.js",
       "limit": "12.5 KB",
-      "ignore": ["react", "react-dom"]
+      "ignore": [
+        "react",
+        "react-dom"
+      ]
     },
     {
       "name": "web-component — <liquid-glass> (gzip, no React)",

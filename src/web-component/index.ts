@@ -108,7 +108,7 @@ export class LiquidGlassElement extends HTMLElement {
 
     if (chromium) {
       const uri = buildDisplacementDataUri({
-        width, height, divisor: 3, quantStep: 24, radius, border, lightness, alpha, displace, blend: 'difference', angle, shapeAdapt, lens, lensStrength, lensCenter
+        width, height, divisor: 3, quantStep: 24, radius, border, lightness, alpha, displace, blend: 'difference', angle, shapeAdapt, lens, lensStrength, lensCenter, scale
       });
       backdrop = `saturate(${saturation}%) url(#${this.filterId})`;
       glassBg = `hsl(0 0% 100% / ${frost})`;

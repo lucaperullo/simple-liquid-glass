@@ -44,7 +44,8 @@ coverage/
 *.tgz
 
 # Package manager
-package-lock.json
+**/package-lock.json
+!/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -59,3 +60,8 @@ Thumbs.db
 Desktop.ini
 # Claude session settings
 .claude/
+
+# Generated declarations and browser reports
+.types/
+playwright-report/
+test-results/

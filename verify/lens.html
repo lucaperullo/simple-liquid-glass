@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lens modes verification</title>
+<style>
+  html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#05060a}
+  .backdrop{position:fixed;inset:0;overflow:hidden;z-index:0}
+  .backdrop .word{position:absolute;font-weight:900;letter-spacing:1px;white-space:nowrap}
+  .wa{top:30px;left:40px;font-size:90px;color:#f59e0b;transform:rotate(-4deg)}
+  .wb{top:250px;left:10px;font-size:80px;color:#22d3ee}
+  .wc{top:470px;left:220px;font-size:84px;color:#ec4899;transform:rotate(3deg)}
+  .wd{top:700px;left:60px;font-size:80px;color:#a3e635}
+  .grid{position:absolute;inset:0;background:
+     repeating-linear-gradient(0deg,rgba(255,255,255,.12) 0 2px,transparent 2px 26px),
+     repeating-linear-gradient(90deg,rgba(255,255,255,.12) 0 2px,transparent 2px 26px)}
+  .stack{position:relative;z-index:1;padding:40px;display:flex;flex-direction:column;gap:30px}
+  .row{display:flex;align-items:center;gap:22px}
+  .cap{color:#e7eefc;font-size:14px;font-weight:700;width:88px;flex:0 0 88px;text-transform:capitalize}
+  liquid-glass{color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .sq{width:150px;height:150px}
+  .nav{width:430px;height:60px}
+  .lab{font-size:12px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+</style>
+</head>
+<body>
+  <div class="backdrop">
+    <div class="grid"></div>
+    <div class="word wa">LENS</div><div class="word wb">refract</div>
+    <div class="word wc">SHAPE</div><div class="word wd">2026</div>
+  </div>
+
+  <div class="stack">
+    <div class="row"><div class="cap">classic</div>
+      <liquid-glass class="sq" radius="28"><span class="lab">square</span></liquid-glass>
+      <liquid-glass class="nav" radius="22"><span class="lab">navbar</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">convex</div>
+      <liquid-glass class="sq" radius="28" lens="convex"><span class="lab">square</span></liquid-glass>
+      <liquid-glass class="nav" radius="22" lens="convex"><span class="lab">navbar</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">shift</div>
+      <liquid-glass class="sq" radius="28" lens="shift" angle="30"><span class="lab">square 30&deg;</span></liquid-glass>
+      <liquid-glass class="nav" radius="22" lens="shift" angle="0"><span class="lab">navbar 0&deg;</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">rim</div>
+      <liquid-glass class="sq" radius="28" lens="rim"><span class="lab">square</span></liquid-glass>
+      <liquid-glass class="nav" radius="22" lens="rim"><span class="lab">navbar</span></liquid-glass></div>
+  </div>
+
+  <script type="module" src="/dist/web-component.esm.js"></script>
+</body>
+</html>

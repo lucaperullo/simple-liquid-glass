@@ -1,0 +1,83 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>fold-check — real emitted displacement maps</title>
+<style>
+  body { font: 13px system-ui, sans-serif; background: #111; color: #eee; padding: 18px; }
+  h2 { margin: 0 0 4px; } p.sub { color: #999; margin: 0 0 14px; }
+  table { border-collapse: collapse; margin: 8px 0 20px; }
+  td, th { border: 1px solid #3a3a3a; padding: 4px 10px; text-align: right; }
+  th { background: #1c1c1c; } td.l { text-align: left; }
+  .ok { color: #3fdc7f; font-weight: 600; } .bad { color: #ff6b6b; font-weight: 600; }
+  .stage { display: flex; gap: 18px; flex-wrap: wrap; }
+  .cell { width: 240px; height: 150px; position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px #0008; }
+  .bg { position: absolute; inset: -50px; background:
+        repeating-linear-gradient(45deg, #fff 0 7px, #0a7cff 7px 14px); }
+  .lens { position: absolute; inset: 18px; border-radius: 26px; }
+  .cap { position: absolute; bottom: 5px; left: 9px; font-size: 11px; text-shadow: 0 1px 3px #000; }
+  svg.f { position: absolute; width: 0; height: 0; }
+</style>
+<h2>Fold check — real emitted displacement maps</h2>
+<p class="sub">min-det &gt; 0 ⇒ the displacement map is injective ⇒ no fold/tear. Legacy maps should FOLD at high scale; new (shapeAdapt) maps should stay INJECTIVE. Visual row: checkerboard refracted through the real filter.</p>
+<div id="results">measuring…</div>
+<div class="stage" id="stage"></div>
+<script>
+  async function rasterMap(uri, n) {
+    const img = new Image();
+    img.src = uri;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = n; c.height = n;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0, n, n);
+    return x.getImageData(0, 0, n, n).data; // RGBA
+  }
+  // det J of p ↦ p + scale·(channel−0.5), central differences; returns min over an n×n interior grid.
+  async function foldMinDet(uri, scale, w, h, n = 110) {
+    const d = await rasterMap(uri, n);
+    const R = (i, j) => d[(j * n + i) * 4] / 255 - 0.5;
+    const B = (i, j) => d[(j * n + i) * 4 + 2] / 255 - 0.5;
+    const Fx = (i, j) => i / n + (scale * R(i, j)) / w;
+    const Fy = (i, j) => j / n + (scale * B(i, j)) / h;
+    let m = Infinity;
+    for (let i = 1; i < n - 1; i++) for (let j = 1; j < n - 1; j++) {
+      const det = ((Fx(i + 1, j) - Fx(i - 1, j)) * (Fy(i, j + 1) - Fy(i, j - 1)) -
+                   (Fx(i, j + 1) - Fx(i, j - 1)) * (Fy(i + 1, j) - Fy(i - 1, j))) / 4;
+      if (det < m) m = det;
+    }
+    return m;
+  }
+  (async () => {
+    const maps = await (await fetch('./fold-maps.json')).json();
+    const out = [];
+    for (const m of maps) out.push({ ...m, minDet: await foldMinDet(m.uri, m.scale, m.w, m.h) });
+    window.__FOLD_RESULTS__ = out.map(({ uri, ...r }) => r); // drop the big uri from the readout
+
+    let rows = '<table><tr><th class="l">label</th><th>kind</th><th>scale</th><th>min-det</th><th>verdict</th></tr>';
+    for (const m of out) {
+      const ok = m.minDet > 0;
+      rows += '<tr><td class="l">' + m.label + '</td><td>' + m.kind + '</td><td>' + m.scale +
+              '</td><td>' + m.minDet.toFixed(4) + '</td><td class="' + (ok ? 'ok' : 'bad') + '">' +
+              (ok ? 'INJECTIVE' : 'FOLD') + '</td></tr>';
+    }
+    rows += '</table>';
+    document.getElementById('results').innerHTML = rows;
+
+    const stage = document.getElementById('stage');
+    for (const m of out.filter((x) => x.w === x.h)) {
+      const id = 'f_' + m.label.replace(/\W/g, '');
+      const orig = maps.find((x) => x.label === m.label && x.kind === m.kind && x.scale === m.scale);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.innerHTML =
+        '<div class="bg"></div>' +
+        '<div class="lens" style="backdrop-filter:url(#' + id + ');-webkit-backdrop-filter:url(#' + id + ')"></div>' +
+        '<svg class="f"><filter id="' + id + '" color-interpolation-filters="sRGB">' +
+        '<feImage href="' + orig.uri + '" x="0" y="0" width="100%" height="100%" result="map"/>' +
+        '<feDisplacementMap in="SourceGraphic" in2="map" scale="' + m.scale +
+        '" xChannelSelector="R" yChannelSelector="B"/></filter></svg>' +
+        '<div class="cap">' + m.kind + ' · scale ' + m.scale + '</div>';
+      stage.appendChild(cell);
+    }
+    document.body.setAttribute('data-ready', '1');
+  })();
+</script>

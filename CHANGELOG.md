@@ -1,7 +1,52 @@
+## 5.1.0
+
+- Add typed `lensOptions` overrides for strength, depth, curvature, edge bend, sheen, specular, glow, and brightness.
+- Export lens profiles, ranges, and a resolver for settings panels.
+- Preserve profile defaults and explicit pixel-displacement precedence; cache maps by effective geometry.
+- Clamp finite overrides and ignore invalid numeric values.
+
 # Changelog
 
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
+
+## 5.0.0 — 2026-09-08
+
+- Bundle budgets updated to 15/16/15/6 KB (core/interactive/mirror/web component) to retain the 4.1 optics alongside the new lens.
+
+### Breaking default appearance
+
+- React glass defaults to the rounded player profile with 80px base displacement.
+- Add material/loupe/player/track profiles and the CSS-pixel displacementScale override.
+- Retain 4.1 directional, lens-shape, and animated refraction props; explicit legacy optical controls select their compatible renderer.
+- Preserve 4.1 web-component features. Add MIT notices for the adapted native lens generator and filter.
+- Remove experimental GPU/video renderers and demos from the release.
+
+
+### Safari lens optics
+
+- Safari/iOS now bypasses the broken native SVG mirror with masked CSS rim magnification. This approximation preserves clear centers; high-contrast edges may blend. Firefox retains SVG displacement.
+- Preserve backdrop root computed styling before namespacing cloned IDs.
+
+- Replaced noise-based mirror distortion and whole-copy blur with a bounded-resolution, cached rounded-rectangle displacement field. The center remains clear, the rim bends inward, and strength is capped by geometry.
+- Fixed doubled translation on mirrored backgrounds and tracking-frame cleanup. Added scrolling and six-panel animation regressions.
+- Added an isolated Safari device test page. Increased core/interactive Brotli budgets to 9/10 kB to account for the new optics; mirror/web-component budgets remain unchanged.
+
+### Fixed
+
+- React 16.8/17 no longer calls the unavailable `useId` hook. Legacy IDs are assigned after mount and shared across bundled entry points.
+- Server rendering and hydration now use stable text selectors and defer browser-specific markup until mount.
+- Web-component imports are safe without a DOM; custom tag registration works; border colors are assigned through CSS rather than interpolated HTML.
+- `effectMode="off"` removes backdrop filters; `blur` disables the mirror. Missing ResizeObserver falls back to window resize events.
+- Mirror clones isolate IDs and interaction, preserve local SVG references, coalesce mutations, observe size changes, and clean up scheduled work. Invalid or nested backdrop sources fall back safely.
+- Interactive glass preserves the initial caller transform and responds to reduced-motion changes.
+
+### Changed
+
+- Extracted background processing, geometry, text color, quality selection, and SVG rendering into focused modules.
+- Public declarations are generated from source; React bundles include a client-component directive.
+- Added component, browser, published-type, and React-version compatibility checks to CI. Dependency installs use a committed lockfile.
+- Corrected documentation and bundle measurement labels; budgets remain unchanged. Updated compatible development dependencies to clear reported advisories.
 
 ## 2.4.0 — 2026-06-15
 
@@ -138,3 +183,16 @@ Performance hardening. No public API changes; behavior-preserving. Core bundle ~
 ### Changed
 
 - `effectMode` accepts `'webgl'`.
+
+### Unreleased — native optics refinement
+
+- Add opt-in `refraction="lens"` to React components, using a cached convex lens field with neutral optical center and bounded strength/color separation.
+- Skip redundant RGB displacement passes when dispersion is zero and omit zero-radius SVG blur.
+- Include exact geometry in gradient-map cache keys to prevent different aspect ratios sharing an incorrect map.
+- Classic optics remain available; no new native iOS refraction support.
+
+- Fix oversized legacy refraction by clamping native strength to control dimensions; high existing scale values now render more gently. Set explicit filter/map bounds and neutral sampling padding to prevent distorted edge sampling.
+
+- Replace the opt-in rounded native approximation with the licensed upstream generator and material filter; preserve component props via a documented parameter adapter. Package the MIT notice.
+
+- React glass now defaults to the player lens profile with 80px displacement at scale 160; scale 0 disables it and 320 doubles it.

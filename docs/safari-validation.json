@@ -1,0 +1,133 @@
+{
+  "device": "iPhone 15 Pro, connected through Xcode; Safari 26.6.1",
+  "physicalReports": [
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 19,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:16.920Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 22,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:08.157Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 20,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:20.069Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 19,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:04.907Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 20,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:29.652Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 23,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:13.925Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 19,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:23.720Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 19,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:07:54.601Z"
+    },
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 19,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:08:11.058Z"
+    }
+  ],
+  "simulatorReports": [
+    {
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1",
+      "width": 402,
+      "height": 714,
+      "panels": 6,
+      "mapCount": 6,
+      "medianFrameIntervalMs": 24,
+      "p95FrameIntervalMs": 29,
+      "maxAlignmentErrorPx": 0,
+      "at": "2026-09-08T16:07:43.579Z"
+    }
+  ],
+  "visualStatus": "Previous SVG path failed native visual validation. CSS rim v3 bypasses SVG displacement and visibly renders six rims in the native simulator. Physical aesthetic acceptance pending; high-contrast edge blending remains a known approximation tradeoff.",
+  "cssRimReports": [
+    {
+      "revision": "css-rim-v3",
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "width": 393,
+      "height": 695,
+      "panels": 6,
+      "cssLensCount": 6,
+      "mapCount": 0,
+      "medianFrameIntervalMs": 17,
+      "p95FrameIntervalMs": 20,
+      "maxAlignmentErrorPx": 0.007599182128899429,
+      "at": "2026-09-08T16:37:19.327Z"
+    }
+  ]
+}

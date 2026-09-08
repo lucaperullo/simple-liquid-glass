@@ -1,24 +1,47 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
 
 jobs:
-  build-test-size:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      # package-lock.json is gitignored in this repo, so use `npm install` (not `npm ci`)
-      # and skip setup-node's npm cache (it requires a committed lockfile).
-      - run: npm install
-      - name: Unit tests
-        run: npm test
-      - name: Build
-        run: npm run build
-      - name: Bundle size budget
-        run: npm run size
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --runInBand
+      - run: npm run build
+      - run: npm run test:types
+      - run: npm run size
+      - run: npm run test:compat
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: test-results/
+
+  react-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        react: ['16.8.6', '17.0.2', '18.3.1', '19']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm install --prefix /tmp/glass-compat --no-save --package-lock=false react@${{ matrix.react }} react-dom@${{ matrix.react }}
+      - run: npm run test:compat
+        env:
+          COMPAT_ROOT: /tmp/glass-compat

@@ -1,0 +1,123 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/StudioGlass.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/StudioGlass.tsx
+@@ -1,3 +1,4 @@
++import {SCENE_GLASS} from '../lib/presets'
+ import LiquidGlass from 'simple-liquid-glass'
+ import type {LiquidGlassProps} from 'simple-liquid-glass'
+-export default function StudioGlass(props:LiquidGlassProps){return <LiquidGlass radius={28} blur={1.5} saturation={115} aberrationIntensity={.12} frost={0} background="rgba(255,255,255,.10)" mirror={false} {...props} quality="extreme" autodetectquality={false} mobileFallback="svg" style={{height:'auto',boxShadow:'0 24px 64px rgba(8,30,30,.24), inset 0 1px 0 rgba(255,255,255,.65)',...props.style}}/>}
++export default function StudioGlass(props:LiquidGlassProps){return <LiquidGlass radius={28} blur={1.5} saturation={115} aberrationIntensity={.12} frost={0} background="rgba(255,255,255,.10)" mirror={false} {...props} {...SCENE_GLASS} style={{height:'auto',boxShadow:'0 24px 64px rgba(8,30,30,.24), inset 0 1px 0 rgba(255,255,255,.65)',...props.style}}/>}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/WhatsNew.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/WhatsNew.tsx
+@@ -1,3 +1,4 @@
++import {SCENE_GLASS} from '../lib/presets'
+ import { Link } from 'react-router-dom'
+ import LiquidGlass from 'simple-liquid-glass'
+ import CodeBlock from '../components/CodeBlock'
+@@ -40,7 +41,7 @@
+           <p>Wrap content and set <code>liquid</code> — the backdrop warps in real time. Try it live in the Liquid animation example.</p>
+           <div style={{ width: '100%', maxWidth: 300, borderRadius: 22, overflow: 'hidden', margin: '6px 0 14px' }}>
+             <div style={{ background: "radial-gradient(70% 60% at 30% 20%, #4f8de855, transparent), url('/media/coast.jpg') center/cover", padding: 18 }}>
+-              <LiquidGlass mobileFallback="svg" mode="custom" radius={22} quality="extreme" liquid="ripple" displace={1.1} dispersion={90} aberrationIntensity={2} frost={0.06}>
++              <LiquidGlass {...SCENE_GLASS} mode="custom" radius={22} liquid="ripple" displace={1.1} dispersion={90} aberrationIntensity={2} frost={0.06}>
+                 <div style={{ padding: 18, fontWeight: 700 }}>liquid=&quot;ripple&quot;</div>
+               </LiquidGlass>
+             </div>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Dock.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Dock.tsx
+@@ -17,7 +17,7 @@
+   const [hovered, setHovered] = useState<number | null>(null)
+   return (
+     <div style={{ alignSelf: 'end', marginBottom: 8, borderRadius: 28, overflow: 'hidden' }}>
+-      <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={28} frost={0.16} blur={5} saturation={180} displace={0.7} dispersion={50} aberrationIntensity={2}>
++      <LiquidGlass {...SCENE_GLASS} mode="custom" radius={28} frost={0.16} blur={5} saturation={180} displace={0.7} dispersion={50} aberrationIntensity={2}>
+         <div style={{ display: 'flex', gap: 'clamp(8px, 2.1vw, 12px)', padding: '14px clamp(11px, 3vw, 18px)', alignItems: 'flex-end' }} onMouseLeave={() => setHovered(null)}>
+           {APPS.map(({ Icon, label, bg, to }, i) => {
+             const d = hovered === null ? 0 : Math.max(0, 1 - Math.abs(hovered - i) * 0.5)
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Gallery.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Gallery.tsx
+@@ -24,7 +24,7 @@
+           style={{ position: 'relative', aspectRatio: '1', borderRadius: 16, overflow: 'hidden', background: s.bg, cursor: 'pointer', border: 'none', padding: 0 }}>
+           {active === i && (
+             <div style={{ position: 'absolute', left: 8, right: 8, bottom: 8, borderRadius: 12, overflow: 'hidden', animation: 'capIn 0.25s ease-out' }}>
+-              <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={12} frost={0.22} blur={4} displace={0.6} dispersion={45} aberrationIntensity={2}>
++              <LiquidGlass {...SCENE_GLASS} mode="custom" radius={12} frost={0.22} blur={4} displace={0.6} dispersion={45} aberrationIntensity={2}>
+                 <div style={{ padding: '9px 12px', fontSize: 12.5, fontWeight: 700 }}>{s.label}</div>
+               </LiquidGlass>
+             </div>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/LensModes.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/LensModes.tsx
+@@ -15,7 +15,7 @@
+       {LENSES.map(l => (
+         <div key={l.mode} style={{ borderRadius: 20, overflow: 'hidden' }}>
+           <LiquidGlass {...SCENE_GLASS}
+-            mode="custom" radius={20} quality="extreme"
++            mode="custom" radius={20}
+             lens={l.mode} lensStrength={1.2}
+             displace={1.2} dispersion={90} aberrationIntensity={2} frost={0.05}
+           >
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/LiquidAnimation.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/LiquidAnimation.tsx
+@@ -10,7 +10,7 @@
+   return (
+     <div style={{ width: 360, maxWidth: '100%', borderRadius: 28, overflow: 'hidden' }}>
+       <LiquidGlass {...SCENE_GLASS}
+-        mode="custom" radius={28} quality="extreme"
++        mode="custom" radius={28}
+         liquid={mode} liquidSpeed={1}
+         displace={1.1} dispersion={90} aberrationIntensity={2} frost={0.06}
+       >
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Login.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Login.tsx
+@@ -12,7 +12,7 @@
+   const [sent, setSent] = useState(false)
+   return (
+     <div style={{ width: '100%', maxWidth: 340, borderRadius: 24, overflow: 'hidden' }}>
+-      <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={24} frost={0.22} blur={5} displace={0.8} dispersion={55} aberrationIntensity={2}>
++      <LiquidGlass {...SCENE_GLASS} mode="custom" radius={24} frost={0.22} blur={5} displace={0.8} dispersion={55} aberrationIntensity={2}>
+         <form style={{ padding: 28, display: 'grid', gap: 14 }} onSubmit={e => { e.preventDefault(); setSent(true) }}>
+           <div style={{ fontSize: 22, fontWeight: 800 }}>Welcome back</div>
+           <div style={{ fontSize: 13.5, opacity: 0.75, marginTop: -8 }}>Sign in to your account</div>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Modal.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Modal.tsx
+@@ -32,7 +32,7 @@
+       {open && (
+         <div onClick={() => setOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', placeItems: 'center', padding: '0 16px' }}>
+           <div role="dialog" aria-modal="true" aria-label="Confirm deletion" onClick={e => e.stopPropagation()} style={{ width: 360, maxWidth: '100%', minWidth: 0, borderRadius: 22, overflow: 'hidden' }}>
+-            <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={22} frost={0.25} blur={6} displace={0.7} dispersion={50} aberrationIntensity={2}>
++            <LiquidGlass {...SCENE_GLASS} mode="custom" radius={22} frost={0.25} blur={6} displace={0.7} dispersion={50} aberrationIntensity={2}>
+               <div style={{ padding: 26 }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                   <strong style={{ fontSize: 18 }}>Are you sure?</strong>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Notifications.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Notifications.tsx
+@@ -26,7 +26,7 @@
+           const { Icon, title, body } = KINDS[kind]
+           return (
+             <div key={id} style={{ borderRadius: 18, overflow: 'hidden', animation: 'slideIn 0.35s cubic-bezier(0.2, 0, 0, 1)' }}>
+-              <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={18} frost={0.22} blur={5} displace={0.7} dispersion={50} aberrationIntensity={2}>
++              <LiquidGlass {...SCENE_GLASS} mode="custom" radius={18} frost={0.22} blur={5} displace={0.7} dispersion={50} aberrationIntensity={2}>
+                 <div style={{ display: 'flex', gap: 12, padding: '13px 16px', alignItems: 'center' }}>
+                   <Icon aria-hidden size={20} style={{ flexShrink: 0 }} />
+                   <div style={{ fontSize: 13 }}>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Pricing.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Pricing.tsx
+@@ -33,7 +33,7 @@
+       {/* No transform:scale on the lens ancestor — it flattens the SVG displacement. The Pro tier
+           already stands out via the real glass vs. the faux-glass siblings. */}
+       <div style={{ borderRadius: 26, overflow: 'hidden' }}>
+-        <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={26} frost={0.2} blur={5} displace={0.8} dispersion={65} aberrationIntensity={2}>
++        <LiquidGlass {...SCENE_GLASS} mode="custom" radius={26} frost={0.2} blur={5} displace={0.8} dispersion={65} aberrationIntensity={2}>
+           <Tier name="Pro" price="€12" items={['Unlimited projects', 'Priority support', 'Custom presets', 'Early features']} />
+         </LiquidGlass>
+       </div>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Weather.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/Weather.tsx
+@@ -13,7 +13,7 @@
+ export default function Weather() {
+   return (
+     <div style={{ width: 360, maxWidth: '100%', borderRadius: 26, overflow: 'hidden' }}>
+-      <LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={26} frost={0.22} blur={5} displace={0.8} dispersion={60} aberrationIntensity={2}>
++      <LiquidGlass {...SCENE_GLASS} mode="custom" radius={26} frost={0.22} blur={5} displace={0.8} dispersion={60} aberrationIntensity={2}>
+         <div style={{ padding: 26 }}>
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+             <div>

@@ -1,0 +1,387 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/Draggable.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/Draggable.tsx
+@@ -1,73 +0,0 @@
+-import React, { useCallback, useEffect, useRef, useState } from 'react'
+-
+-export default function Draggable({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
+-  const draggableRef = useRef<HTMLDivElement | null>(null)
+-  const pointerIdRef = useRef<number | null>(null)
+-  const startRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+-  const [offset, setOffset] = useState({ x: 0, y: 0 })
+-  const [withTransition, setWithTransition] = useState(false)
+-  const [dragging, setDragging] = useState(false)
+-  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+-
+-  const onPointerMove = useCallback((e: PointerEvent) => {
+-    if (pointerIdRef.current === null) return
+-    setOffset({ x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y })
+-  }, [])
+-
+-  const endDrag = useCallback(() => {
+-    pointerIdRef.current = null
+-    setDragging(false)
+-    setWithTransition(true)
+-    setOffset({ x: 0, y: 0 })
+-    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+-    transitionTimerRef.current = setTimeout(() => setWithTransition(false), 420)
+-  }, [])
+-
+-  useEffect(() => () => {
+-    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+-  }, [])
+-
+-  const onPointerDown = useCallback((e: React.PointerEvent) => {
+-    if (!draggableRef.current) return
+-    draggableRef.current.setPointerCapture(e.pointerId)
+-    pointerIdRef.current = e.pointerId
+-    startRef.current = { x: e.clientX, y: e.clientY }
+-    setWithTransition(false)
+-    setDragging(true)
+-  }, [])
+-
+-  useEffect(() => {
+-    const handleEnd = () => { if (pointerIdRef.current !== null) endDrag() }
+-    window.addEventListener('pointerup', handleEnd)
+-    window.addEventListener('pointercancel', handleEnd)
+-    return () => {
+-      window.removeEventListener('pointerup', handleEnd)
+-      window.removeEventListener('pointercancel', handleEnd)
+-    }
+-  }, [endDrag])
+-
+-  useEffect(() => {
+-    window.addEventListener('pointermove', onPointerMove)
+-    return () => window.removeEventListener('pointermove', onPointerMove)
+-  }, [onPointerMove])
+-
+-  return (
+-    <div
+-      ref={draggableRef}
+-      onPointerDown={onPointerDown}
+-      style={{
+-        position: 'relative',
+-        width,
+-        height,
+-        touchAction: 'none',
+-        transform: `translate(${offset.x}px, ${offset.y}px) scale(${dragging ? 1.04 : 1})`,
+-        transition: withTransition
+-          ? 'transform 420ms cubic-bezier(0.34, 1.2, 0.5, 1)'
+-          : dragging ? 'none' : 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)',
+-        cursor: dragging ? 'grabbing' : 'grab',
+-      }}
+-    >
+-      {children}
+-    </div>
+-  )
+-}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/GlassCursor.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/GlassCursor.tsx
+@@ -1,138 +0,0 @@
+-import { useEffect, useRef } from 'react'
+-import LiquidGlass from 'simple-liquid-glass'
+-
+-// WCAG relative luminance + a walk to the nearest opaque background under the cursor — used to flip
+-// the glass tint (dark over light backgrounds, light over dark). Cheap DOM read, no pixel sampling.
+-function relLum(r: number, g: number, b: number): number {
+-  const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+-}
+-const pctOr1 = (s?: string) => (s === undefined ? 1 : s.endsWith('%') ? parseFloat(s) / 100 : parseFloat(s))
+-function bgIsLight(start: Element | null): boolean {
+-  let el: Element | null = start
+-  while (el && el !== document.documentElement) {
+-    const bg = getComputedStyle(el).backgroundColor
+-    // rgb / rgba (computed value for most colors)
+-    const rgb = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/.exec(bg)
+-    if (rgb && pctOr1(rgb[4]) >= 0.5) return relLum(+rgb[1], +rgb[2], +rgb[3]) > 0.5
+-    // oklch(L C H / a) — Chrome reports oklch-authored colors verbatim; L (0..1) is perceptual lightness
+-    const okl = /oklch\(\s*([\d.]+%?)[\s,]+[\d.]+[\s,]+[-\d.]+(?:\s*\/\s*([\d.]+%?))?/.exec(bg)
+-    if (okl && pctOr1(okl[2]) >= 0.5) return pctOr1(okl[1]) > 0.6
+-    el = el.parentElement
+-  }
+-  return false // page background is dark by default
+-}
+-
+-const D = 52 // glass lens diameter — measured at mount (scale 1) so the refraction is full-res
+-
+-/* Custom cursor. On non-clickable areas it's a minimal dot + a trailing ring; over any clickable
+-   element it MORPHS into the liquid-glass lens — the dot fades, the ring blooms outward and fades,
+-   and the refraction materializes in its place.
+-
+-   The dot follows tightly; the halo (ring + glass) trails with a lighter lerp for a premium feel.
+-   rAF owns only the position transform (translate3d); the morph is CSS state (.isOver / .isPress)
+-   on opacity + the inner elements' own transforms, so it never fights the position. The glass is
+-   kept at scale 1 at mount (it only fades in) so the library measures it at full size. */
+-export default function GlassCursor() {
+-  const dotRef = useRef<HTMLDivElement>(null)
+-  const haloRef = useRef<HTMLDivElement>(null)
+-
+-  useEffect(() => {
+-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+-    const dot = dotRef.current
+-    const halo = haloRef.current
+-    if (!dot || !halo) return
+-
+-    const root = document.documentElement
+-    root.classList.add('glass-cursor-on')
+-
+-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+-    const dotLerp = reduce ? 1 : 0.6
+-    const haloLerp = reduce ? 1 : 0.18
+-
+-    const dp = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+-    const dt = { ...dp }
+-    const hp = { ...dp }
+-    const ht = { ...dp }
+-    let shown = false
+-    let raf = 0
+-    let lastTarget: Element | null = null
+-
+-    const interactive = (t: EventTarget | null) =>
+-      t instanceof Element &&
+-      !!t.closest('a, button, input, textarea, select, summary, label, [role="button"], [onclick], .hubCard, .pgBgThumb, [data-clickable]')
+-
+-    const setOver = (over: boolean) => {
+-      dot.classList.toggle('isOver', over)
+-      halo.classList.toggle('isOver', over)
+-    }
+-
+-    const onMove = (e: PointerEvent) => {
+-      dt.x = e.clientX; dt.y = e.clientY
+-      ht.x = e.clientX; ht.y = e.clientY
+-      setOver(interactive(e.target))
+-      // flip the glass tint to match the background luminance under the cursor (recompute only when
+-      // the underlying element changes — keeps it off the hot path)
+-      const tgt = e.target instanceof Element ? e.target : null
+-      if (tgt !== lastTarget) { lastTarget = tgt; halo.classList.toggle('bgLight', bgIsLight(tgt)) }
+-      if (!shown) { shown = true; dot.style.visibility = 'visible'; halo.style.visibility = 'visible' }
+-    }
+-    const onDown = () => { dot.classList.add('isPress'); halo.classList.add('isPress') }
+-    const onUp = (e: PointerEvent) => {
+-      dot.classList.remove('isPress'); halo.classList.remove('isPress')
+-      setOver(interactive(e.target))
+-    }
+-    const onLeave = () => { dot.style.visibility = 'hidden'; halo.style.visibility = 'hidden'; shown = false }
+-
+-    window.addEventListener('pointermove', onMove, { passive: true })
+-    window.addEventListener('pointerdown', onDown, { passive: true })
+-    window.addEventListener('pointerup', onUp, { passive: true })
+-    document.addEventListener('pointerleave', onLeave)
+-
+-    const tick = () => {
+-      dp.x += (dt.x - dp.x) * dotLerp; dp.y += (dt.y - dp.y) * dotLerp
+-      hp.x += (ht.x - hp.x) * haloLerp; hp.y += (ht.y - hp.y) * haloLerp
+-      dot.style.transform = `translate3d(${dp.x}px, ${dp.y}px, 0)`
+-      halo.style.transform = `translate3d(${hp.x}px, ${hp.y}px, 0)`
+-      raf = requestAnimationFrame(tick)
+-    }
+-    raf = requestAnimationFrame(tick)
+-
+-    return () => {
+-      root.classList.remove('glass-cursor-on')
+-      window.removeEventListener('pointermove', onMove)
+-      window.removeEventListener('pointerdown', onDown)
+-      window.removeEventListener('pointerup', onUp)
+-      document.removeEventListener('pointerleave', onLeave)
+-      cancelAnimationFrame(raf)
+-    }
+-  }, [])
+-
+-  return (
+-    <>
+-      <div ref={haloRef} className="cursorHalo" style={{ visibility: 'hidden' }}>
+-        <span className="cursorRing" />
+-        <span className="cursorGlass">
+-          <LiquidGlass
+-            mode="custom"
+-            quality="extreme" autodetectquality={false}
+-            radius={D / 2}
+-            scale={140}
+-            displace={2}
+-            dispersion={18}
+-            aberrationIntensity={0.4}
+-            saturation={135}
+-            frost={0}
+-            blur={0}
+-            border={0.06}
+-            borderColor="rgba(255,255,255,0.4)"
+-          >
+-            <div style={{ width: '100%', height: '100%' }} />
+-          </LiquidGlass>
+-          <span className="cursorTint" />
+-        </span>
+-      </div>
+-      <div ref={dotRef} className="cursorDot" style={{ visibility: 'hidden' }} />
+-    </>
+-  )
+-}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/codegen.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/codegen.ts
+@@ -1,20 +0,0 @@
+-import { DEFAULTS, LIBRARY_DEFAULTS, type Controls } from './presets'
+-
+-// Render a single prop the way you'd actually write it in JSX:
+-// strings as attributes, `true` as a bare prop, everything else in braces.
+-function formatProp(key: string, value: unknown): string {
+-  if (typeof value === 'string') return `${key}="${value}"`
+-  if (value === true) return key
+-  return `${key}={${JSON.stringify(value)}}`
+-}
+-
+-export function controlsToJsx(controls: Controls): string {
+-  const props: string[] = []
+-  for (const key of Object.keys(DEFAULTS) as (keyof Controls)[]) {
+-    const value = controls[key]
+-    if (value === undefined || value === LIBRARY_DEFAULTS[key]) continue
+-    props.push(formatProp(String(key), value))
+-  }
+-  if (props.length === 0) return '<LiquidGlass>\n  {children}\n</LiquidGlass>'
+-  return `<LiquidGlass\n  ${props.join('\n  ')}\n>\n  {children}\n</LiquidGlass>`
+-}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/presets.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/presets.ts
+@@ -1,105 +1,8 @@
+-import type { LiquidGlassProps } from 'simple-liquid-glass'
++import type {LiquidGlassProps} from 'simple-liquid-glass'
+ 
+-export type Controls = Pick<
+-  LiquidGlassProps,
+-  | 'mode' | 'scale' | 'radius' | 'border' | 'lightness' | 'displace'
+-  | 'alpha' | 'blur' | 'dispersion' | 'saturation' | 'aberrationIntensity'
+-  | 'frost' | 'borderColor' | 'glassColor' | 'autoTextColor' | 'forceTextColor'
+-  | 'textOnDark' | 'textOnLight' | 'iosMinBlur' | 'iosBlurMode'
+-  | 'angle' | 'shapeAdapt' | 'lens' | 'lensStrength'
+-  | 'liquid' | 'liquidSpeed'
+-  | 'quality' | 'effectMode' | 'autodetectquality'
+->
+-
+-export const DEFAULTS: Controls = {
+-  mode: 'custom',
+-  scale: 200,
+-  radius: 40,
+-  border: 0.05,
+-  lightness: 53,
+-  displace: 1.2,
+-  alpha: 0.9,
+-  blur: 0,
+-  dispersion: 110,
+-  saturation: 160,
+-  aberrationIntensity: 2,
+-  frost: 0.1,
+-  borderColor: 'rgba(120, 120, 120, 0.7)',
+-  // explicit undefined is load-bearing: codegen iterates Object.keys(DEFAULTS)
+-  glassColor: undefined,
+-  autoTextColor: true,
+-  forceTextColor: true,
+-  textOnDark: '#ffffff',
+-  textOnLight: '#111111',
+-  iosMinBlur: 7,
+-  iosBlurMode: 'auto',
+-  angle: 0,
+-  shapeAdapt: true,
+-  lens: 'classic',
+-  lensStrength: 1,
+-  liquid: false,
+-  liquidSpeed: 1,
+-  quality: 'extreme',
+-  effectMode: 'auto',
+-  autodetectquality: false,
+-}
+-
+-// Actual library defaults from the package's JSDoc — codegen diffs against these
+-export const LIBRARY_DEFAULTS: Partial<Controls> = {
+-  mode: 'preset',
+-  scale: 160,
+-  radius: 50,
+-  border: 0.05,
+-  lightness: 53,
+-  displace: 5,
+-  alpha: 0.9,
+-  blur: 0,
+-  dispersion: 50,
+-  saturation: 140,
+-  aberrationIntensity: 0,
+-  frost: 0.1,
+-  borderColor: 'rgba(120, 120, 120, 0.7)',
+-  autoTextColor: false,
+-  forceTextColor: false,
+-  textOnDark: '#ffffff',
+-  textOnLight: '#111111',
+-  iosMinBlur: 7,
+-  iosBlurMode: 'auto',
+-  angle: 0,
+-  shapeAdapt: true,
+-  lens: 'classic',
+-  lensStrength: 1,
+-  liquid: false,
+-  liquidSpeed: 1,
+-  quality: 'low',
+-  effectMode: 'auto',
+-  autodetectquality: false,
+-}
+-
+-// Shared opt-in: render the real SVG displacement on Android / Chromium-mobile too. In the default
+-// `auto` mode the library drops to a plain blur on mobile (a perf choice) which reads as "the effect
+-// is missing"; `mobileFallback: 'svg'` keeps the refraction. (Refraction is Chromium-only — Safari /
+-// iOS / Firefox get the frosted-glass fallback; that's a platform limitation, not a config.)
++/** Every showcase demo uses the highest quality and Chromium mobile refraction. */
+ export const SCENE_GLASS = {
+   quality: 'extreme',
+   autodetectquality: false,
+   mobileFallback: 'svg',
+-} as const satisfies Partial<LiquidGlassProps>
+-
+-export interface Preset {
+-  name: string
+-  controls: Partial<Controls>
+-}
+-
+-export const PRESETS: Preset[] = [
+-  { name: 'Default', controls: {} },
+-  { name: 'Frosted', controls: { frost: 0.5, blur: 6, displace: 0.2, dispersion: 20 } },
+-  { name: 'Crystal', controls: { frost: 0, blur: 0, displace: 1.2, dispersion: 120, aberrationIntensity: 3 } },
+-  { name: 'iOS Dock', controls: { radius: 32, frost: 0.25, blur: 8, saturation: 180 } },
+-  { name: 'Subtle', controls: { displace: 0.2, dispersion: 15, frost: 0.05, border: 0.02 } },
+-  { name: 'Heavy Refraction', controls: { displace: 2, dispersion: 200, scale: 300, aberrationIntensity: 5 } },
+-  { name: 'Extreme', controls: { displace: 2, dispersion: 200, scale: 400, aberrationIntensity: 10, saturation: 200, frost: 0, blur: 0, radius: 150 } },
+-  { name: 'Convex magnifier', controls: { lens: 'convex', lensStrength: 1.4, displace: 1.4, dispersion: 80, aberrationIntensity: 2 } },
+-  { name: 'Ripple', controls: { liquid: 'ripple', liquidSpeed: 1, displace: 1, dispersion: 90, aberrationIntensity: 2 } },
+-  { name: 'Rim', controls: { lens: 'rim', lensStrength: 1.2, frost: 0.04, displace: 1, dispersion: 60 } },
+-]
++} as const satisfies Readonly<Pick<LiquidGlassProps, 'quality' | 'autodetectquality' | 'mobileFallback'>>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/WebComponentDemo.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/examples/WebComponentDemo.tsx
+@@ -1,33 +0,0 @@
+-import 'simple-liquid-glass/web-component'
+-
+-export default function WebComponentDemo() {
+-  return (
+-    <div style={{ display: 'grid', gap: 8, placeItems: 'center' }}>
+-      <div style={{ position: 'relative', width: 320, height: 210 }}>
+-        <div
+-          aria-hidden
+-          style={{
+-            position: 'absolute',
+-            inset: 0,
+-            borderRadius: 24,
+-            background:
+-              'conic-gradient(from 210deg at 32% 28%, #ff8a00, #e52e71, #6a5acd, #00c2ff, #ff8a00)',
+-          }}
+-        />
+-        <liquid-glass
+-          radius="24" frost="0.12" blur="2" displace="1" dispersion="80"
+-          style={{ position: 'absolute', inset: 0, display: 'block', borderRadius: 24, overflow: 'hidden' }}
+-        >
+-          <div style={{ padding: 22, display: 'grid', gap: 8, placeItems: 'center', textAlign: 'center', height: '100%' }}>
+-            <div style={{ fontSize: 12.5, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.7 }}>Framework-agnostic</div>
+-            <div style={{ fontSize: 20, fontWeight: 700 }}>&lt;liquid-glass&gt;</div>
+-            <p style={{ margin: 0, opacity: 0.82, fontSize: 13.5, lineHeight: 1.5 }}>
+-              The same liquid glass in Vue, Svelte, Astro or plain HTML — zero React. Real SVG
+-              refraction on Chromium; a polished frosted-glass fallback on Safari, iOS and Firefox.
+-            </p>
+-          </div>
+-        </liquid-glass>
+-      </div>
+-    </div>
+-  )
+-}

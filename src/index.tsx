@@ -1,12 +1,24 @@
-import React, { useMemo, useEffect, useRef, useState, useId, forwardRef, useImperativeHandle } from 'react';
-import { parseCssColorToRgba, findNearestOpaqueBackground, isRgbColorDark } from './cssColor';
+import React, { useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { buildNativeMap, resolveLensOptions } from './core/nativeOptics';
+import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
+import type { LiquidPreset } from './core/liquid';
+export type { LiquidPreset } from './core/liquid';
+import type { LensOptions, LensProfile } from './core/nativeOptics';
+export type { LensOptions } from './core/nativeOptics';
+export { NATIVE_PROFILES as LENS_PROFILES, LENS_OPTION_RANGES, resolveLensOptions } from './core/nativeOptics';
+import type { LensMode } from './core/displacementMap';
+export type { LensMode } from './core/displacementMap';
+import { DisplacementFilter } from './core/DisplacementFilter';
+import { useTextColor } from './core/useTextColor';
 import { cacheGet, cacheSet } from './displacementCache';
-import { quantizedSize, buildDisplacementDataUri } from './core/displacementMap';
+import { buildDisplacementDataUri, normalizeAngle } from './core/displacementMap';
 import { useMirrorEngine } from './core/mirrorEngine';
-import { decisiveTier, classifyQuality } from './quality';
+import { lensGeometry, buildLensMap } from './core/mirrorOptics';
+import { useGeometry } from './core/useGeometry';
+import { useQuality } from './core/useQuality';
 import type { LiquidQuality } from './quality';
-
-type DisplacementChannel = 'R' | 'G' | 'B' | 'A';
+import { useStableId } from './core/useStableId';
+import { processBackground, isSemiTransparentColor } from './core/background';
 
 const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
   low: 5,
@@ -23,183 +35,207 @@ const QUALITY_QUANTIZATION_STEPS: Record<LiquidQuality, number> = {
 };
 
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
+  /**
+   * The content to be displayed inside the liquid glass effect
+   */
   children?: React.ReactNode;
-  mode?: string;
+  
+  /**
+   * Mode of the effect
+   * @default "preset"
+   */
+  mode?: 'preset' | 'custom';
+  
+  /**
+   * Scale of the displacement effect
+   * @default 160
+   */
   scale?: number;
+  /** Existing 4.x directional/lens options select the compatible gradient renderer. */
+  angle?: number;
+  shapeAdapt?: boolean;
+  lens?: LensMode;
+  lensStrength?: number;
+  lensCenter?: [number, number];
+  liquid?: LiquidPreset | false;
+  liquidSpeed?: number;
+  liquidScale?: number;
+  /** Shape-aware rounded lens or the original gradient optics. Default: lens. */
+  refraction?: 'classic' | 'lens';
+  /** Material, magnifier, player button, or scrub track optics. Used by refraction="lens". */
+  lensProfile?: LensProfile;
+  /** Individual rounded-lens overrides. Inherit unset values from lensProfile. Only applies to refraction="lens". */
+  lensOptions?: LensOptions;
+  /** Explicit lens displacement in CSS pixels; overrides scale for refraction="lens". */
+  displacementScale?: number;
+  
+  /**
+   * Border radius of the glass effect
+   * @default 50
+   */
   radius?: number;
+  
+  /**
+   * Border thickness (0-0.5)
+   * @default 0.05
+   */
   border?: number;
+  
+  /**
+   * Lightness of the glass (0-100)
+   * @default 53
+   */
   lightness?: number;
+  
+  /**
+   * Displacement blur amount
+   * @default 5
+   */
   displace?: number;
+  
+  /**
+   * Alpha transparency of the glass (0-1)
+   * @default 0.9
+   */
   alpha?: number;
+  
+  /**
+   * Blur amount for the glass effect
+   * @default 0
+   */
   blur?: number;
+  
+  /**
+   * Chromatic dispersion amount
+   * @default 50
+   */
   dispersion?: number;
-  saturation?: number; // percent, 100 = normal
-  aberrationIntensity?: number; // multiplier for chromatic separation
+  /**
+   * Color saturation multiplier (%). 100 = no change
+   * @default 140
+   */
+  saturation?: number;
+  /**
+   * Chromatic aberration intensity multiplier
+   * @default 0
+   */
+  aberrationIntensity?: number;
+  
+  /**
+   * Frost effect intensity (0-1)
+   * @default 0.1
+   */
   frost?: number;
+  
+  /**
+   * Border color in CSS format
+   * @default "rgba(120, 120, 120, 0.7)"
+   */
   borderColor?: string;
-  glassColor?: string; // must be semi-transparent
-  background?: string; // background color or gradient (CSS background value)
-  autoTextColor?: boolean; // auto-detect background and set text color
-  textOnDark?: string; // text color when background is dark
-  textOnLight?: string; // text color when background is light
-  forceTextColor?: boolean; // enforce text color on descendants
-  quality?: LiquidQuality; // rendering quality preset
-  autodetectquality?: boolean; // auto-detect device performance and pick quality
+  
+  /**
+   * Semi-transparent color for the glass background (must include alpha)
+   * Examples: rgba(255,255,255,0.4), hsla(0,0%,100%,0.4), #FFFFFFFF with alpha
+   * @default 'rgba(255, 255, 255, 0.4)'
+   */
+  glassColor?: string;
+
+  /**
+   * Background color or gradient for the container
+   * Solid colors and gradients will automatically be made semi-transparent (30% opacity)
+   * Examples: "#ff0000", "linear-gradient(45deg, #ff0000, #00ff00)", "radial-gradient(circle, #ff0000, #00ff00)"
+   */
+  background?: string;
+
+  /**
+   * Automatically adapt text color based on surrounding background
+   * @default false
+   */
+  autoTextColor?: boolean;
+
+  /**
+   * Text color when detected background is dark
+   * @default '#ffffff'
+   */
+  textOnDark?: string;
+
+  /**
+   * Text color when detected background is light
+   * @default '#111111'
+   */
+  textOnLight?: string;
+
+  /**
+   * Force the computed text color on all descendants using !important
+   * Useful when children set their own color styles
+   * @default false
+   */
+  forceTextColor?: boolean;
+  /** Minimum blur (px) to apply on iOS even when blur is 0. Default: 7 */
+  iosMinBlur?: number;
+  /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
+  iosBlurMode?: 'auto' | 'off';
+  /**
+   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop.
+   * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
+   */
+  mobileFallback?: 'css-only' | 'svg';
+  /**
+   * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
+   * @default 'auto'
+   */
+  effectMode?: 'auto' | 'svg' | 'blur' | 'off';
+
+  /**
+   * On the fallback engines (Safari / iOS / Firefox, which can't run SVG filters in
+   * `backdrop-filter`), refract a live displaced **clone** of the element behind the lens instead
+   * of just blurring. Requires `backdropRef` (or `backdropSelector`); falls back to blur otherwise.
+   * @default true
+   */
+  mirror?: boolean;
+  /**
+   * The element behind the lens to refract (for the iOS/Safari mirror). MUST NOT be an ancestor of
+   * the lens — point it at a sibling/background element. Falls back to blur when omitted.
+   */
+  backdropRef?: import('react').RefObject<HTMLElement | null>;
+  /** Alternative to `backdropRef`: a CSS selector for the backdrop, resolved on mount. */
+  backdropSelector?: string;
+  /**
+   * Mirror optical strength, capped to half the rim width. Safari/iOS uses CSS rim magnification;
+   * other mirror engines use displacement. Zero disables the optical offset.
+   * @default 26
+   */
+  mirrorScale?: number;
+  /**
+   * Re-align the mirror clone at approximately 30 Hz when the lens or background translates
+   * (dragging, animation). Scroll/resize re-align is automatic for static lenses.
+   * @default false
+   */
+  track?: boolean;
+
+  /**
+   * Additional CSS class names
+   */
   className?: string;
+  
+  /**
+   * Additional inline styles
+   */
   style?: React.CSSProperties;
-  // iOS fallback controls
-  iosMinBlur?: number; // minimum blur on iOS even when blur=0
-  iosBlurMode?: 'auto' | 'off'; // allow opting out of the forced iOS blur
-  mobileFallback?: 'css-only' | 'svg'; // control mobile rendering strategy
-  effectMode?: 'auto' | 'svg' | 'blur' | 'off'; // choose filter strategy independently
-  // iOS/Safari/Firefox real-refraction mirror (live DOM clone). On the fallback engines, when a
-  // backdrop is provided, the lens refracts a displaced clone of it instead of just blurring.
-  mirror?: boolean; // enable the live mirror on fallback engines (default true)
-  backdropRef?: React.RefObject<HTMLElement | null>; // element behind the lens (must NOT be an ancestor)
-  backdropSelector?: string; // alternative to backdropRef: a CSS selector resolved on mount
-  mirrorScale?: number; // mirror displacement strength (default 26)
-  track?: boolean; // re-align the clone every frame when the lens itself moves (drag/animation)
+  /**
+   * Rendering quality preset. Controls internal SVG resolution to balance performance and fidelity.
+   * @default 'low'
+   */
+  quality?: LiquidQuality;
+  /**
+   * Automatically detect device performance and choose a quality preset.
+   * When true and no explicit quality is provided, the component resolves a quality on mount.
+   * @default false
+   */
+  autodetectquality?: boolean;
 }
 
-function isSemiTransparentColor(input: string | undefined | null): boolean {
-  if (!input) return false;
-  const color = input.trim();
-  // rgba(r,g,b,a)
-  const rgba = /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*(\d*\.?\d+)\s*\)$/i.exec(color);
-  if (rgba) {
-    const a = parseFloat(rgba[1]);
-    return a > 0 && a < 1;
-  }
-  // hsla(h,s,l,a)
-  const hsla = /^hsla\(.*?,\s*(\d*\.?\d+)\s*\)$/i.exec(color);
-  if (hsla) {
-    const a = parseFloat(hsla[1]);
-    return a > 0 && a < 1;
-  }
-  // hsl(h s l / a) or hsl(h,s%,l%,a) with slash
-  const hslSlash = /^hsl\(.*?\/\s*(\d*\.?\d+)\s*\)$/i.exec(color);
-  if (hslSlash) {
-    const a = parseFloat(hslSlash[1]);
-    return a > 0 && a < 1;
-  }
-  // Hex with alpha: #RGBA or #RRGGBBAA
-  const hex4 = /^#([0-9a-f]{4})$/i.exec(color);
-  if (hex4) {
-    const aHex = hex4[1].slice(3, 4);
-    const a = parseInt(aHex + aHex, 16) / 255; // expand to 8-bit
-    return a > 0 && a < 1;
-  }
-  const hex8 = /^#([0-9a-f]{8})$/i.exec(color);
-  if (hex8) {
-    const aHex = hex8[1].slice(6, 8);
-    const a = parseInt(aHex, 16) / 255;
-    return a > 0 && a < 1;
-  }
-  // No detectable alpha
-  return false;
-}
-
-function addTransparencyToColor(color: string, alpha: number = 0.3): string {
-  const trimmed = color.trim();
-  
-  // Handle hex colors
-  const hex3 = /^#([0-9a-f]{3})$/i.exec(trimmed);
-  if (hex3) {
-    const r = parseInt(hex3[1][0] + hex3[1][0], 16);
-    const g = parseInt(hex3[1][1] + hex3[1][1], 16);
-    const b = parseInt(hex3[1][2] + hex3[1][2], 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  
-  const hex6 = /^#([0-9a-f]{6})$/i.exec(trimmed);
-  if (hex6) {
-    const r = parseInt(hex6[1].slice(0, 2), 16);
-    const g = parseInt(hex6[1].slice(2, 4), 16);
-    const b = parseInt(hex6[1].slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  
-  // Handle rgb colors
-  const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i.exec(trimmed);
-  if (rgb) {
-    const r = parseInt(rgb[1], 10);
-    const g = parseInt(rgb[2], 10);
-    const b = parseInt(rgb[3], 10);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-  
-  // Handle hsl colors
-  const hsl = /^hsl\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i.exec(trimmed);
-  if (hsl) {
-    const h = hsl[1].trim();
-    const s = hsl[2].trim();
-    const l = hsl[3].trim();
-    return `hsla(${h}, ${s}, ${l}, ${alpha})`;
-  }
-  
-  // If we can't parse it, return as is
-  return trimmed;
-}
-
-function addTransparencyToGradient(gradient: string, alpha: number = 0.3): string {
-  // Handle linear-gradient, radial-gradient, conic-gradient, etc.
-  const gradientMatch = /^(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i.exec(gradient);
-  if (!gradientMatch) return gradient;
-  
-  const gradientType = gradientMatch[1];
-  const content = gradient.substring(gradientType.length + 1, gradient.length - 1);
-  
-  // Split by commas, but be careful with nested parentheses
-  const parts: string[] = [];
-  let current = '';
-  let parenCount = 0;
-  
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
-    if (char === '(') parenCount++;
-    else if (char === ')') parenCount--;
-    else if (char === ',' && parenCount === 0) {
-      parts.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  parts.push(current.trim());
-  
-  // Process each color stop
-  const processedParts = parts.map(part => {
-    // Check if this part contains a color
-    const colorMatch = /(#[0-9a-f]{3,6}|rgb\([^)]+\)|hsl\([^)]+\)|rgba\([^)]+\)|hsla\([^)]+\))/i.exec(part);
-    if (colorMatch) {
-      const color = colorMatch[1];
-      const transparentColor = addTransparencyToColor(color, alpha);
-      return part.replace(color, transparentColor);
-    }
-    return part;
-  });
-  
-  return `${gradientType}(${processedParts.join(', ')})`;
-}
-
-function processBackground(background: string | undefined, alpha: number = 0.3): string | undefined {
-  if (!background) return undefined;
-  
-  // Check if it's already semi-transparent
-  if (isSemiTransparentColor(background)) return background;
-  
-  // Check if it's a gradient
-  if (background.includes('gradient')) {
-    return addTransparencyToGradient(background, alpha);
-  }
-  
-  // Check if it's a URL (image)
-  if (background.includes('url(')) return background;
-  
-  // Treat as solid color
-  return addTransparencyToColor(background, alpha);
-}
-
+/** Imperative handle exposed via ref. */
 export interface LiquidGlassHandle {
   /** The root container element. */
   element: HTMLDivElement | null;
@@ -207,28 +243,15 @@ export interface LiquidGlassHandle {
   getQuality(): LiquidQuality;
 }
 
-const DEFAULT_WIDTH = 400;
-const DEFAULT_HEIGHT = 200;
-
-const preset = {
-  scale: 160,
-  radius: 50,
-  border: 0.05,
-  lightness: 53,
-  displace: 5,
-  alpha: 0.9,
-  blur: 0,
-  dispersion: 50,
-  saturation: 140,
-  aberrationIntensity: 0,
-  frost: 0.1,
-  borderColor: "rgba(120, 120, 120, 0.7)"
-};
-
 export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(function LiquidGlass({
   children,
   mode = "preset",
   scale = 160,
+  refraction: requestedRefraction,
+  angle, shapeAdapt, lens, lensStrength, lensCenter,
+  liquid = false, liquidSpeed = 1, liquidScale,
+  lensProfile = 'player', lensOptions,
+  displacementScale,
   radius = 50,
   border = 0.05,
   lightness = 53,
@@ -261,339 +284,46 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   track = false,
   ...props
 }: LiquidGlassProps, ref) {
-  // Configuration based on mode
-  let config: {
-    mode: string;
-    scale: number;
-    radius: number;
-    border: number;
-    lightness: number;
-    displace: number;
-    alpha: number;
-    blur: number;
-    dispersion: number;
-    saturation: number;
-    aberrationIntensity: number;
-    frost: number;
-    borderColor: string;
-    blend: 'difference';
-    x: DisplacementChannel;
-    y: DisplacementChannel;
+  const legacyOptics = angle !== undefined || shapeAdapt !== undefined || lens !== undefined || lensStrength !== undefined || lensCenter !== undefined;
+  const refraction = requestedRefraction ?? (legacyOptics ? 'classic' : 'lens');
+  const config = {
+    mode, scale, radius, border, lightness, displace, alpha, blur, dispersion,
+    saturation, aberrationIntensity, frost, borderColor,
+    blend: 'difference' as const, x: 'R' as const, y: 'B' as const
   };
-  if (mode === "preset") {
-    config = {
-      // baseline to preset, but allow incoming props to override as per library behavior
-      ...preset,
-      scale,
-      radius,
-      border,
-      lightness,
-      displace,
-      alpha,
-      blur,
-      dispersion,
-      saturation,
-      aberrationIntensity,
-      frost,
-      borderColor,
-      mode: "preset",
-      blend: "difference",
-      x: "R",
-      y: "B",
-    };
-  } else {
-    config = {
-      mode,
-      scale,
-      radius,
-      border,
-      lightness,
-      displace,
-      alpha,
-      blur,
-      dispersion,
-      saturation,
-      aberrationIntensity,
-      frost,
-      borderColor,
-      blend: "difference",
-      x: "R",
-      y: "B"
-    };
-  }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mirrorHolderRef = useRef<HTMLDivElement | null>(null);
-  const [dimensions, setDimensions] = useState({
-    width: DEFAULT_WIDTH,
-    height: DEFAULT_HEIGHT
-  });
-  // True only while the element is actively resizing, so we can promote a compositor
-  // layer transiently instead of holding `will-change` for every instance forever.
-  const [isResizing, setIsResizing] = useState(false);
-  // Whether the element is on (or near) screen. Offscreen instances drop their expensive
-  // backdrop-filter so a page with many glass cards only pays for the visible ones.
-  const [isVisible, setIsVisible] = useState(true);
-  const [effectiveTextColor, setEffectiveTextColor] = useState<string>(textOnLight);
-  const textClassNameRef = useRef<string | null>(null);
-  if (!textClassNameRef.current) {
-    textClassNameRef.current = `lg-text-${Math.random().toString(36).slice(2, 9)}`;
-  }
+  const { dimensions, isResizing, isVisible } = useGeometry(containerRef);
+  const effectiveTextColor = useTextColor(containerRef, autoTextColor, textOnDark, textOnLight);
+  const uniqueId = useStableId();
+  const textClassName = uniqueId ? `lg-text-${uniqueId}` : undefined;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  // Quality resolution management
-  const hasExplicitQuality = typeof incomingQuality !== 'undefined' && incomingQuality !== null;
-  const defaultQuality: LiquidQuality = 'low';
-  const initialQuality: LiquidQuality = hasExplicitQuality ? (incomingQuality as LiquidQuality) : defaultQuality;
-  const [resolvedQuality, setResolvedQuality] = useState<LiquidQuality>(initialQuality);
+  const resolvedQuality = useQuality(incomingQuality, autodetectquality);
   // Track the latest resolved quality in a ref so the imperative handle can expose it
   // (getQuality) without recreating the handle on every quality change.
   const resolvedQualityRef = useRef(resolvedQuality);
   resolvedQualityRef.current = resolvedQuality;
 
-  useEffect(() => {
-    if (hasExplicitQuality) {
-      setResolvedQuality(incomingQuality as LiquidQuality);
-      return;
-    }
-    if (!autodetectquality) {
-      setResolvedQuality(defaultQuality);
-      return;
-    }
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      // SSR safety
-      setResolvedQuality(defaultQuality);
-      return;
-    }
-
-    // Prefer low quality when user requests reduced motion
-    const prefersReducedMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setResolvedQuality('low');
-      return;
-    }
-
-    const CACHE_KEY = 'simpleLiquidGlass_quality_v1';
-    const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-
-    // localStorage persists across sessions; sessionStorage is the per-tab fallback.
-    const readCachedQuality = (): LiquidQuality | null => {
-      for (const getStore of [() => window.localStorage, () => window.sessionStorage]) {
-        try {
-          const raw = getStore().getItem(CACHE_KEY);
-          if (!raw) continue;
-          const data = JSON.parse(raw) as { q: LiquidQuality; t: number } | null;
-          if (data && data.q && typeof data.t === 'number' && Date.now() - data.t < CACHE_TTL_MS) {
-            return data.q;
-          }
-        } catch {}
-      }
-      return null;
-    };
-
-    const persistQuality = (q: LiquidQuality) => {
-      const payload = JSON.stringify({ q, t: Date.now() });
-      try { window.localStorage.setItem(CACHE_KEY, payload); } catch {}
-      try { window.sessionStorage.setItem(CACHE_KEY, payload); } catch {}
-    };
-
-    const cachedQuality = readCachedQuality();
-    if (cachedQuality) {
-      setResolvedQuality(cachedQuality);
-      return;
-    }
-
-    const cores = (navigator as any).hardwareConcurrency || 4;
-    const deviceMemory = (navigator as any).deviceMemory || 4;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-
-    // Fast path: when navigator hints are conclusive, skip the benchmark entirely.
-    const decisive = decisiveTier({ cores, deviceMemory });
-    if (decisive) {
-      setResolvedQuality(decisive);
-      persistQuality(decisive);
-      return;
-    }
-
-    // Otherwise measure FP throughput off the critical path (idle), capped at ~12ms.
-    let cancelled = false;
-    const runBenchmark = () => {
-      if (cancelled) return;
-      let operations = 0;
-      const start = performance.now();
-      while (performance.now() - start < 12) {
-        // mix operations to stress the FP unit and defeat dead-code elimination
-        for (let i = 0; i < 200; i++) {
-          const x = Math.sin(i + operations) * Math.cos(i * 1.3 + operations) + Math.sqrt(i + 1);
-          if (x > 1e9) operations -= 1; // never true
-          operations += 1;
-        }
-      }
-      const elapsed = Math.max(1, performance.now() - start);
-      const opsPerMs = operations / elapsed;
-      if (cancelled) return;
-      const q = classifyQuality({ cores, deviceMemory, isMobile, opsPerMs });
-      setResolvedQuality(q);
-      persistQuality(q);
-    };
-
-    const ric = (window as any).requestIdleCallback as
-      | ((cb: () => void, opts?: { timeout: number }) => number)
-      | undefined;
-    let idleId = 0;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    if (typeof ric === 'function') {
-      // Defer off the critical path, but cap the wait so the (opt-in) autodetect quality
-      // resolves soon after first paint rather than lingering at the 'low' default.
-      idleId = ric(runBenchmark, { timeout: 200 });
-    } else {
-      timeoutId = setTimeout(runBenchmark, 1);
-    }
-
-    return () => {
-      cancelled = true;
-      const cic = (window as any).cancelIdleCallback as ((id: number) => void) | undefined;
-      if (idleId && typeof cic === 'function') cic(idleId);
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
-    };
-  }, [incomingQuality, autodetectquality]);
-
-  // Update dimensions when the container size changes
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    let idleTimer: ReturnType<typeof setTimeout> | undefined;
-    let lastW = -1;
-    let lastH = -1;
-    let measuredOnce = false;
-    const updateDimensions = () => {
-      if (!containerRef.current) return;
-
-      const { width, height } = containerRef.current.getBoundingClientRect();
-      if (width === 0 || height === 0) return;
-      if (width === lastW && height === lastH) return; // ignore no-op (incl. ResizeObserver's initial fire)
-      lastW = width;
-      lastH = height;
-
-      setDimensions({ width, height });
-
-      // Promote a compositor layer only for genuine resizes AFTER the initial measurement;
-      // release ~200ms after the last change. Just-mounted / idle instances stay at 'auto'
-      // (avoids a per-instance promote→clear toggle on first paint).
-      if (measuredOnce) {
-        setIsResizing(true);
-        if (idleTimer !== undefined) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => setIsResizing(false), 200);
-      }
-      measuredOnce = true;
-    };
-
-    // Initial measurement
-    updateDimensions();
-
-    // Create ResizeObserver to watch for size changes
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      if (idleTimer !== undefined) clearTimeout(idleTimer);
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  // Pause the (GPU-expensive) effect while the element is off-screen, so pages with many
-  // glass instances only pay for the ones in view. Defaults to visible for SSR/first paint
-  // and where IntersectionObserver is unavailable, so nothing regresses.
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const el = containerRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[entries.length - 1];
-        if (entry) setIsVisible(entry.isIntersecting);
-      },
-      { rootMargin: '200px' } // re-enable just before it scrolls into view (no pop-in)
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  // Auto-detect background and set text color for children; updates on resize/scroll/mutations
-  useEffect(() => {
-    if (!autoTextColor) return;
-
-    // A single observer watches <body> + the nearest opaque ancestor (the node that
-    // actually determines the background), re-pointed when that ancestor changes —
-    // instead of one observer per ancestor up the whole tree.
-    // Trade-off: a mid-chain ancestor that toggles to opaque without itself mutating
-    // class/style is only picked up on the next scroll/resize, not instantly.
-    const observer = new MutationObserver(() => onChange());
-    let observedOpaque: HTMLElement | null = null;
-    let observerInitialized = false;
-
-    const findOpaqueAncestor = (start: HTMLElement | null): HTMLElement | null => {
-      let el: HTMLElement | null = start;
-      while (el) {
-        const parsed = parseCssColorToRgba(getComputedStyle(el).backgroundColor);
-        if (parsed && parsed.a > 0) return el;
-        el = el.parentElement;
-      }
-      return null;
-    };
-
-    const repointObserver = (opaque: HTMLElement | null) => {
-      if (observerInitialized && opaque === observedOpaque) return;
-      observer.disconnect();
-      observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
-      if (opaque && opaque !== document.body) {
-        observer.observe(opaque, { attributes: true, attributeFilter: ['class', 'style'] });
-      }
-      observedOpaque = opaque;
-      observerInitialized = true;
-    };
-
-    const update = () => {
-      const target = containerRef.current?.parentElement ?? null;
-      if (!target) return;
-      const bg = findNearestOpaqueBackground(target);
-      setEffectiveTextColor(bg && isRgbColorDark(bg) ? textOnDark : textOnLight);
-      repointObserver(findOpaqueAncestor(target));
-    };
-
-    // Coalesce scroll/resize/mutation bursts to a single recompute per animation frame.
-    let rafId = 0;
-    const onChange = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => { rafId = 0; update(); });
-    };
-
-    update();
-
-    // passive: never blocks scrolling. capture: still reacts to inner scroll containers.
-    window.addEventListener('resize', onChange, { passive: true });
-    window.addEventListener('scroll', onChange, { passive: true, capture: true });
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', onChange);
-      window.removeEventListener('scroll', onChange, true);
-      observer.disconnect();
-    };
-  }, [autoTextColor, textOnDark, textOnLight]);
-
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
   const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
 
+  const nativeOptions = useMemo(() => resolveLensOptions(lensProfile, lensOptions), [lensProfile, lensOptions]);
+
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
+    if (effectMode === 'off' || effectMode === 'blur') return '';
     const { width, height } = dimensions;
+    if (refraction === 'lens' && mounted) {
+      return width > 0 && height > 0 ? buildNativeMap(width, height, config.radius, lensProfile, nativeOptions) : '';
+    }
     const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
     const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
-    const { newwidth, newheight } = quantizedSize(width, height, divisor, quantStep);
 
     // Shared cache key across instances to reuse identical displacement maps
-    const cacheKey = `q:${resolvedQuality}|w:${newwidth}|h:${newheight}|r:${config.radius}|b:${config.border}|l:${config.lightness}|a:${config.alpha}|d:${config.displace}`;
+    const cacheKey = `gradient-v4:${resolvedQuality}:${width}:${height}:${config.radius}:${config.border}:${config.lightness}:${config.alpha}:${config.displace}:${normalizeAngle(angle ?? 0)}:${shapeAdapt}:${lens}:${lensStrength}:${lensCenter?.join()}:${config.scale}:${config.dispersion}:${config.aberrationIntensity}`;
     const cached = cacheGet(cacheKey);
     if (cached) return cached;
 
@@ -607,16 +337,27 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       lightness: config.lightness,
       alpha: config.alpha,
       displace: config.displace,
-      blend: config.blend
+      blend: config.blend, angle: angle ?? 0, shapeAdapt: shapeAdapt ?? true,
+      lens: lens ?? 'classic', lensStrength: lensStrength ?? 1, lensCenter,
+      scale: config.scale + Math.abs(config.dispersion * config.aberrationIntensity)
     });
     cacheSet(cacheKey, uri);
     return uri;
-  }, [dimensions, config, resolvedQuality]);
+  }, [angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality]);
+
+  // Keep the player preset at the demonstrated ~80px strength even on small controls.
+  const norm = lensProfile === 'player' ? 500 : Math.hypot(dimensions.width, dimensions.height) / Math.SQRT2;
+  const filterScale = refraction === 'lens' ? (displacementScale !== undefined && Number.isFinite(displacementScale)
+    ? displacementScale
+    : Math.max(-320, Math.min(320, config.scale)) / 160 * nativeOptions.strength * norm)
+    : legacyOptics ? config.scale : Math.sign(config.scale) * Math.min(Math.abs(config.scale), Math.min(dimensions.width, dimensions.height) * .1);
+  const filterConfig = { ...config, scale: filterScale,
+    dispersion: refraction === 'lens' ? Math.min(1, Math.abs(config.dispersion) / 50) : legacyOptics ? config.dispersion : Math.min(Math.abs(config.dispersion), Math.abs(filterScale) * .12) };
 
   // Generate a unique ID for the SVG filter
-  const uniqueFilterId = useId();
+  const uniqueFilterId = uniqueId ?? 'pending';
   const filterId = `liquid-glass-filter-${uniqueFilterId}`;
-  const mirrorFilterId = `liquid-glass-mirror-${uniqueFilterId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
 
   const resolvedGlassBackground = background
     ? 'transparent' // Use transparent when background is provided
@@ -633,7 +374,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   // detect iOS (WebKit on iPhone/iPad or Mac with touch)
   const isIOS = (() => {
-    if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+    if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
     const ua = navigator.userAgent || '';
     const vendor = navigator.vendor || '';
     const isAndroid = /Android/i.test(ua);
@@ -648,7 +389,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   // detect generic mobile (Android/iOS phones/tablets)
   const isMobile = (() => {
-    if (typeof navigator === 'undefined') return false;
+    if (!mounted || typeof navigator === 'undefined') return false;
     const ua = navigator.userAgent || '';
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
@@ -658,7 +399,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // engine support instead of iOS-only checks (fixes broken effect on Firefox).
   // Note: every iOS browser (incl. CriOS/FxiOS) is WebKit, hence the isIOS guard.
   const supportsSvgBackdropFilter = (() => {
-    if (typeof navigator === 'undefined') return false;
+    if (!mounted || typeof navigator === 'undefined') return false;
     if (isIOS) return false;
     const ua = navigator.userAgent || '';
     if (/firefox|fxios/i.test(ua)) return false;
@@ -671,6 +412,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     // effectMode has highest precedence
     if (effectMode === 'off') return false;
     if (effectMode === 'blur') return false;
+    if (!uniqueId) return false;
     if (effectMode === 'svg') return supportsSvgBackdropFilter;
     // effectMode === 'auto'
     if (!supportsSvgBackdropFilter) return false;
@@ -707,7 +449,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // off-screen, when `mirror` is off, or when no usable backdrop is given. Purely additive: with
   // mirrorActive=false the behavior is identical to the blur fallback.
   const mirrorActive = useMirrorEngine({
-    enabled: isFallback && isVisible && mirror,
+    enabled: mounted && !!uniqueId && isFallback && isVisible && mirror && effectMode !== 'blur',
     containerRef,
     holderRef: mirrorHolderRef,
     backdropRef,
@@ -715,10 +457,63 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     track
   });
 
-  const backdropFilterValue = !isVisible || mirrorActive
+  const mirrorGeometry = useMemo(() => lensGeometry(dimensions.width, dimensions.height, config.radius, mirrorScale),
+    [dimensions.width, dimensions.height, config.radius, mirrorScale]);
+  // Native Safari mispositions SVG displacement textures. CSS masks use a separate
+  // compositing path: reveal a mildly magnified source only at the rounded rim.
+  const cssMirror = mounted && (isIOS || (typeof navigator !== 'undefined' && /safari/i.test(navigator.userAgent) && !/chrome|chromium|android|edg|opr/i.test(navigator.userAgent)));
+  const mirrorZoom = 1 + mirrorGeometry.scale / Math.max(mirrorGeometry.width, mirrorGeometry.height);
+  const mirrorMap = useMemo(() => mirrorActive ? buildLensMap(mirrorGeometry, cssMirror ? 'rim' : 'displacement') : undefined,
+    [mirrorActive, mirrorGeometry, cssMirror]);
+  const mirrorFilterId = `liquid-glass-mirror-${uniqueFilterId}`;
+  const mirrorReady = mirrorActive && !!mirrorMap;
+
+  const turbRef = useRef<SVGFETurbulenceElement | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(media.matches);
+    update(); media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
+  const liquidPreset = isLiquidPreset(liquid) ? liquid : null;
+  const liquidActive = !!liquidPreset && useSvgFilter && isVisible && !reducedMotion && effectMode !== 'off';
+  const liquidCfg = liquidPreset
+    ? liquidConfig(liquidPreset, {
+        speed: liquidSpeed,
+        scale: liquidScale,
+        maxScale: isMobile || resolvedQuality === 'low' ? 14 : undefined
+      })
+    : null;
+
+  // Animate the live turbulence node's baseFrequency off rAF — no per-frame React render and no
+  // displacement-map re-encode. Stops automatically when offscreen / reduced-motion / liquid off.
+  useEffect(() => {
+    if (!liquidActive || !liquidPreset) return;
+    const node = turbRef.current;
+    if (!node) return;
+    let raf = 0;
+    let start = 0;
+    const tick = (now: number) => {
+      if (!start) start = now;
+      const [bx, by] = liquidBaseFrequency(liquidPreset, (now - start) / 1000, liquidSpeed);
+      node.setAttribute('baseFrequency', `${bx} ${by}`);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [liquidActive, liquidPreset, liquidSpeed]);
+
+  const liquidStage = liquidActive && liquidCfg ? <>
+    <feTurbulence ref={turbRef} type="fractalNoise" baseFrequency={`${liquidCfg.baseFrequencyX} ${liquidCfg.baseFrequencyY}`} numOctaves={liquidCfg.numOctaves} seed={liquidCfg.seed} result="lqNoise" />
+    <feDisplacementMap in="lqBase" in2="lqNoise" scale={liquidCfg.scale} xChannelSelector="R" yChannelSelector="G" />
+  </> : null;
+  const feBlurForNative = resolvedQuality === 'low' ? Math.min(cssBlur, 2) : cssBlur;
+  const backdropFilterValue = effectMode === 'off' || !isVisible || mirrorReady
     ? 'none'
     : useSvgFilter
-    ? `saturate(${config.saturation}%) url(#${filterId})`
+    ? `saturate(${config.saturation}%) ${refraction === 'lens' && feBlurForNative > 0 ? `blur(${feBlurForNative}px) ` : ''}url(#${filterId})`
     : isFallback
       ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 180)}%)`
       : (cssOnlyBlurPx > 0
@@ -749,7 +544,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     // from its refraction, so it gets none of this.)
     boxShadow: isFallback
       ? '0 10px 30px rgba(0,0,0,0.20), inset 0 1px 1px rgba(255,255,255,0.75), inset 0 -2px 3px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.22)'
-      : undefined,
+      : refraction === 'lens' ? 'inset 0 1px 2px #ffffffa0, inset 0 -1px 2px #ffffff30, 0 6px 18px #00000018' : undefined,
     // Dynamic: only hint the compositor while actively resizing (see A4). Idle instances
     // default to 'auto' so many cards on a page don't each pin a GPU layer.
     willChange: isResizing ? 'backdrop-filter, filter' : 'auto'
@@ -792,139 +587,40 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     >
       <div style={glassMorphismStyle}>
         {useSvgFilter && effectMode !== 'off' && isVisible && (
-        <svg 
-          className="liquid-glass-filter"
-          style={{
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-            position: "absolute",
-            inset: 0
-          }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <filter 
-              id={filterId}
-              colorInterpolationFilters="sRGB"
-            >
-              <feImage 
-                href={displacementDataUri}
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                result="map"
-              />
-              {resolvedQuality === 'low' ? (
-                <>
-                  <feDisplacementMap 
-                    in="SourceGraphic"
-                    in2="map"
-                    scale={config.scale}
-                    xChannelSelector={config.x}
-                    yChannelSelector={config.y}
-                    result="output"
-                  />
-                  <feGaussianBlur 
-                    in="output"
-                    stdDeviation={feBlurStdDev}
-                  />
-                </>
-              ) : (
-                <>
-                  <feDisplacementMap 
-                    in="SourceGraphic"
-                    in2="map"
-                    scale={config.scale + config.dispersion * config.aberrationIntensity}
-                    xChannelSelector={config.x}
-                    yChannelSelector={config.y}
-                    result="dispRed"
-                  />
-                  <feColorMatrix 
-                    in="dispRed"
-                    type="matrix"
-                    values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"
-                    result="red"
-                  />
-                  
-                  <feDisplacementMap 
-                    in="SourceGraphic"
-                    in2="map"
-                    scale={config.scale}
-                    xChannelSelector={config.x}
-                    yChannelSelector={config.y}
-                    result="dispGreen"
-                  />
-                  <feColorMatrix 
-                    in="dispGreen"
-                    type="matrix"
-                    values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0"
-                    result="green"
-                  />
-                  
-                  <feDisplacementMap 
-                    in="SourceGraphic"
-                    in2="map"
-                    scale={config.scale - config.dispersion * config.aberrationIntensity}
-                    xChannelSelector={config.x}
-                    yChannelSelector={config.y}
-                    result="dispBlue"
-                  />
-                  <feColorMatrix 
-                    in="dispBlue"
-                    type="matrix"
-                    values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0"
-                    result="blue"
-                  />
-                  
-                  <feBlend 
-                    in="red"
-                    in2="green"
-                    mode="screen"
-                    result="rg"
-                  />
-                  <feBlend 
-                    in="rg"
-                    in2="blue"
-                    mode="screen"
-                    result="output"
-                  />
-                  <feGaussianBlur 
-                    in="output"
-                    stdDeviation={feBlurStdDev}
-                  />
-                </>
-              )}
-            </filter>
-          </defs>
-        </svg>
+        <DisplacementFilter filterId={filterId} displacementDataUri={displacementDataUri}
+          liquidStage={liquidStage} resolvedQuality={resolvedQuality} feBlurStdDev={feBlurStdDev} config={filterConfig} specular={nativeOptions.specular} neutralMap={refraction === 'lens'} width={dimensions.width} height={dimensions.height} />
         )}
       </div>
 
-      {/* iOS / Safari / Firefox real-refraction mirror. The FILTERED element is lens-sized (inset 0
-          + overflow hidden) so the GPU only filters the lens area each frame; the clone holder
-          inside it is translated to the right slice of the backdrop. Hidden until the engine
-          confirms an explicit, non-ancestor backdrop — otherwise the blur fallback above shows. */}
-      {isFallback && mirror && (
+      {/* Safari uses a masked CSS magnification rim; other mirrors use SVG displacement.
+          The source stays explicit and the decorative copy remains clipped to the lens. */}
+      {uniqueId && isFallback && mirror && effectMode !== 'blur' && (
         <>
           <div
             aria-hidden="true"
+            data-liquid-glass-mirror={cssMirror ? 'css' : 'svg'}
             style={{
               position: 'absolute',
               inset: 0,
               zIndex: 1,
               borderRadius: effectiveRadiusPx,
               overflow: 'hidden',
-              filter: `url(#${mirrorFilterId})`,
-              WebkitFilter: `url(#${mirrorFilterId})`,
+              filter: cssMirror ? undefined : `url(#${mirrorFilterId})`,
+              WebkitFilter: cssMirror ? undefined : `url(#${mirrorFilterId})`,
+              maskImage: cssMirror && mirrorMap ? `url("${mirrorMap}")` : undefined,
+              WebkitMaskImage: cssMirror && mirrorMap ? `url("${mirrorMap}")` : undefined,
+              maskSize: '100% 100%',
+              WebkitMaskSize: '100% 100%',
               pointerEvents: 'none',
-              visibility: mirrorActive ? 'visible' : 'hidden'
+              visibility: mirrorReady ? 'visible' : 'hidden'
             }}
           >
-            <div ref={mirrorHolderRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+            {/* Clip before filtering: WebKit otherwise includes the translated source in the filter bounds. */}
+            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', contain: 'paint', transform: cssMirror ? `scale(${mirrorZoom})` : undefined, transformOrigin: 'center' }}>
+              <div ref={mirrorHolderRef} style={{ position: 'absolute', top: 0, left: 0 }} />
+            </div>
           </div>
-          {mirrorActive && (
+          {mirrorReady && (
             <div
               aria-hidden="true"
               style={{
@@ -939,13 +635,19 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
               }}
             />
           )}
-          <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-            <filter id={mirrorFilterId} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-              <feTurbulence type="fractalNoise" baseFrequency="0.009 0.011" numOctaves={1} seed={11} result="noise" />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale={mirrorScale} xChannelSelector="R" yChannelSelector="G" result="disp" />
-              <feGaussianBlur in="disp" stdDeviation="0.8" />
+          {mirrorMap && !cssMirror && <svg key={mirrorFilterId} width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+            <filter id={mirrorFilterId} filterUnits="objectBoundingBox" primitiveUnits="objectBoundingBox" x="0" y="0"
+              width="1" height="1" colorInterpolationFilters="sRGB">
+              <feImage href={mirrorMap} x="0" y="0" width="1" height="1"
+                preserveAspectRatio="none" result="lens" />
+              <feComponentTransfer in="lens" result="map">
+                <feFuncR type="linear" slope={255 / 256} />
+                <feFuncG type="linear" slope={255 / 256} />
+              </feComponentTransfer>
+              <feDisplacementMap in="SourceGraphic" in2="map" scale={mirrorGeometry.scale / Math.min(mirrorGeometry.width, mirrorGeometry.height)}
+                xChannelSelector="R" yChannelSelector="G" />
             </filter>
-          </svg>
+          </svg>}
         </>
       )}
 
@@ -954,6 +656,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
         style={gradientBorderStyle}
       />
       
+      {refraction === 'lens' && effectMode !== 'off' && nativeOptions.brightness !== 0 && <div aria-hidden="true" data-liquid-glass-brightness style={{position:'absolute',inset:0,borderRadius:'inherit',pointerEvents:'none',zIndex:2,background:nativeOptions.brightness > 0 ? '#fff' : '#000',opacity:Math.abs(nativeOptions.brightness)}} />}
       {/* Children content */}
       {children && (
         <div 
@@ -965,14 +668,14 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
             color: autoTextColor ? effectiveTextColor : undefined,
             transition: 'color 300ms ease'
           }}
-          className={forceTextColor ? textClassNameRef.current ?? undefined : undefined}
+          className={forceTextColor ? textClassName : undefined}
         >
-          {forceTextColor && autoTextColor && (
+          {forceTextColor && autoTextColor && textClassName && (
             <style>
               {`
-                .${textClassNameRef.current}, .${textClassNameRef.current} * { transition: color 300ms ease; }
-                .${textClassNameRef.current} { color: ${effectiveTextColor} !important; }
-                .${textClassNameRef.current} * { color: ${effectiveTextColor} !important; }
+                .${textClassName}, .${textClassName} * { transition: color 300ms ease; }
+                .${textClassName} { color: ${effectiveTextColor} !important; }
+                .${textClassName} * { color: ${effectiveTextColor} !important; }
               `}
             </style>
           )}

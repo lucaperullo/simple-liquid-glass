@@ -1,3 +1,4 @@
+import { cloneBackdrop } from './cloneBackdrop';
 import { useEffect, useState, type RefObject } from 'react';
 
 // Fire the "no backdrop → blur on iOS" hint at most once per page load, so it nudges without spamming.
@@ -19,12 +20,9 @@ export interface MirrorEngineOptions {
 }
 
 /**
- * Live-DOM-mirror engine — REAL refraction on Safari / iOS / Firefox.
- *
- * Those engines can't run SVG filters inside `backdrop-filter` (WebKit bug 245510, architectural),
- * so the core can only blur there. But they DO honor `filter: url(#…)` with `feDisplacementMap` on a
- * regular element (caniuse #3803) — so the caller overlays an opaque, displaced **clone** of the
- * content behind the lens. This hook keeps that clone present and aligned.
+ * Live-DOM-mirror source tracking for CSS rim magnification and SVG displacement.
+ * The caller chooses the optical renderer; this hook owns a single decorative clone
+ * and aligns it to the explicit source before any intentional magnification.
  *
  * Requires an EXPLICIT backdrop source (`backdropRef`/`backdropSelector`) that is NOT an ancestor
  * of the lens. There is deliberately NO auto-detect: guessing the backdrop meant cloning a
@@ -46,14 +44,18 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
     const holder = o.holderRef.current;
     if (!lens || !holder) return;
 
-    const source: HTMLElement | null =
-      o.backdropRef?.current ??
-      (o.backdropSelector ? document.querySelector<HTMLElement>(o.backdropSelector) : null);
+    let source = o.backdropRef?.current ?? null;
+    try {
+      if (!source && o.backdropSelector) source = document.querySelector<HTMLElement>(o.backdropSelector);
+    } catch {
+      setActive(false);
+      return;
+    }
 
     // Degrade to blur when there's no explicit source, or the source contains the lens. The
     // latter is the iOS crash path (cloning a page-sized ancestor every mutation) AND would mirror
     // the glass into itself — so it's a hard "use blur" rather than a best-effort.
-    if (!source || source.contains(lens)) {
+    if (!source || source.contains(lens) || lens.contains(source)) {
       if (typeof console !== 'undefined') {
         if (!source && !warnedNoBackdrop) {
           // We're on a fallback engine (the caller only enables the engine there) and no backdrop
@@ -62,7 +64,7 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
           warnedNoBackdrop = true;
           // eslint-disable-next-line no-console
           console.warn(
-            '[simple-liquid-glass] No `backdropRef`/`backdropSelector` set — on iOS/Safari/Firefox this shows the frosted-blur fallback, not real refraction. Pass `backdropRef={el}` (the element behind the lens) for true distortion, or set `mirror={false}` to silence this.'
+            '[simple-liquid-glass] Using blur: set backdropRef/backdropSelector for refraction on Safari/Firefox, or mirror={false} to silence this.'
           );
         } else if (source && source.contains(lens)) {
           // eslint-disable-next-line no-console
@@ -77,14 +79,17 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
 
     const clone = () => {
       try {
-        const c = source.cloneNode(true) as HTMLElement;
+        const c = cloneBackdrop(source);
         c.style.position = 'static';
+        // Source translation is already represented by the holder's rect alignment.
+        c.style.transform = 'none';
+        c.style.translate = 'none';
+        c.style.animation = 'none';
+        c.style.transition = 'none';
         c.style.inset = 'auto';
         c.style.margin = '0';
         c.style.width = '100%';
         c.style.height = '100%';
-        // Strip any nested liquid-glass lenses so they don't render as frozen clones.
-        c.querySelectorAll('[data-liquid-glass]').forEach((n) => n.remove());
         holder.replaceChildren(c);
         setActive(true);
       } catch {
@@ -95,7 +100,6 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
 
     let raf = 0;
     const sync = () => {
-      raf = 0;
       const lr = lens.getBoundingClientRect();
       const sr = source.getBoundingClientRect();
       // Only the clone moves/resizes; the FILTERED element (the lens layer) stays lens-sized, so
@@ -105,7 +109,7 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
       holder.style.transform = `translate(${sr.left - lr.left}px, ${sr.top - lr.top}px)`;
     };
     const onChange = () => {
-      if (!raf) raf = requestAnimationFrame(sync);
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; sync(); });
     };
 
     clone();
@@ -114,10 +118,18 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
     window.addEventListener('resize', onChange, { passive: true });
     // Source is guaranteed NOT to contain the lens (checked above), so writing the clone into the
     // holder never mutates the source's subtree — no self-triggered re-clone loop.
+    let cloneRaf = 0;
     const mo = new MutationObserver(() => {
-      clone();
-      sync();
+      if (cloneRaf) return;
+      cloneRaf = requestAnimationFrame(() => {
+        cloneRaf = 0;
+        clone();
+        sync();
+      });
     });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onChange);
+    ro?.observe(source);
+    ro?.observe(lens);
     mo.observe(source, { childList: true, subtree: true, attributes: true, characterData: true });
 
     // `track`: re-align every frame for lenses that MOVE (drag/animation) — scroll/resize don't
@@ -143,6 +155,8 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
       window.removeEventListener('scroll', onChange, true);
       window.removeEventListener('resize', onChange);
       mo.disconnect();
+      ro?.disconnect();
+      if (cloneRaf) cancelAnimationFrame(cloneRaf);
       holder.replaceChildren();
       setActive(false);
     };

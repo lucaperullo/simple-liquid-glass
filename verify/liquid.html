@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>liquid-glass verification</title>
+<style>
+  html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#05060a}
+  .backdrop{position:fixed;inset:0;overflow:hidden;z-index:0}
+  .backdrop .word{position:absolute;font-weight:900;letter-spacing:2px;white-space:nowrap;opacity:.95}
+  .wa{top:40px;left:30px;font-size:120px;color:#f59e0b;transform:rotate(-5deg)}
+  .wb{top:230px;left:-20px;font-size:100px;color:#22d3ee}
+  .wc{top:430px;left:240px;font-size:110px;color:#ec4899;transform:rotate(4deg)}
+  .wd{top:640px;left:60px;font-size:90px;color:#a3e635}
+  .grid{position:absolute;inset:0;background:
+     repeating-linear-gradient(0deg,rgba(255,255,255,.10) 0 2px,transparent 2px 34px),
+     repeating-linear-gradient(90deg,rgba(255,255,255,.10) 0 2px,transparent 2px 34px)}
+  .stack{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:48px 24px 80px;display:flex;flex-direction:column;gap:26px}
+  .row{display:flex;align-items:center;gap:16px}
+  .cap{color:#cdd9ea;font-size:13px;width:150px;flex:0 0 150px;text-align:right}
+  liquid-glass{color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .bar{width:430px;height:64px}
+  .tall{width:120px;height:200px}
+  .lab{font-size:13px;letter-spacing:.4px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+</style>
+</head>
+<body>
+  <div class="backdrop">
+    <div class="grid"></div>
+    <div class="word wa">LIQUID</div>
+    <div class="word wb">refract</div>
+    <div class="word wc">SHAPE</div>
+    <div class="word wd">2026</div>
+  </div>
+
+  <div class="stack">
+    <div class="row"><div class="cap">angle 0 (baseline)</div>
+      <liquid-glass class="bar" radius="18"><span class="lab">angle 0</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">angle 45 (faithful)</div>
+      <liquid-glass class="bar" radius="18" angle="45"><span class="lab">angle 45</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">angle 45, legacy skew</div>
+      <liquid-glass class="bar" radius="18" angle="45" shape-adapt="false"><span class="lab">shape-adapt false</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">liquid ripple</div>
+      <liquid-glass class="bar" radius="18" liquid="ripple"><span class="lab">ripple</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">liquid flow</div>
+      <liquid-glass class="bar" radius="18" liquid="flow"><span class="lab">flow</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">liquid wobble</div>
+      <liquid-glass class="bar" radius="18" liquid="wobble"><span class="lab">wobble</span></liquid-glass></div>
+
+    <div class="row"><div class="cap">tall + angle 90</div>
+      <liquid-glass class="tall" radius="22" angle="90" liquid="ripple"><span class="lab">sidebar</span></liquid-glass></div>
+  </div>
+
+  <script type="module" src="/dist/web-component.esm.js"></script>
+</body>
+</html>

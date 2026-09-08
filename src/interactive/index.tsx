@@ -16,14 +16,6 @@ export interface PointerElasticOptions {
   specular?: boolean;
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
-
 /**
  * Drives a LiquidGlass element toward the pointer with a tiny rAF spring (zero deps), and
  * exposes the pointer position as --lg-mx/--lg-my CSS variables for a tracked specular layer.
@@ -40,7 +32,11 @@ export function usePointerElastic(
     const el = ref.current?.element;
     if (!el) return;
 
-    const reduce = prefersReducedMotion();
+    const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    let reduce = media?.matches ?? false;
+    const originalTransform = el.style.transform;
+    const baseTransform = originalTransform || getComputedStyle(el).transform;
+    const transformPrefix = baseTransform && baseTransform !== 'none' ? `${baseTransform} ` : '';
     const cfg = { stiffness, damping };
     let state: SpringState = { x: 0, y: 0, vx: 0, vy: 0 };
     let tx = 0;
@@ -54,7 +50,7 @@ export function usePointerElastic(
     };
 
     const draw = () => {
-      el.style.transform = `translate(${state.x.toFixed(2)}px, ${state.y.toFixed(2)}px)`;
+      el.style.transform = `${transformPrefix}translate(${state.x.toFixed(2)}px, ${state.y.toFixed(2)}px)`;
     };
 
     const tick = () => {
@@ -94,6 +90,20 @@ export function usePointerElastic(
       if (!raf) raf = requestAnimationFrame(tick);
     };
 
+    const onMotionChange = () => {
+      reduce = media?.matches ?? false;
+      if (reduce) {
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+        state = { x: 0, y: 0, vx: 0, vy: 0 };
+        tx = ty = 0;
+        el.style.transform = originalTransform;
+        setVar('50%', '50%');
+      }
+    };
+    if (media?.addEventListener) media.addEventListener('change', onMotionChange);
+    else media?.addListener?.(onMotionChange);
+
     setVar('50%', '50%');
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerleave', onLeave);
@@ -104,7 +114,9 @@ export function usePointerElastic(
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('pointercancel', onLeave);
       if (raf) cancelAnimationFrame(raf);
-      el.style.transform = '';
+      el.style.transform = originalTransform;
+      if (media?.removeEventListener) media.removeEventListener('change', onMotionChange);
+      else media?.removeListener?.(onMotionChange);
     };
   }, [ref, elasticity, maxShift, stiffness, damping, specular]);
 }

@@ -1,0 +1,202 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/DemoShell.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/DemoShell.tsx
+@@ -1,18 +1,20 @@
+-import { Suspense } from 'react'
++import { Suspense, useEffect, useState } from 'react'
+ import { Link, NavLink, useNavigate, useParams } from 'react-router-dom'
+ import { DEMOS } from '../lib/demos'
+ import { usePageMeta } from '../lib/usePageMeta'
+ import CodeBlock from './CodeBlock'
+ import NotFound from '../pages/NotFound'
+ 
+-const SOURCES = import.meta.glob('../pages/examples/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+-
+-const WIDGET_SOURCES = import.meta.glob('./Glass*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+-
+-function sourceFor(file: string): string {
+-  if(file === 'MusicPlayer') return WIDGET_SOURCES['./GlassMusicPlayer.tsx']
+-  if(file === 'Interactive') return WIDGET_SOURCES['./GlassMemo.tsx']
+-  return SOURCES[`../pages/examples/${file}.tsx`] ?? ''
++function DemoSource({demo}: {demo: typeof DEMOS[number]}) {
++  const [source,setSource] = useState<string | null>(null)
++  const [failed,setFailed] = useState(false)
++  useEffect(() => {
++    let active = true
++    demo.loadSource().then(text => {if(active)setSource(text)}, () => {if(active)setFailed(true)})
++    return () => {active = false}
++  }, [demo])
++  if(failed) return <p role="status">Source could not load. Reload this page to retry.</p>
++  return source === null ? <p role="status">Loading source…</p> : <CodeBlock code={source}/>
+ }
+ 
+ export default function DemoShell() {
+@@ -44,13 +46,13 @@
+         <p className="kicker">Example</p>
+         <h1 className="sectionTitle">{demo.title}</h1>
+         <p className="lead" style={{ marginBottom: 24 }}>{demo.blurb}</p>
+-        <div className="demoScene" style={{ background: demo.sceneCss }}>
++        <div className="demoScene" style={{ backgroundImage: `linear-gradient(#0001,#0002), url("${demo.scene.image}")`, backgroundPosition: demo.scene.position ?? 'center', backgroundSize: 'cover' }}>
+           <Suspense fallback={null}>
+             <Demo />
+           </Suspense>
+         </div>
+         <h2 style={{ margin: '36px 0 12px', fontSize: 22 }}>Source</h2>
+-        <CodeBlock code={sourceFor(demo.file)} />
++        <DemoSource key={demo.slug} demo={demo} />
+         <div className="demoNav">
+           <Link className="btn btnGhost" to={`/examples/${prev.slug}`}>← {prev.title}</Link>
+           <Link className="btn btnGhost" to={`/examples/${next.slug}`}>{next.title} →</Link>
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/demos.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/demos.ts
+@@ -2,119 +2,100 @@
+ 
+ export interface DemoEntry {
+   slug: string
+-  file: string
+   title: string
+   blurb: string
+-  previewCss: string
+-  sceneCss: string
++  scene: { image: string; position?: string }
++  loadSource: () => Promise<string>
+   Component: LazyExoticComponent<ComponentType>
+ }
+-
+-/* Scenes use real photographs so the glass has genuine high-frequency detail to
+-   refract; each is toned to the gallery-noir palette with one spectral lead.
+-   Hub/teaser previews show the SAME toned photo at thumbnail resolution, so a
+-   card's background is a real preview of the scene you land on. */
+-const scene = (_lead: string, seed: string) => `linear-gradient(#0001,#0002), url('/media/${seed.length % 2 ? 'coast':'dunes'}.jpg') center/cover`
+-const sceneThumb = scene
+ 
+ export const DEMOS: DemoEntry[] = [
+   {
+     slug: 'music-player',
+-    file: 'MusicPlayer',
+     title: 'Music player',
+     blurb: 'Two original ambient tracks. Real playback, seeking, volume, and favorites.',
+-    previewCss: sceneThumb('#8b5cf0', 'midnight-vinyl'),
+-    sceneCss: scene('#8b5cf0', 'midnight-vinyl'),
++    scene: { image: '/media/dunes.jpg' },
+     Component: lazy(() => import('../pages/examples/MusicPlayer')),
++    loadSource: () => import('../components/GlassMusicPlayer?raw').then(module => module.default),
+   },
+   {
+     slug: 'dock',
+-    file: 'Dock',
+     title: 'Dock',
+     blurb: 'macOS-style glass dock with magnifying icons.',
+-    previewCss: sceneThumb('#4f8de8', 'alpine-ridge-dock'),
+-    sceneCss: scene('#4f8de8', 'alpine-ridge-dock'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/Dock')),
++    loadSource: () => import('../pages/examples/Dock?raw').then(module => module.default),
+   },
+   {
+     slug: 'modal',
+-    file: 'Modal',
+     title: 'Modal',
+     blurb: 'Glass dialog over busy content.',
+-    previewCss: sceneThumb('#4fb85f', 'studio-desk-busy'),
+-    sceneCss: scene('#4fb85f', 'studio-desk-busy'),
++    scene: { image: '/media/dunes.jpg' },
+     Component: lazy(() => import('../pages/examples/Modal')),
++    loadSource: () => import('../pages/examples/Modal?raw').then(module => module.default),
+   },
+   {
+     slug: 'weather',
+-    file: 'Weather',
+     title: 'Weather',
+     blurb: 'Glass widget with a 5-day forecast.',
+-    previewCss: sceneThumb('#4f8de8', 'dawn-sky-clouds'),
+-    sceneCss: scene('#4f8de8', 'dawn-sky-clouds'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/Weather')),
++    loadSource: () => import('../pages/examples/Weather?raw').then(module => module.default),
+   },
+   {
+     slug: 'pricing',
+-    file: 'Pricing',
+     title: 'Pricing',
+     blurb: 'Three glass tiers over a rich photo.',
+-    previewCss: sceneThumb('#8b5cf0', 'glass-atrium-light'),
+-    sceneCss: scene('#8b5cf0', 'glass-atrium-light'),
++    scene: { image: '/media/dunes.jpg' },
+     Component: lazy(() => import('../pages/examples/Pricing')),
++    loadSource: () => import('../pages/examples/Pricing?raw').then(module => module.default),
+   },
+   {
+     slug: 'login',
+-    file: 'Login',
+     title: 'Login form',
+     blurb: 'Glass auth panel over a photo.',
+-    previewCss: sceneThumb('#e6912a', 'city-night-lights'),
+-    sceneCss: scene('#e6912a', 'city-night-lights'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/Login')),
++    loadSource: () => import('../pages/examples/Login?raw').then(module => module.default),
+   },
+   {
+     slug: 'notifications',
+-    file: 'Notifications',
+     title: 'Notifications',
+     blurb: 'Stacked glass toasts that animate in.',
+-    previewCss: sceneThumb('#e8504a', 'neon-ridge-dusk'),
+-    sceneCss: scene('#e8504a', 'neon-ridge-dusk'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/Notifications')),
++    loadSource: () => import('../pages/examples/Notifications?raw').then(module => module.default),
+   },
+   {
+     slug: 'gallery',
+-    file: 'Gallery',
+     title: 'Gallery',
+     blurb: 'Glass captions over an image grid.',
+-    previewCss: sceneThumb('#4fb85f', 'gallery-hall-art'),
+-    sceneCss: scene('#4fb85f', 'gallery-hall-art'),
++    scene: { image: '/media/dunes.jpg' },
+     Component: lazy(() => import('../pages/examples/Gallery')),
++    loadSource: () => import('../pages/examples/Gallery?raw').then(module => module.default),
+   },
+   {
+     slug: 'liquid-animation',
+-    file: 'LiquidAnimation',
+     title: 'Liquid animation',
+     blurb: 'Real animated refraction — the backdrop warps in real time.',
+-    previewCss: sceneThumb('#4f8de8', 'liquid-ripple-sea'),
+-    sceneCss: scene('#4f8de8', 'liquid-ripple-sea'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/LiquidAnimation')),
++    loadSource: () => import('../pages/examples/LiquidAnimation?raw').then(module => module.default),
+   },
+   {
+     slug: 'lens-modes',
+-    file: 'LensModes',
+     title: 'Lens modes',
+     blurb: 'classic / convex / shift / rim — four ways the glass bends light.',
+-    previewCss: sceneThumb('#8b5cf0', 'lens-grid-optics'),
+-    sceneCss: scene('#8b5cf0', 'lens-grid-optics'),
++    scene: { image: '/media/dunes.jpg' },
+     Component: lazy(() => import('../pages/examples/LensModes')),
++    loadSource: () => import('../pages/examples/LensModes?raw').then(module => module.default),
+   },
+   {
+     slug: 'interactive',
+-    file: 'Interactive',
+     title: 'Draggable checklist',
+     blurb: 'Drag it by the handle, add a plan, and check it off. Keyboard arrows move it too.',
+-    previewCss: sceneThumb('#e8504a', 'pointer-elastic-stone'),
+-    sceneCss: scene('#e8504a', 'pointer-elastic-stone'),
++    scene: { image: '/media/coast.jpg' },
+     Component: lazy(() => import('../pages/examples/Interactive')),
++    loadSource: () => import('../components/GlassMemo?raw').then(module => module.default),
+   },
+ ]
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/ExamplesHub.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/ExamplesHub.tsx
+@@ -3,4 +3,4 @@
+ import {DEMOS} from '../lib/demos'
+ import StudioGlass from '../components/StudioGlass'
+ import {usePageMeta} from '../lib/usePageMeta'
+-export default function ExamplesHub(){usePageMeta('The collection — Simple Liquid Glass','Explore real glass components, from navigation and weather to music players.');return <section className="collection-page"><span className="eyebrow">THE COMPONENT COLLECTION</span><h1>A thousand ways<br/>to feel different.</h1><p className="page-intro">Familiar patterns. A completely different material.<br/>Explore an example, then make it yours.</p><div className="collection-grid">{DEMOS.map((d,i)=><Link key={d.slug} className="collection-tile" to={`/examples/${d.slug}`}><div className="collection-preview"><img src={`/media/${i%2?'dunes':'coast'}.jpg`} alt="" loading="lazy" style={{objectPosition:`${25+i*7}% 50%`}}/><StudioGlass radius={i%3===0?50:24} displacementScale={50}><div className="collection-mini">{d.title}</div></StudioGlass></div><h3>{d.title}<ArrowUpRight size={17}/></h3><p>{d.blurb}</p></Link>)}</div></section>}
++export default function ExamplesHub(){usePageMeta('The collection — Simple Liquid Glass','Explore real glass components, from navigation and weather to music players.');return <section className="collection-page"><span className="eyebrow">THE COMPONENT COLLECTION</span><h1>A thousand ways<br/>to feel different.</h1><p className="page-intro">Familiar patterns. A completely different material.<br/>Explore an example, then make it yours.</p><div className="collection-grid">{DEMOS.map((d,i)=><Link key={d.slug} className="collection-tile" to={`/examples/${d.slug}`}><div className="collection-preview"><img src={d.scene.image} alt="" loading="lazy" style={{objectPosition:d.scene.position}}/><StudioGlass radius={i%3===0?50:24} displacementScale={50}><div className="collection-mini">{d.title}</div></StudioGlass></div><h3>{d.title}<ArrowUpRight size={17}/></h3><p>{d.blurb}</p></Link>)}</div></section>}

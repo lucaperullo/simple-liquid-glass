@@ -1,0 +1,2971 @@
+{
+  "removal": [
+    {
+      "file": "theme",
+      "line": 73,
+      "selector": ".aurora",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 80,
+      "selector": ".aurora::before",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 90,
+      "selector": ".aurora::after",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 103,
+      "selector": ".aurora::before",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 103,
+      "selector": ".aurora::after",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 128,
+      "selector": ".specRule.revealed::after",
+      "missing": [
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 131,
+      "selector": ".fauxGlass",
+      "missing": [
+        "fauxGlass"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 149,
+      "selector": ".heroCopy .display .kline > span",
+      "missing": [
+        "heroCopy",
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 166,
+      "selector": ".wl",
+      "missing": [
+        "wl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 187,
+      "selector": ".npmChip",
+      "missing": [
+        "npmChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 193,
+      "selector": ".npmChip::before",
+      "missing": [
+        "npmChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 194,
+      "selector": ".npmChip:hover",
+      "missing": [
+        "npmChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 195,
+      "selector": ".npmChip:active",
+      "missing": [
+        "npmChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 203,
+      "selector": ".navInner",
+      "missing": [
+        "navInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 210,
+      "selector": ".navBrand",
+      "missing": [
+        "navBrand"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 211,
+      "selector": ".navBrand .mark",
+      "missing": [
+        "navBrand"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 212,
+      "selector": ".navLinks",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 213,
+      "selector": ".navLinks a",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 217,
+      "selector": ".navLinks a:hover",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 218,
+      "selector": ".navLinks a.active",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 219,
+      "selector": ".navLinks a.active::after",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 223,
+      "selector": ".navStar",
+      "missing": [
+        "navStar"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 228,
+      "selector": ".navStar:hover",
+      "missing": [
+        "navStar"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 229,
+      "selector": ".navBurger",
+      "missing": [
+        "navBurger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 230,
+      "selector": ".mobileSheet",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 231,
+      "selector": ".mobileSheet a",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 232,
+      "selector": ".mobileSheet a:hover",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 234,
+      "selector": ".navLinks",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 234,
+      "selector": ".navStar",
+      "missing": [
+        "navStar"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 235,
+      "selector": ".navBurger",
+      "missing": [
+        "navBurger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 256,
+      "selector": ".tok-key",
+      "missing": [
+        "tok-key"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 256,
+      "selector": ".tok-str",
+      "missing": [
+        "tok-str"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 256,
+      "selector": ".tok-num",
+      "missing": [
+        "tok-num"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 257,
+      "selector": ".tok-comp",
+      "missing": [
+        "tok-comp"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 257,
+      "selector": ".tok-prop",
+      "missing": [
+        "tok-prop"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 263,
+      "selector": ".footerInner",
+      "missing": [
+        "footerInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 264,
+      "selector": ".footerLinks",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 265,
+      "selector": ".footerLinks a",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 266,
+      "selector": ".footerLinks a:hover",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 277,
+      "selector": ".hubGrid",
+      "missing": [
+        "hubGrid"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 278,
+      "selector": ".hubCard",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 282,
+      "selector": ".hubCard:hover",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 283,
+      "selector": ".hubCard .preview",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 284,
+      "selector": ".hubCard .preview .miniGlass",
+      "missing": [
+        "hubCard",
+        "miniGlass"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 285,
+      "selector": ".hubCard .body",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 286,
+      "selector": ".hubCard .body h3",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 287,
+      "selector": ".hubCard .body p",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 288,
+      "selector": ".hubCard .idx",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 329,
+      "selector": ".viewfinder",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 330,
+      "selector": ".viewfinder span",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 331,
+      "selector": ".viewfinder .tl",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 332,
+      "selector": ".viewfinder .tr",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 333,
+      "selector": ".viewfinder .bl",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 334,
+      "selector": ".viewfinder .br",
+      "missing": [
+        "viewfinder"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 337,
+      "selector": ".heroVw",
+      "missing": [
+        "heroVw"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 338,
+      "selector": ".heroVw.l",
+      "missing": [
+        "heroVw"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 339,
+      "selector": ".heroVw.r",
+      "missing": [
+        "heroVw"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 340,
+      "selector": ".heroVw",
+      "missing": [
+        "heroVw"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 343,
+      "selector": ".heroGlow",
+      "missing": [
+        "heroGlow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 351,
+      "selector": ".heroInner",
+      "missing": [
+        "heroInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 352,
+      "selector": ".heroInner .kicker",
+      "missing": [
+        "heroInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 353,
+      "selector": ".heroTitle",
+      "missing": [
+        "heroTitle"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 354,
+      "selector": ".heroLead",
+      "missing": [
+        "heroLead"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 355,
+      "selector": ".heroCtas",
+      "missing": [
+        "heroCtas"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 356,
+      "selector": ".heroCursorNote",
+      "missing": [
+        "heroCursorNote"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 362,
+      "selector": ".heroCursorNote::before",
+      "missing": [
+        "heroCursorNote"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 363,
+      "selector": ".heroCursorNote",
+      "missing": [
+        "heroCursorNote"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 368,
+      "selector": "html.glass-cursor-on",
+      "missing": [
+        "glass-cursor-on"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 368,
+      "selector": "html.glass-cursor-on *",
+      "missing": [
+        "glass-cursor-on"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 371,
+      "selector": ".cursorDot",
+      "missing": [
+        "cursorDot"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 371,
+      "selector": ".cursorHalo",
+      "missing": [
+        "cursorHalo"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 375,
+      "selector": ".cursorDot",
+      "missing": [
+        "cursorDot"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 379,
+      "selector": ".cursorDot.isOver",
+      "missing": [
+        "cursorDot",
+        "isOver"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 382,
+      "selector": ".cursorHalo",
+      "missing": [
+        "cursorHalo"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 383,
+      "selector": ".cursorHalo > *",
+      "missing": [
+        "cursorHalo"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 384,
+      "selector": ".cursorRing",
+      "missing": [
+        "cursorRing"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 390,
+      "selector": ".cursorGlass",
+      "missing": [
+        "cursorGlass"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 391,
+      "selector": ".cursorHalo.isOver .cursorRing",
+      "missing": [
+        "cursorHalo",
+        "isOver",
+        "cursorRing"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 392,
+      "selector": ".cursorHalo.isOver .cursorGlass",
+      "missing": [
+        "cursorHalo",
+        "isOver",
+        "cursorGlass"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 393,
+      "selector": ".cursorHalo.isOver.isPress .cursorGlass",
+      "missing": [
+        "cursorHalo",
+        "isOver",
+        "isPress",
+        "cursorGlass"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 395,
+      "selector": ".cursorTint",
+      "missing": [
+        "cursorTint"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 396,
+      "selector": ".cursorHalo.bgLight .cursorTint",
+      "missing": [
+        "cursorHalo",
+        "bgLight",
+        "cursorTint"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 399,
+      "selector": ".featureStrip",
+      "missing": [
+        "featureStrip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 400,
+      "selector": ".featureRow",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 405,
+      "selector": ".featureRow:hover",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 406,
+      "selector": ".featureNum",
+      "missing": [
+        "featureNum"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 407,
+      "selector": ".featureRow h3",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 408,
+      "selector": ".featureRow .featureIco",
+      "missing": [
+        "featureRow",
+        "featureIco"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 409,
+      "selector": ".featureRow p",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 410,
+      "selector": ".featureRow .featTag",
+      "missing": [
+        "featureRow",
+        "featTag"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 411,
+      "selector": ".featureRow",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 411,
+      "selector": ".featureRow .featTag",
+      "missing": [
+        "featureRow",
+        "featTag"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 414,
+      "selector": ".teaserRow",
+      "missing": [
+        "teaserRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 415,
+      "selector": ".teaserRow",
+      "missing": [
+        "teaserRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 416,
+      "selector": ".teaserRow",
+      "missing": [
+        "teaserRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 417,
+      "selector": ".teaserCard",
+      "missing": [
+        "teaserCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 418,
+      "selector": ".teaserCard .bg",
+      "missing": [
+        "teaserCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 419,
+      "selector": ".teaserCard:hover .bg",
+      "missing": [
+        "teaserCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 420,
+      "selector": ".teaserCard .chip",
+      "missing": [
+        "teaserCard",
+        "chip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 422,
+      "selector": ".playBanner",
+      "missing": [
+        "playBanner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 427,
+      "selector": ".pgLayout",
+      "missing": [
+        "pgLayout"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 428,
+      "selector": ".pgLayout",
+      "missing": [
+        "pgLayout"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 428,
+      "selector": ".pgStage",
+      "missing": [
+        "pgStage"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 429,
+      "selector": ".pgStage",
+      "missing": [
+        "pgStage"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 434,
+      "selector": ".aiGrid",
+      "missing": [
+        "aiGrid"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 435,
+      "selector": ".aiGrid",
+      "missing": [
+        "aiGrid"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 436,
+      "selector": ".aiCard",
+      "missing": [
+        "aiCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 437,
+      "selector": ".aiCardHead",
+      "missing": [
+        "aiCardHead"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 438,
+      "selector": ".aiCardHead h2",
+      "missing": [
+        "aiCardHead"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 439,
+      "selector": ".aiCard p",
+      "missing": [
+        "aiCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 440,
+      "selector": ".aiActions",
+      "missing": [
+        "aiActions"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 441,
+      "selector": ".aiKnows",
+      "missing": [
+        "aiKnows"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 442,
+      "selector": ".aiKnows li",
+      "missing": [
+        "aiKnows"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 443,
+      "selector": ".pgBgRow",
+      "missing": [
+        "pgBgRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 444,
+      "selector": ".pgBgThumb",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 445,
+      "selector": ".pgBgThumb:hover",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 446,
+      "selector": ".pgBgThumb.active",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 447,
+      "selector": ".pgRail",
+      "missing": [
+        "pgRail"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 448,
+      "selector": ".pgPresets",
+      "missing": [
+        "pgPresets"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 449,
+      "selector": ".pgChip",
+      "missing": [
+        "pgChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 454,
+      "selector": ".pgChip:hover",
+      "missing": [
+        "pgChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 455,
+      "selector": ".pgChip:active",
+      "missing": [
+        "pgChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 456,
+      "selector": ".pgChip.active",
+      "missing": [
+        "pgChip"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 457,
+      "selector": ".pgControls",
+      "missing": [
+        "pgControls"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 458,
+      "selector": ".pgGroup",
+      "missing": [
+        "pgGroup"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 459,
+      "selector": ".pgGroup summary",
+      "missing": [
+        "pgGroup"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 460,
+      "selector": ".pgGroup summary::after",
+      "missing": [
+        "pgGroup"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 461,
+      "selector": ".pgGroup[open] summary::after",
+      "missing": [
+        "pgGroup"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 462,
+      "selector": ".pgGroupBody",
+      "missing": [
+        "pgGroupBody"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 463,
+      "selector": ".pgControl",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 464,
+      "selector": ".pgControl input[type='range']",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 465,
+      "selector": ".pgControl input[type='color']",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 466,
+      "selector": ".pgControl select",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 466,
+      "selector": ".pgControl input[type='text']",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 467,
+      "selector": ".pgControl select:disabled",
+      "missing": [
+        "pgControl"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 468,
+      "selector": ".pgValue",
+      "missing": [
+        "pgValue"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 469,
+      "selector": ".pgCode",
+      "missing": [
+        "pgCode"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 471,
+      "selector": ".navBrand span",
+      "missing": [
+        "navBrand"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 473,
+      "selector": ".pgLayout > *",
+      "missing": [
+        "pgLayout"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 484,
+      "selector": ".kline",
+      "missing": [
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 485,
+      "selector": ".kline > span",
+      "missing": [
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 487,
+      "selector": ".heroInner .kicker",
+      "missing": [
+        "heroInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 488,
+      "selector": ".kline:nth-child(1) > span",
+      "missing": [
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 489,
+      "selector": ".kline:nth-child(2) > span",
+      "missing": [
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 490,
+      "selector": ".heroLead",
+      "missing": [
+        "heroLead"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 491,
+      "selector": ".heroCtas",
+      "missing": [
+        "heroCtas"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 495,
+      "selector": ".willReveal",
+      "missing": [
+        "willReveal"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 496,
+      "selector": ".willReveal.revealed",
+      "missing": [
+        "willReveal",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 499,
+      "selector": ".stagger > *",
+      "missing": [
+        "stagger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 500,
+      "selector": ".stagger.revealed > *",
+      "missing": [
+        "stagger",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 501,
+      "selector": ".stagger.revealed > *:nth-child(1)",
+      "missing": [
+        "stagger",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 502,
+      "selector": ".stagger.revealed > *:nth-child(2)",
+      "missing": [
+        "stagger",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 503,
+      "selector": ".stagger.revealed > *:nth-child(3)",
+      "missing": [
+        "stagger",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 504,
+      "selector": ".stagger.revealed > *:nth-child(4)",
+      "missing": [
+        "stagger",
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 508,
+      "selector": ".willReveal",
+      "missing": [
+        "willReveal"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 508,
+      "selector": ".stagger > *",
+      "missing": [
+        "stagger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".heroInner .kicker",
+      "missing": [
+        "heroInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".kline > span",
+      "missing": [
+        "kline"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".heroLead",
+      "missing": [
+        "heroLead"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".heroCtas",
+      "missing": [
+        "heroCtas"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".heroCursorNote",
+      "missing": [
+        "heroCursorNote"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 509,
+      "selector": ".heroGlow",
+      "missing": [
+        "heroGlow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 512,
+      "selector": ".heroGlow",
+      "missing": [
+        "heroGlow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 513,
+      "selector": ".specRule.revealed::after",
+      "missing": [
+        "revealed"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 537,
+      "selector": ".verBadge",
+      "missing": [
+        "verBadge"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 538,
+      "selector": ".verBadge:hover",
+      "missing": [
+        "verBadge"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 552,
+      "selector": ".footerInner",
+      "missing": [
+        "footerInner"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 553,
+      "selector": ".footerLinks",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 561,
+      "selector": ".pgLayout",
+      "missing": [
+        "pgLayout"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 562,
+      "selector": ".pgStage",
+      "missing": [
+        "pgStage"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 566,
+      "selector": ".pgBgThumb",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 569,
+      "selector": ".mobileSheet",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 573,
+      "selector": ".navLinks a:active",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 574,
+      "selector": ".navStar:active",
+      "missing": [
+        "navStar"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 575,
+      "selector": ".navBurger:active",
+      "missing": [
+        "navBurger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 576,
+      "selector": ".mobileSheet a:active",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 578,
+      "selector": ".hubCard:active",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 579,
+      "selector": ".featureRow:active",
+      "missing": [
+        "featureRow"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 580,
+      "selector": ".teaserCard:active .bg",
+      "missing": [
+        "teaserCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 582,
+      "selector": ".pgBgThumb:active",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 583,
+      "selector": ".footerLinks a:active",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 584,
+      "selector": ".verBadge:active",
+      "missing": [
+        "verBadge"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".navLinks a:focus-visible",
+      "missing": [
+        "navLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".navStar:focus-visible",
+      "missing": [
+        "navStar"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".navBurger:focus-visible",
+      "missing": [
+        "navBurger"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".mobileSheet a:focus-visible",
+      "missing": [
+        "mobileSheet"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".pgBgThumb:focus-visible",
+      "missing": [
+        "pgBgThumb"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".hubCard:focus-visible",
+      "missing": [
+        "hubCard"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".footerLinks a:focus-visible",
+      "missing": [
+        "footerLinks"
+      ]
+    },
+    {
+      "file": "theme",
+      "line": 587,
+      "selector": ".verBadge:focus-visible",
+      "missing": [
+        "verBadge"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".brand-symbol",
+      "missing": [
+        "brand-symbol"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".editorial-hero",
+      "missing": [
+        "editorial-hero"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".collection-section",
+      "missing": [
+        "collection-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".lab-section",
+      "missing": [
+        "lab-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".build-section",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".compatibility-note",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-topline",
+      "missing": [
+        "hero-topline"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-topline>a",
+      "missing": [
+        "hero-topline"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-heading",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-heading h1",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-heading h1 span",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-aside",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-aside p",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-aside>span",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-landscape",
+      "missing": [
+        "hero-landscape"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-photo",
+      "missing": [
+        "hero-photo"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-top",
+      "missing": [
+        "scene-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-bottom",
+      "missing": [
+        "scene-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-top",
+      "missing": [
+        "scene-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-top>span:first-child",
+      "missing": [
+        "scene-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-bottom",
+      "missing": [
+        "scene-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-glass-wrap",
+      "missing": [
+        "hero-glass-wrap"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-card",
+      "missing": [
+        "destination-card"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-top",
+      "missing": [
+        "destination-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-top>span",
+      "missing": [
+        "destination-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".save-button",
+      "missing": [
+        "save-button"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".save-button.saved",
+      "missing": [
+        "save-button",
+        "saved"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-title",
+      "missing": [
+        "destination-title"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-title>span",
+      "missing": [
+        "destination-title"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-title h2",
+      "missing": [
+        "destination-title"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-bottom",
+      "missing": [
+        "destination-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-bottom>span",
+      "missing": [
+        "destination-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".destination-bottom>a",
+      "missing": [
+        "destination-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".zoom-tools",
+      "missing": [
+        "zoom-tools"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".zoom-tools button",
+      "missing": [
+        "zoom-tools"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".zoom-tools>span",
+      "missing": [
+        "zoom-tools"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-footnote",
+      "missing": [
+        "hero-footnote"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-footnote>span:last-child",
+      "missing": [
+        "hero-footnote"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".hero-footnote>span:last-child span",
+      "missing": [
+        "hero-footnote"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".manifesto",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".manifesto>.eyebrow",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".manifesto h2",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".manifesto em",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".build-section em",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".manifesto p",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".section-heading",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".section-heading h2",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".section-heading>a",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".showcase-grid",
+      "missing": [
+        "showcase-grid"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".showcase-scene",
+      "missing": [
+        "showcase-scene"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-category",
+      "missing": [
+        "scene-category"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-wrap",
+      "missing": [
+        "weather-wrap"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-content",
+      "missing": [
+        "weather-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-content>span",
+      "missing": [
+        "weather-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-content strong",
+      "missing": [
+        "weather-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-content>div",
+      "missing": [
+        "weather-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".weather-content .weather-meta",
+      "missing": [
+        "weather-content",
+        "weather-meta"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-caption",
+      "missing": [
+        "scene-caption"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".scene-caption a",
+      "missing": [
+        "scene-caption"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dune-type",
+      "missing": [
+        "dune-type"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dune-type em",
+      "missing": [
+        "dune-type"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dune-dock",
+      "missing": [
+        "dune-dock"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dock-content",
+      "missing": [
+        "dock-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dock-content button",
+      "missing": [
+        "dock-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dock-content a",
+      "missing": [
+        "dock-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".dock-content .active",
+      "missing": [
+        "dock-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".wide-film",
+      "missing": [
+        "wide-film"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".wide-film-copy",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".wide-film-copy h2",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".wide-film-copy em",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".film-glass",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".film-status",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".film-status>.tiny-dot",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".film-status>span:not(.tiny-dot)",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".film-status>svg",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".lab-section",
+      "missing": [
+        "lab-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".section-side-note",
+      "missing": [
+        "section-side-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".studio-sample",
+      "missing": [
+        "studio-sample"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".studio-sample h3",
+      "missing": [
+        "studio-sample"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".studio-sample>span",
+      "missing": [
+        "studio-sample"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".build-section",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".build-section h2",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".build-section p",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".install-command",
+      "missing": [
+        "install-command"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".command-prefix",
+      "missing": [
+        "command-prefix"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".code-editor",
+      "missing": [
+        "code-editor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".code-editor>div",
+      "missing": [
+        "code-editor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".code-editor pre",
+      "missing": [
+        "code-editor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".code-purple",
+      "missing": [
+        "code-purple"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".code-green",
+      "missing": [
+        "code-green"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".compatibility-note",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".compatibility-note p",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".sectionLead",
+      "missing": [
+        "sectionLead"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".fauxGlass",
+      "missing": [
+        "fauxGlass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".prose",
+      "missing": [
+        "prose"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".section.willReveal",
+      "missing": [
+        "willReveal"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".stagger",
+      "missing": [
+        "stagger"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".aurora",
+      "missing": [
+        "aurora"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 1,
+      "selector": ".glassCursor",
+      "missing": [
+        "glassCursor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 2,
+      "selector": ".scene-caption a:hover",
+      "missing": [
+        "scene-caption"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 2,
+      "selector": ".save-button:hover",
+      "missing": [
+        "save-button"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 3,
+      "selector": ".hero-landscape",
+      "missing": [
+        "hero-landscape"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".hero-aside",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".hero-heading h1",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".hero-landscape",
+      "missing": [
+        "hero-landscape"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".showcase-scene",
+      "missing": [
+        "showcase-scene"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".build-section",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 4,
+      "selector": ".code-editor pre",
+      "missing": [
+        "code-editor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".editorial-hero",
+      "missing": [
+        "editorial-hero"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".collection-section",
+      "missing": [
+        "collection-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".lab-section",
+      "missing": [
+        "lab-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".build-section",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".compatibility-note",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-topline",
+      "missing": [
+        "hero-topline"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-topline .eyebrow",
+      "missing": [
+        "hero-topline"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-topline>a",
+      "missing": [
+        "hero-topline"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-heading",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-heading h1",
+      "missing": [
+        "hero-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-aside",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-aside p",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-aside .dark-button",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-aside>span",
+      "missing": [
+        "hero-aside"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-landscape",
+      "missing": [
+        "hero-landscape"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-glass-wrap",
+      "missing": [
+        "hero-glass-wrap"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".destination-card",
+      "missing": [
+        "destination-card"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".destination-title h2",
+      "missing": [
+        "destination-title"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".scene-top",
+      "missing": [
+        "scene-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".scene-bottom",
+      "missing": [
+        "scene-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".scene-top>span:last-child",
+      "missing": [
+        "scene-top"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".scene-bottom>span",
+      "missing": [
+        "scene-bottom"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-footnote",
+      "missing": [
+        "hero-footnote"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".hero-footnote>span:last-child",
+      "missing": [
+        "hero-footnote"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".manifesto",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".manifesto h2",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".manifesto p",
+      "missing": [
+        "manifesto"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".section-heading",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".section-heading .eyebrow",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".section-heading h2",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".section-heading>a",
+      "missing": [
+        "section-heading"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".showcase-grid",
+      "missing": [
+        "showcase-grid"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".showcase-scene",
+      "missing": [
+        "showcase-scene"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".dune-type",
+      "missing": [
+        "dune-type"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".wide-film",
+      "missing": [
+        "wide-film"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".wide-film-copy",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".wide-film-copy h2",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".film-glass",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".film-status",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".film-status>.tiny-dot",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".lab-section",
+      "missing": [
+        "lab-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".section-side-note",
+      "missing": [
+        "section-side-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".build-section",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".build-section h2",
+      "missing": [
+        "build-section"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".code-editor pre",
+      "missing": [
+        "code-editor"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".compatibility-note",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".compatibility-note>.tiny-dot",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 5,
+      "selector": ".compatibility-note p",
+      "missing": [
+        "compatibility-note"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 7,
+      "selector": ".wnCards .codeBlock",
+      "missing": [
+        "wnCards"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 7,
+      "selector": ".wnCards",
+      "missing": [
+        "wnCards"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 7,
+      "selector": ".aiGrid",
+      "missing": [
+        "aiGrid"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".weather-wrap>[data-liquid-glass]",
+      "missing": [
+        "weather-wrap"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".hero-landscape .destination-card",
+      "missing": [
+        "hero-landscape",
+        "destination-card"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".weather-content",
+      "missing": [
+        "weather-content"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".studio-sample",
+      "missing": [
+        "studio-sample"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".film-status",
+      "missing": [
+        "film-status"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".wide-film::after",
+      "missing": [
+        "wide-film"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 8,
+      "selector": ".film-glass",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 16,
+      "selector": ".film-glass",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 16,
+      "selector": ".wide-film",
+      "missing": [
+        "wide-film"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 16,
+      "selector": ".film-glass .music-widget",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 17,
+      "selector": ".wide-film",
+      "missing": [
+        "wide-film"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 17,
+      "selector": ".film-glass",
+      "missing": [
+        "film-glass"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 17,
+      "selector": ".wide-film-copy",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 17,
+      "selector": ".wide-film-copy h2",
+      "missing": [
+        "wide-film-copy"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 22,
+      "selector": ".experience-build .install-command",
+      "missing": [
+        "install-command"
+      ]
+    },
+    {
+      "file": "studio",
+      "line": 25,
+      "selector": ".experience-build .install-command",
+      "missing": [
+        "install-command"
+      ]
+    }
+  ],
+  "merges": [
+    {
+      "file": "studio",
+      "selector": "button",
+      "count": 2
+    },
+    {
+      "file": "studio",
+      "selector": ".standalone-studio",
+      "count": 2
+    },
+    {
+      "file": "studio",
+      "selector": ".experience-copy",
+      "count": 2
+    },
+    {
+      "file": "studio",
+      "selector": ".standalone-studio",
+      "count": 2
+    }
+  ]
+}

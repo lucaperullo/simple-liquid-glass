@@ -1,8 +1,8 @@
 # Simple Liquid Glass
 
-> **The only zero-dependency liquid glass component with _real refraction on iPhone &amp; Safari_ — not a blur fallback. Works on React 16.8–19.**
+> **Zero-dependency liquid glass for React 16.8–19, with SVG refraction and an explicit backdrop mirror for Safari and Firefox.**
 
-A tiny, zero-dependency **React liquid glass component**. It renders Apple-style “liquid glass” with an SVG displacement map — and, uniquely, delivers **real refraction on iOS, Safari, and Firefox**, where every other library falls back to a plain blur. Chromatic aberration, gradient borders, automatic text color, SSR-safe, plus a framework-agnostic web component — all in ~6.5 KB.
+An Apple-style glass effect with displacement, chromatic aberration, gradient borders, and automatic text color. Includes an optional interactive component and a framework-agnostic web component. Server-rendering and hydration are tested alongside browser behavior.
 
 [![npm version](https://img.shields.io/npm/v/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
 [![npm downloads](https://img.shields.io/npm/dw/simple-liquid-glass)](https://www.npmjs.com/package/simple-liquid-glass)
@@ -13,19 +13,15 @@ A tiny, zero-dependency **React liquid glass component**. It renders Apple-style
 **[🔗 Live demo](https://simple-liquid-glass.vercel.app/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
 
 > [!IMPORTANT]
-> **For real refraction on iOS / Safari / Firefox, pass `backdropRef`** pointing at the element behind the lens (a sibling/background element, *not* an ancestor). Without it you still get a polished frosted-glass CSS fallback — just not the true distortion. See **Real refraction on iOS / Safari / Firefox** below.
+> **For Safari/iOS rim magnification or Firefox mirror refraction, pass `backdropRef`** pointing to a sibling background element. Without an explicit source the component uses frosted CSS.
 
 ## Why simple-liquid-glass?
 
-|  | **simple-liquid-glass** | liquid-glass-react | @specy/liquid-glass |
-|---|:--:|:--:|:--:|
-| Real refraction on **Safari / iOS** | ✅ | ❌ | ❌ (WebGL) |
-| React **16.8 – 19** | ✅ | ❌ (19 only) | ✅ |
-| Bundle (gzip) | **~6.5 KB** | ~33 KB | 6.8 MB |
-| Zero runtime deps | ✅ | ✅ | ❌ (Three.js) |
-| SSR-safe (Next.js) | ✅ | ⚠️ | ❌ |
-| Web component (Vue / Svelte / vanilla) | ✅ | ❌ | ❌ |
-| Actively maintained (2026) | ✅ | ❌ (since Jun 2025) | ❌ |
+- No runtime dependencies; React is a peer dependency for the React entry points.
+- Chromium SVG backdrop refraction, plus an explicit DOM mirror on Safari/Firefox.
+- React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
+- A separate web component for other frameworks, with a frosted fallback on Safari/Firefox.
+- Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
 
 ### Choose your path
 
@@ -80,13 +76,13 @@ function App() {
 }
 ```
 
-### Real refraction on iOS / Safari / Firefox — built into `<LiquidGlass>`
+### Backdrop mirrors on Safari / iOS / Firefox
 
-SVG-displacement refraction in `backdrop-filter` only runs on **Chromium** — WebKit (Safari/iOS)
-and Firefox can't do it, so by default they show a frosted-blur fallback. But Safari/iOS *can* run
-`feDisplacementMap` in a regular element `filter` (caniuse #3803). So `<LiquidGlass>` has a built-in
-**mirror**: on the fallback engines, when you give it the element behind the lens, it refracts a
-live, displaced **clone** of that element — true distortion, no extra component:
+The built-in mirror copies an explicit background element. Firefox uses SVG displacement on
+that copy. Safari/iOS uses **CSS rim magnification** to avoid native Safari's incorrectly positioned
+SVG displacement textures. A masked, mildly magnified copy appears only around the rounded rim;
+the original background remains visible through the clear center. This is an optical approximation,
+not arbitrary per-pixel refraction, and high-contrast edges can show blending.
 
 ```jsx
 import { useRef } from 'react';
@@ -98,7 +94,7 @@ function Card() {
     <div style={{ position: 'relative' }}>
       <div ref={bg}>{/* the background that sits behind the glass */}</div>
       <LiquidGlass backdropRef={bg} radius={24} track>
-        <div style={{ padding: 20 }}>Glass that refracts on iOS</div>
+        <div style={{ padding: 20 }}>Glass with optical rims on iOS</div>
       </LiquidGlass>
     </div>
   );
@@ -108,7 +104,8 @@ function Card() {
 Per engine:
 
 - **Chromium** → real `backdrop-filter` refraction (the mirror stays off — nothing to pay for)
-- **Safari / iOS / Firefox** with a `backdropRef` → live-DOM-mirror refraction (the real distortion)
+- **Safari / iOS** with a `backdropRef` → CSS rim magnification over a live copy
+- **Firefox** with a `backdropRef` → SVG displacement over a live copy
 - **Safari / iOS / Firefox** without a usable backdrop → frosted-blur fallback
 
 **Why you must pass `backdropRef`.** The library can't safely *guess* what's behind a floating
@@ -117,8 +114,8 @@ memory and crashes the tab — so it's required, not magic. Point `backdropRef` 
 at the element behind the lens; it must be a **sibling/background**, **not an ancestor** of the lens
 (an ancestor would mirror the glass into itself — that case degrades to blur). Notes:
 
-- `track` — re-align the clone every frame when the lens itself **moves** (drag/animation).
-- `mirrorScale` — distortion strength (default 26). `mirror={false}` — opt out (blur on iOS).
+- `track` — re-align the clone at approximately 30 Hz when the lens or background **moves** (translation/animation).
+- `mirrorScale` — requested distortion strength (default 26), capped to half the optical rim width to avoid folds. `0` disables displacement. `mirror={false}` — opt out (blur on iOS).
 - Keep lenses modest in size — the iOS filter cost scales with lens area.
 
 > `LiquidGlassMirror` from `simple-liquid-glass/mirror` still exists as a thin back-compat wrapper
@@ -288,12 +285,12 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 |--------|--------------------|
 | Chromium desktop | SVG displacement (full effect) |
 | Chromium Android | Layered CSS (perf) — opt into SVG with `mobileFallback="svg"` |
-| iOS Safari / all iOS browsers | Layered CSS fallback |
-| Firefox | Layered CSS fallback |
+| Safari / iOS browsers | CSS rim magnification with `backdropRef`; frosted CSS otherwise |
+| Firefox | DOM mirror with `backdropRef`; frosted CSS otherwise |
 
-**Layered CSS fallback** (automatic): instead of a flat blur, a masked edge ring with a stronger backdrop blur + brightness fakes the refraction band, plus a specular highlight. Zero dependencies, 60fps.
+**Frosted CSS fallback:** blur, tint, saturation, and inset highlights provide the glass appearance when no usable mirror backdrop is provided. Performance depends on lens size, scene complexity, and device.
 
-> **Note:** versions 1.4.x shipped an experimental snapshot-based WebGL refraction mode (`effectMode="webgl"`). It was removed in 2.0.0: snapshot-based refraction cannot track live page content reliably (smooth-scroll libraries, animations, html2canvas rendering gaps). On non-Chromium engines the component now always uses the layered CSS fallback.
+The experimental WebGL mode from 1.4.x was removed in 2.0.0. Current React builds use the explicit DOM mirror described above for fallback-engine refraction.
 
 ## Performance and Fallbacks
 
@@ -309,24 +306,8 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 // Disable all filter effects (keeps border/frost/background)
 <LiquidGlass effectMode="off" />
 
-// Force SVG filter everywhere
+// Request SVG refraction on supported engines
 <LiquidGlass effectMode="svg" />
-```
-
-### Effect Mode Control
-
-```jsx
-// Force pure CSS blur (no SVG) — ideal per dispositivi molto low-end
-<LiquidGlass effectMode="blur" />
-
-// Disattiva totalmente l'effetto (mantiene solo saturazione/frost)
-<LiquidGlass effectMode="off" />
-
-// Forza sempre l'SVG
-<LiquidGlass effectMode="svg" />
-
-// Selezione automatica (default)
-<LiquidGlass effectMode="auto" />
 ```
 
 ### Card with Glass Effect
@@ -433,3 +414,132 @@ frosted glass, frosted-glass, blur, blur effect, backdrop-filter, svg filter, di
 chromatic aberration, ui effects, card, overlay, glass ui, glass card, glass panel, glassmorphism react
 
 For issues and feature requests, please [create an issue](https://github.com/lucaperullo/simple-liquid-glass/issues).
+## Compatibility and validation
+
+React 16.8/17 uses a mount-time ID fallback; React 18/19 uses React's hydration-safe IDs. Browser-dependent effects activate after hydration. When using multiple React 18+ roots, provide distinct React `identifierPrefix` values on the server and client.
+
+The JavaScript build targets Chrome 64, Firefox 69, and Safari 12 syntax. Actual visual effects depend on browser CSS/SVG support; automated browser checks run against current Chromium, Firefox, and WebKit, not every historical release. Missing `ResizeObserver` falls back to window resize events.
+
+The mirror is a decorative DOM snapshot. Use a small, explicit sibling backdrop. Canvas pixels, video playback, shadow-root contents, inherited contextual styles, and CSS animations are not guaranteed to match the source. The root’s computed presentation is copied before IDs are namespaced; descendant contextual styles can still differ. Prefer class-based styling. A six-panel scene was measured on an iPhone 15 Pro (Safari 26.6.1); complex scenes still require their own physical-device visual and performance checks.
+
+`effectMode="off"` removes backdrop filtering. `effectMode="blur"` disables the mirror and uses the CSS fallback. The web component can be imported during SSR; instantiate it only in a browser. Install React and React DOM explicitly when using a React entry point; the web component needs neither.
+
+### Development checks
+
+```sh
+npm ci
+npm run typecheck
+npm test -- --runInBand
+npm run build
+npm run size
+npm run test:compat
+npx playwright install chromium firefox webkit
+npm run test:browser
+```
+
+Public TypeScript declarations are generated from source during the build. Bundle budgets use **Brotli**, not gzip. CI also checks React 16.8.6, 17.0.2, 18.3.1, and 19 in isolated installations.
+
+### Safari lens optics
+
+Safari/iOS bypasses SVG filters for the mirror. A cached alpha mask reveals a magnified source copy at the rounded rim, leaving the center clear. `mirrorScale` controls the magnification and is bounded by panel geometry; zero gives no optical offset. Firefox retains the rounded-rectangle SVG displacement map. Both maps are generated only for active mirrors, with neither dimension above 256 pixels.
+
+Use `track` for translated lenses or backgrounds. Root transforms are represented by the copy's alignment and are not replayed on the copy. Rotation, scaling, and animations inside the backdrop remain outside the supported alignment contract. The web component still uses its frosted Safari fallback.
+
+Core is 8.79 kB Brotli, interactive 9.74 kB, and mirror 8.86 kB. Existing 9/10/9 kB budgets pass.
+
+The prior SVG mirror failed physical iPhone visual validation despite automated WebKit pixel checks passing. The replacement CSS path visibly renders all six rims in native Safari 26.5 in the iPhone simulator, with sharp centers; physical-device aesthetic acceptance remains pending. Blending near high-contrast text is a known limitation of the approximation. Earlier device timings are retained as historical measurements, not evidence that the failed SVG visuals worked. See [validation notes](docs/superpowers/plans/2026-09-08-safari-lens.md).
+
+### Rounded native refraction (Chromium)
+
+`refraction="lens"` uses the MIT-licensed rounded lens generator and native SVG
+material filter adapted from samasante/liquid-glass. The pinned source revision,
+adaptations and license are recorded in THIRD_PARTY_NOTICES.md and included in
+the published package. No UI branding or runtime dependency is added.
+
+```tsx
+<LiquidGlass refraction="lens" quality="high" radius={32} scale={160}
+  blur={2} saturation={115} aberrationIntensity={0.32}
+  glassColor="rgba(255,255,255,0.06)">
+  Navigation
+</LiquidGlass>
+```
+
+Set `lensProfile="loupe"` for the stronger playground optics (14% baseline strength, deeper curvature and brighter sheen). The default `lensProfile="player"` uses the stronger player shape at 80 CSS pixels of displacement. `lensProfile="material"` remains available for gentler surface settings.
+
+The existing prop names remain. For this mode, `scale={160}` maps to the material's
+baseline strength (80 CSS pixels for the default player profile); 0 disables displacement,
+and 320 doubles it. `dispersion={50}` with `aberrationIntensity={0.32}` produces
+0.32 normalized color separation. Low quality uses one displacement pass.
+Blur precedes refraction, and the map's blue channel supplies the directional sheen.
+The 512×512 map is cached by geometry; strength, blur and color adjustments reuse it.
+
+The rounded lens is now the default. The original gradient look is available with `refraction="classic"`, with
+strength bounded to 10% of the shorter side to prevent extreme tearing. Native
+filters have explicit sampling bounds and neutral padding. This does not add iOS
+refraction support. The experimental GPU and video demos have been removed.
+
+For matching a video surface's refraction strength, set `displacementScale` to
+`strength * Math.hypot(surfaceWidth, surfaceHeight) / Math.SQRT2`. This optional
+CSS-pixel override applies only to `refraction="lens"`, bypassing the
+preset `scale` calculation. Omit it to retain existing behavior.
+
+### Upgrading from 4.1
+
+Version 5 changes the React default to a rounded player lens with 80px base
+displacement. `scale={160}` is the baseline; `0` disables it and `320` doubles it.
+Existing `angle`, `shapeAdapt`, `lens`, `lensStrength`, and `lensCenter` props
+select the compatible 4.x renderer automatically. `liquid`, `liquidSpeed`, and
+`liquidScale` remain supported, including reduced-motion handling. The web
+component retains its 4.1 directional and animated controls and appearance.
+Experimental GPU/video components are not included.
+
+### Individual lens controls (5.1)
+
+Use `lensOptions` to override any part of a rounded lens. Unset values inherit
+`lensProfile` (default: `player`); existing applications retain their appearance.
+
+```tsx
+import { LiquidGlass, type LensOptions } from 'simple-liquid-glass';
+
+const optics: LensOptions = {
+  strength: 0.14, depth: 0.15, curvature: 0.45,
+  bend: 0.55, bendWidth: 0.3,
+  sheen: 2, sheenWidth: 10, specular: 1.6, sheenAngle: 0,
+  glow: 0.1, brightness: 0,
+};
+
+<LiquidGlass refraction="lens" lensProfile="player" lensOptions={optics}
+  quality="extreme" blur={1} radius={32}>
+  <YourContent />
+</LiquidGlass>
+```
+
+| Option | Range | Meaning |
+| --- | --- | --- |
+| `strength` | 0–0.5 | Relative displacement strength |
+| `depth` | 0–1 | How far refraction reaches inward |
+| `curvature` | 0–1 | Body dome curvature |
+| `bend` | 0–1 | Inner-edge bend intensity |
+| `bendWidth` | 0.001–0.5 | Edge-band width relative to the smaller dimension |
+| `sheen` | 0–2 | Directional sheen intensity |
+| `sheenWidth` | 0–10 | Sheen thickness in pixels |
+| `sheenFalloff` | 0.1–5 | Sheen falloff exponent |
+| `sheenAngle` | -360–360 | Light direction in degrees |
+| `specular` | 0–3 | Overall highlight gain |
+| `glow` | 0–1 | Inner glow intensity |
+| `glowSpread` | 0.01–2 | Inner glow reach |
+| `glowFalloff` | 0.1–5 | Inner glow falloff exponent |
+| `brightness` | -1–1 | Black-to-white surface veil opacity |
+
+`displacementScale`, when provided, takes precedence over `lensOptions.strength`.
+The existing `scale` multiplier still applies to relative strength. `blur`,
+`frost`, `dispersion`, and `aberrationIntensity` remain top-level props.
+`lensOptions` affects `refraction="lens"` on React components, including the
+interactive export. It does not alter the classic renderer or add optical
+refraction to Safari/Firefox's blur fallback. The brightness veil also works on
+that fallback. The web component does not expose this API.
+
+`LENS_PROFILES`, `LENS_OPTION_RANGES`, and `resolveLensOptions(profile, overrides)`
+are exported for building settings panels without duplicating defaults. Values
+are clamped to these ranges; non-finite values inherit the selected profile.
+Geometry changes invalidate cached maps; strength, specular, and brightness do not.

@@ -1,0 +1,661 @@
+# Discovery inventory and broad-token recall checks
+
+Every matching source/config/test line is listed below before clustering. Long literals are abbreviated to 450 characters; the original location remains authoritative. Vendor, generated bundles, dependency manifests/locks and planning histories are excluded from these recall searches. A match alone is not a refactor recommendation.
+
+## library scanned files
+- .github/workflows/ci.yml
+- .storybook/main.ts
+- .storybook/preview.ts
+- demo/demo-entry.tsx
+- demo/demo.html
+- examples/eslint.config.js
+- examples/index.html
+- examples/src/App.css
+- examples/src/App.tsx
+- examples/src/index.css
+- examples/src/main.tsx
+- examples/src/vite-env.d.ts
+- examples/vite.config.ts
+- jest.config.cjs
+- playwright.config.ts
+- rollup.config.js
+- rollup.types.config.js
+- scripts/build-safari-lab.mjs
+- scripts/check-compat.cjs
+- scripts/serve-safari-lab.mjs
+- src/LiquidGlass.stories.tsx
+- src/__tests__/components.test.tsx
+- src/__tests__/cssColor.test.ts
+- src/__tests__/displacementCache.test.ts
+- src/__tests__/displacementField.fold.test.ts
+- src/__tests__/displacementFilter.test.tsx
+- src/__tests__/displacementMap.test.ts
+- src/__tests__/elasticOptions.test.ts
+- src/__tests__/interactive.test.tsx
+- src/__tests__/liquid.test.ts
+- src/__tests__/mirrorOptics.test.ts
+- src/__tests__/nativeOptions.test.ts
+- src/__tests__/quality.test.ts
+- src/__tests__/spring.test.ts
+- src/__tests__/ssr.test.tsx
+- src/__tests__/webComponent.test.ts
+- src/core/DisplacementFilter.tsx
+- src/core/background.ts
+- src/core/cloneBackdrop.ts
+- src/core/displacementField.ts
+- src/core/displacementMap.ts
+- src/core/liquid.ts
+- src/core/mirrorEngine.ts
+- src/core/mirrorOptics.ts
+- src/core/nativeOptics.ts
+- src/core/useGeometry.ts
+- src/core/useQuality.ts
+- src/core/useStableId.ts
+- src/core/useTextColor.ts
+- src/cssColor.ts
+- src/displacementCache.ts
+- src/index.tsx
+- src/interactive/index.tsx
+- src/interactive/options.ts
+- src/interactive/spring.ts
+- src/mirror/index.tsx
+- src/quality.ts
+- src/web-component/index.ts
+- tests/browser/alignment.ts
+- tests/browser/glass.spec.ts
+- tests/browser/index.html
+- tests/browser/main.tsx
+- tests/browser/optics.html
+- tests/browser/optics.spec.ts
+- tests/browser/optics.tsx
+- tests/browser/release.html
+- tests/browser/release.spec.ts
+- tests/browser/release.tsx
+- tests/browser/safari.html
+- tests/browser/safari.tsx
+- tests/browser/visual-refraction.spec.ts
+- tests/types/consumer.tsx
+- verify/fold-check.html
+- verify/interactive.html
+- verify/lens.html
+- verify/liquid.html
+- verify/ripple-test.html
+- verify/serve.mjs
+
+### library — dead modules / old playground
+- [ ] `examples/src/App.tsx:47` — `/** Draggable lens that refracts the sibling backdrop (real refraction on iOS/Safari via backdropRef). */`
+- [ ] `examples/src/App.tsx:48` — `function DraggableLens({ backdropRef }: { backdropRef: React.RefObject<HTMLDivElement | null> }) {`
+- [ ] `examples/src/App.tsx:134` — `<DraggableLens backdropRef={heroBgRef} />`
+- [ ] `src/LiquidGlass.stories.tsx:10` — `title: 'LiquidGlass/Draggable',`
+- [ ] `src/LiquidGlass.stories.tsx:110` — `function DraggableWrapper({`
+- [ ] `src/LiquidGlass.stories.tsx:201` — `export const Draggable: Story = {`
+- [ ] `src/LiquidGlass.stories.tsx:220` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:222` — `</DraggableWrapper>`
+- [ ] `src/LiquidGlass.stories.tsx:256` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:258` — `</DraggableWrapper>`
+- [ ] `src/LiquidGlass.stories.tsx:303` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:305` — `</DraggableWrapper>`
+- [ ] `src/LiquidGlass.stories.tsx:329` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:331` — `</DraggableWrapper>`
+- [ ] `src/LiquidGlass.stories.tsx:354` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:356` — `</DraggableWrapper>`
+- [ ] `src/LiquidGlass.stories.tsx:379` — `<DraggableWrapper width={480} height={280}>`
+- [ ] `src/LiquidGlass.stories.tsx:381` — `</DraggableWrapper>`
+- [ ] `src/__tests__/liquid.test.ts:1` — `import { liquidConfig, liquidBaseFrequency, isLiquidPreset, LIQUID_PRESETS } from '../core/liquid';`
+- [ ] `src/__tests__/liquid.test.ts:5` — `expect(LIQUID_PRESETS).toEqual(['ripple', 'flow', 'wobble']);`
+- [ ] `src/core/liquid.ts:10` — `export const LIQUID_PRESETS: readonly LiquidPreset[] = ['ripple', 'flow', 'wobble'];`
+- [ ] `src/core/liquid.ts:13` — `return typeof v === 'string' && (LIQUID_PRESETS as readonly string[]).includes(v);`
+- [ ] `src/core/liquid.ts:44` — `const PRESETS: Record<LiquidPreset, PresetSpec> = {`
+- [ ] `src/core/liquid.ts:57` — `const p = PRESETS[preset] ?? PRESETS.ripple;`
+- [ ] `src/core/liquid.ts:69` — `const p = PRESETS[preset] ?? PRESETS.ripple;`
+- [ ] `src/interactive/options.ts:5` — `* a naive `{ ...DEFAULTS, ...options }` spread would set `undefined`/`NaN` instead.`
+
+### library — clipboard
+- [ ] `demo/demo.html:46` — ``+l[o].replace(" at new "," at ");return e.displayName&&s.includes("<anonymous>")&&(s=s.replace("<anonymous>",e.displayName)),s}while(1<=o&&0<=u);break}}}finally{xi=!1,Error.prepareStackTrace=n}return(e=e?e.displayName||e.name:"")?Kn(e):""}function Ed(e){switch(e.tag){case 5:return Kn(e.type);case 16:return Kn("Lazy");case 13:return Kn("Suspense");case 19:return Kn("SuspenseList");case 0:case 2:case 15:return e=ki(e.type,!1),e;case 11:return e=ki`
+- [ ] `examples/src/App.tsx:84` — `const [copied, setCopied] = useState(false);`
+- [ ] `examples/src/App.tsx:87` — `navigator.clipboard?.writeText(cmd).then(() => {`
+- [ ] `examples/src/App.tsx:88` — `setCopied(true);`
+- [ ] `examples/src/App.tsx:89` — `setTimeout(() => setCopied(false), 1500);`
+- [ ] `examples/src/App.tsx:93` — `<button onClick={copy} className="install" title="Copy to clipboard">`
+- [ ] `examples/src/App.tsx:95` — `<span className="copy">{copied ? '✓ copied' : 'copy'}</span>`
+
+### library — release metadata
+- [ ] `.github/workflows/ci.yml:44` — `- run: npm install --prefix /tmp/glass-compat --no-save --package-lock=false react@${{ matrix.react }} react-dom@${{ matrix.react }}`
+- [ ] `examples/src/App.tsx:85` — `const cmd = 'npm i simple-liquid-glass';`
+- [ ] `src/core/displacementMap.ts:67` — `* `45.0000001` collapse to a single stable value (and `0`/`360` to the no-transform fast path).`
+
+### library — showcase quality
+- [ ] `.github/workflows/ci.yml:8` — `quality:`
+- [ ] `demo/demo-entry.tsx:52` — `mobileFallback={mode === 'svg' ? 'svg' : undefined}`
+- [ ] `demo/demo-entry.tsx:73` — `mobileFallback={mode === 'svg' ? 'svg' : undefined}`
+- [ ] `demo/demo.html:143` — ``;function km(e){let t=/url\(["']?([^"')]+)["']?\)/.exec(e||"");return t?t[1]:null}function Em(e){return new Promise(t=>{let n=new Image;n.crossOrigin="anonymous",n.onload=()=>t(n),n.onerror=()=>t(null),n.src=e})}function Cm(e,t,n,r){let l=document.createElement("canvas");l.width=e.width,l.height=e.height;let i=l.getContext("2d");if(!i)return e;let o=l.width/Math.max(1,r.width),u=n.backgroundColor;u&&u!=="transparent"&&!/rgba\(\s*0\s*,\s*0\s*,\s*`
+- [ ] `demo/demo.html:164` — ``}),t]})]})});ti.displayName="LiquidGlass";var Y=Ft(Pr(),1);function Am(e){let[t,n]=(0,Jt.useState)(e),r=(0,Jt.useRef)(null);return{pos:t,handlers:{onPointerDown:u=>{r.current={dx:u.clientX-t.x,dy:u.clientY-t.y},u.target.setPointerCapture(u.pointerId)},onPointerMove:u=>{r.current&&n({x:u.clientX-r.current.dx,y:u.clientY-r.current.dy})},onPointerUp:()=>{r.current=null}}}}function Um(){let[e,t]=(0,Jt.useState)("auto"),[n,r]=(0,Jt.useState)(160),[l,`
+- [ ] `examples/src/App.tsx:74` — `<LiquidGlass backdropRef={backdropRef} track radius={30} mobileFallback="css-only">`
+- [ ] `src/LiquidGlass.stories.tsx:40` — `quality: {`
+- [ ] `src/LiquidGlass.stories.tsx:44` — `description: 'Explicit quality tier. Choose "auto" (undefined) to let autodetectquality decide.',`
+- [ ] `src/LiquidGlass.stories.tsx:46` — `autodetectquality: { control: 'boolean' },`
+- [ ] `src/LiquidGlass.stories.tsx:47` — `mobileFallback: {`
+- [ ] `src/LiquidGlass.stories.tsx:83` — `autodetectquality: false,`
+- [ ] `src/LiquidGlass.stories.tsx:254` — `auto-detected quality: <strong>{tier}</strong>`
+- [ ] `src/LiquidGlass.stories.tsx:265` — `autodetectquality: true,`
+- [ ] `src/LiquidGlass.stories.tsx:286` — `quality: 'extreme',`
+- [ ] `src/LiquidGlass.stories.tsx:362` — `mobileFallback: 'css-only',`
+- [ ] `src/LiquidGlass.stories.tsx:496` — `{/* The core component, given a (sibling) backdrop. mobileFallback="css-only" forces the`
+- [ ] `src/LiquidGlass.stories.tsx:498` — `<LiquidGlass backdropRef={bgRef} track radius={28} mobileFallback="css-only">`
+- [ ] `src/LiquidGlass.stories.tsx:612` — `/** Side-by-side quality presets — internal SVG resolution scales fidelity vs cost. */`
+- [ ] `src/LiquidGlass.stories.tsx:618` — `<Stage key={q} label={`quality="${q}"`}>`
+- [ ] `src/LiquidGlass.stories.tsx:619` — `<LiquidGlass quality={q} radius={24} scale={180}>`
+- [ ] `src/LiquidGlass.stories.tsx:635` — `<LiquidGlass aberrationIntensity={a} radius={24} scale={180} dispersion={60} quality="high">`
+- [ ] `src/__tests__/quality.test.ts:1` — `import { decisiveTier, classifyQuality } from '../quality';`
+- [ ] `src/core/DisplacementFilter.tsx:3` — `import type { LiquidQuality } from '../quality';`
+- [ ] `src/core/displacementMap.ts:57` — `/** Quantized internal map dimensions for a given rendered size + quality. */`
+- [ ] `src/core/liquid.ts:31` — `/** Hard cap on amplitude (mobile / low quality). */`
+- [ ] `src/core/useQuality.ts:2` — `import { decisiveTier, classifyQuality, type LiquidQuality } from '../quality';`
+- [ ] `src/core/useQuality.ts:4` — `export function useQuality(incomingQuality: LiquidQuality | undefined, autodetectquality: boolean): LiquidQuality {`
+- [ ] `src/core/useQuality.ts:15` — `if (!autodetectquality) {`
+- [ ] `src/core/useQuality.ts:25` — `// Prefer low quality when user requests reduced motion`
+- [ ] `src/core/useQuality.ts:32` — `const CACHE_KEY = 'simpleLiquidGlass_quality_v1';`
+- [ ] `src/core/useQuality.ts:103` — `// Defer off the critical path, but cap the wait so the (opt-in) autodetect quality`
+- [ ] `src/core/useQuality.ts:116` — `}, [incomingQuality, autodetectquality]);`
+- [ ] `src/displacementCache.ts:4` — `* The maps are keyed by quality/quantized-size/shape params and shared across all`
+- [ ] `src/index.tsx:18` — `import type { LiquidQuality } from './quality';`
+- [ ] `src/index.tsx:181` — `mobileFallback?: 'css-only' | 'svg';`
+- [ ] `src/index.tsx:225` — `* Rendering quality preset. Controls internal SVG resolution to balance performance and fidelity.`
+- [ ] `src/index.tsx:228` — `quality?: LiquidQuality;`
+- [ ] `src/index.tsx:230` — `* Automatically detect device performance and choose a quality preset.`
+- [ ] `src/index.tsx:231` — `* When true and no explicit quality is provided, the component resolves a quality on mount.`
+- [ ] `src/index.tsx:234` — `autodetectquality?: boolean;`
+- [ ] `src/index.tsx:241` — `/** The currently resolved rendering quality (reflects autodetect, if enabled). */`
+- [ ] `src/index.tsx:273` — `quality: incomingQuality,`
+- [ ] `src/index.tsx:274` — `autodetectquality = false,`
+- [ ] `src/index.tsx:277` — `mobileFallback,`
+- [ ] `src/index.tsx:303` — `const resolvedQuality = useQuality(incomingQuality, autodetectquality);`
+- [ ] `src/index.tsx:304` — `// Track the latest resolved quality in a ref so the imperative handle can expose it`
+- [ ] `src/index.tsx:305` — `// (getQuality) without recreating the handle on every quality change.`
+- [ ] `src/index.tsx:418` — `if (mobileFallback === 'css-only') return false;`
+- [ ] `src/index.tsx:419` — `if (mobileFallback === 'svg') return true;`
+- [ ] `src/index.tsx:522` — `// Cap SVG blur in low quality to reduce GPU cost`
+- [ ] `src/mirror/index.tsx:19` — `function LiquidGlassMirror({ force = false, mobileFallback, ...props }, ref) {`
+- [ ] `src/mirror/index.tsx:24` — `mobileFallback={force ? 'css-only' : mobileFallback}`
+- [ ] `src/quality.ts:2` — `* Pure device → rendering-quality resolution.`
+- [ ] `src/quality.ts:27` — `* resolved tier vs the original logic (a visible regression on the autodetect path).`
+- [ ] `tests/browser/main.tsx:9` — `effectMode: params.get('effect') || 'auto', mobileFallback: params.has('mirror') ? 'css-only' : undefined };`
+- [ ] `tests/browser/optics.tsx:7` — `return <><header><h1>Native glass. Refined optics.</h1><p>Chromium comparison: legacy gradients on the left, the current rounded lens on the right. Scroll the live HTML behind both. No snapshots or scroll-driven rendering.</p><div className="controls"><label>Profile <select aria-label="Profile" value={profile} onChange={e=>setProfile(e.target.value as typeof profile)}><option value="player">Player glass</option><option value="loupe">Magnifying le`
+- [ ] `tests/browser/release.tsx:7` — `<LiquidGlass data-testid="default" quality="high" style={{width:200,height:100}}>Default</LiquidGlass>`
+- [ ] `tests/browser/release.tsx:8` — `<LiquidGlass data-testid="legacy" quality="high" angle={angle} lens="convex" lensStrength={.8} lensCenter={[.4,.6]} liquid="ripple" liquidScale={5} liquidSpeed={1} effectMode={off?'off':'svg'} style={{width:200,height:100}}>4.1 controls</LiquidGlass></>;`
+- [ ] `tests/browser/safari.tsx:14` — `root.render(<>{Array.from({length:multiple.checked?6:1},(_,i)=><div className="panel" key={i} style={{left:20+(i%columns)*(w+8),top:50+Math.floor(i/columns)*175,width:w,height:150}}><LiquidGlass backdropSelector="#scene" mobileFallback="css-only" mirrorScale={Number(strength.value)} radius={multiple.checked?10+i*8:38} track><div className="content">Lens {i+1}</div></LiquidGlass></div>)}</>);`
+- [ ] `tests/types/consumer.tsx:7` — `const props: LiquidGlassProps = { quality: 'high', mode: 'custom', effectMode: 'blur', angle: 45, shapeAdapt: true, lens: 'convex', lensStrength: .8, lensCenter: [.4,.6], liquid: 'ripple', liquidSpeed: 1, liquidScale: 5, refraction: 'lens', displacementScale: 80 };`
+- [ ] `tests/types/consumer.tsx:9` — `// @ts-expect-error invalid quality must remain rejected in the published declarations`
+- [ ] `tests/types/consumer.tsx:10` — `const invalid = <LiquidGlass quality="ultra" />;`
+
+### library — demo ownership
+No matches.
+
+### library — lens vocabulary
+- [ ] `src/__tests__/displacementField.fold.test.ts:1` — `import { classicBandFraction, classicAmpScale, jacobianMinDet } from '../core/displacementField';`
+- [ ] `src/__tests__/displacementField.fold.test.ts:3` — `describe('classicBandFraction', () => {`
+- [ ] `src/__tests__/displacementField.fold.test.ts:5` — `const small = classicBandFraction(160, 300);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:6` — `const big = classicBandFraction(480, 300);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:8` — `expect(classicBandFraction(160, 600)).toBeLessThan(classicBandFraction(160, 300));`
+- [ ] `src/__tests__/displacementField.fold.test.ts:12` — `expect(classicBandFraction(0, 300)).toBeCloseTo(0.06, 5);      // floor`
+- [ ] `src/__tests__/displacementField.fold.test.ts:13` — `expect(classicBandFraction(100000, 100)).toBeCloseTo(0.45, 5); // ceiling`
+- [ ] `src/__tests__/displacementField.fold.test.ts:17` — `expect(classicBandFraction(NaN, 300)).toBeCloseTo(0.06, 5);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:18` — `expect(classicBandFraction(160, 0)).toBeCloseTo(0.06, 5);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:22` — `expect(classicBandFraction(160, 300, 0.2)).toBeCloseTo(0.2, 5);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:23` — `expect(classicBandFraction(160, 300, 0.9)).toBeCloseTo(0.45, 5);`
+- [ ] `src/__tests__/displacementField.fold.test.ts:27` — `describe('classicAmpScale', () => {`
+- [ ] `src/__tests__/displacementField.fold.test.ts:29` — `expect(classicAmpScale(160, 320)).toBe(1);     // square at default scale`
+- [ ] `src/__tests__/displacementField.fold.test.ts:30` — `expect(classicAmpScale(0, 320)).toBe(1);       // degenerate scale → no attenuation`
+- [ ] `src/__tests__/displacementField.fold.test.ts:33` — `const att = classicAmpScale(640, 150);`
+- [ ] `src/__tests__/nativeOptions.test.ts:5` — `import {buildNativeMap, resolveLensOptions, NATIVE_PROFILES, LENS_OPTION_RANGES} from '../core/nativeOptics';`
+- [ ] `src/__tests__/nativeOptions.test.ts:9` — `for(const profile of Object.keys(NATIVE_PROFILES) as (keyof typeof NATIVE_PROFILES)[]){`
+- [ ] `src/__tests__/nativeOptions.test.ts:10` — `expect(resolveLensOptions(profile)).toEqual({...NATIVE_PROFILES[profile],glowSpread:1,brightness:0});`
+- [ ] `src/core/displacementField.ts:2` — `* Pure math for the fold-free `classic` displacement field — no DOM, no SVG strings.`
+- [ ] `src/core/displacementField.ts:3` — `* `classicBandFraction` is the production lever used by `buildDisplacementSvg`; the`
+- [ ] `src/core/displacementField.ts:11` — `// Peak channel deviation of the classic ramp (R spans 0..1 → ±0.5).`
+- [ ] `src/core/displacementField.ts:20` — `export function classicBandFraction(scaleEff: number, minElem: number, edgeFeather?: number): number {`
+- [ ] `src/core/displacementField.ts:37` — `export function classicAmpScale(scaleEff: number, minElem: number, edgeFeather?: number): number {`
+- [ ] `src/core/displacementField.ts:39` — `const bandFrac = classicBandFraction(scaleEff, minElem, edgeFeather);`
+- [ ] `src/core/displacementField.ts:71` — `const att = o.legacy ? 1 : classicAmpScale(o.scaleEff, Math.min(o.w, o.h), o.edgeFeather);`
+- [ ] `src/core/displacementField.ts:86` — `const bandFrac = classicBandFraction(o.scaleEff, Math.min(o.w, o.h), o.edgeFeather);`
+- [ ] `src/core/displacementMap.ts:7` — `import { classicBandFraction, classicAmpScale } from './displacementField';`
+- [ ] `src/core/displacementMap.ts:11` — `* - `classic` — linear radial field (the historical look; reads as a split/mirror at high scale).`
+- [ ] `src/core/displacementMap.ts:12` — `* - `convex`  — one coherent dome magnifier (a radial field windowed to neutral at the rim).`
+- [ ] `src/core/displacementMap.ts:16` — `export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';`
+- [ ] `src/core/displacementMap.ts:39` — `* legacy (≤2.x) objectBoundingBox map, byte-for-byte unchanged. Applies to `lens: 'classic'`.`
+- [ ] `src/core/displacementMap.ts:42` — `/** Lens field shape (default `'classic'`). */`
+- [ ] `src/core/displacementMap.ts:43` — `lens?: LensMode;`
+- [ ] `src/core/displacementMap.ts:46` — `/** Lens center for `convex`/`rim`, normalized 0..1 (default `[0.5, 0.5]`). */`
+- [ ] `src/core/displacementMap.ts:127` — `* `convex` — one coherent radial magnifier centered at the lens. Two channel groups carry R and B`
+- [ ] `src/core/displacementMap.ts:240` — `const lens: LensMode = p.lens ?? 'classic';`
+- [ ] `src/core/displacementMap.ts:248` — `if (lens !== 'classic') {`
+- [ ] `src/core/displacementMap.ts:251` — `if (lens === 'convex') inner = buildConvexInner(newwidth, newheight, effectiveRadius, angle, strength, lcx, lcy);`
+- [ ] `src/core/displacementMap.ts:254` — `// The blurred neutral band is the glass-edge highlight for convex/shift; `rim` owns its own`
+- [ ] `src/core/displacementMap.ts:271` — `// Fold-free classic: window the affine ramp by a boundary-conformant envelope (mask, inset+blurred`
+- [ ] `src/core/displacementMap.ts:278` — `const bandFrac = classicBandFraction(scaleEff, minElem, p.edgeFeather);`
+- [ ] `src/core/displacementMap.ts:279` — `const att = classicAmpScale(scaleEff, minElem, p.edgeFeather);`
+- [ ] `src/core/nativeOptics.ts:3` — `export const NATIVE_PROFILES = {`
+- [ ] `src/core/nativeOptics.ts:6` — `loupe: { strength: .14, specular: 1.55, depth: .95, curvature: .5, bend: .4, bendWidth: .07,`
+- [ ] `src/core/nativeOptics.ts:49` — `export function resolveLensOptions(profile: keyof typeof NATIVE_PROFILES = 'player', options: LensOptions = {}): Required<LensOptions> {`
+- [ ] `src/core/nativeOptics.ts:50` — `const result: Required<LensOptions> = { ...NATIVE_PROFILES[profile] ?? NATIVE_PROFILES.player, glowSpread: 1, brightness: 0 };`
+- [ ] `src/core/nativeOptics.ts:60` — `export function buildNativeMap(width: number, height: number, radius: number, profile: keyof typeof NATIVE_PROFILES = 'material', options?: LensOptions) {`
+- [ ] `src/index.tsx:8` — `export { NATIVE_PROFILES as LENS_PROFILES, LENS_OPTION_RANGES, resolveLensOptions } from './core/nativeOptics';`
+- [ ] `src/index.tsx:9` — `export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';`
+- [ ] `src/index.tsx:56` — `lens?: LensMode;`
+- [ ] `src/index.tsx:63` — `refraction?: 'classic' | 'lens';`
+- [ ] `src/index.tsx:65` — `lensProfile?: 'material' | 'loupe' | 'player' | 'track';`
+- [ ] `src/index.tsx:66` — `/** Individual rounded-lens overrides. Inherit unset values from lensProfile. Only applies to refraction="lens". */`
+- [ ] `src/index.tsx:252` — `lensProfile = 'player', lensOptions,`
+- [ ] `src/index.tsx:287` — `const refraction = requestedRefraction ?? (legacyOptics ? 'classic' : 'lens');`
+- [ ] `src/index.tsx:312` — `const nativeOptions = useMemo(() => resolveLensOptions(lensProfile, lensOptions), [lensProfile, lensOptions]);`
+- [ ] `src/index.tsx:319` — `return width > 0 && height > 0 ? buildNativeMap(width, height, config.radius, lensProfile, nativeOptions) : '';`
+- [ ] `src/index.tsx:340` — `lens: lens ?? 'classic', lensStrength: lensStrength ?? 1, lensCenter,`
+- [ ] `src/index.tsx:345` — `}, [angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality]);`
+- [ ] `src/index.tsx:348` — `const norm = lensProfile === 'player' ? 500 : Math.hypot(dimensions.width, dimensions.height) / Math.SQRT2;`
+- [ ] `src/web-component/index.ts:81` — `const lens = (['classic', 'convex', 'shift', 'rim'] as const).includes(lensAttr as never)`
+- [ ] `src/web-component/index.ts:82` — `? (lensAttr as 'classic' | 'convex' | 'shift' | 'rim')`
+- [ ] `src/web-component/index.ts:83` — `: 'classic';`
+- [ ] `tests/browser/optics.spec.ts:6` — `const classic = page.getByTestId('classic');`
+- [ ] `tests/browser/optics.spec.ts:7` — `await expect.poll(async () => Number(await classic.locator('feDisplacementMap').first().getAttribute('scale'))).toBeLessThan(20);`
+- [ ] `tests/browser/optics.tsx:6` — `const [profile, setProfile] = useState<'material' | 'loupe' | 'player'>('player');`
+- [ ] `tests/browser/optics.tsx:7` — `return <><header><h1>Native glass. Refined optics.</h1><p>Chromium comparison: legacy gradients on the left, the current rounded lens on the right. Scroll the live HTML behind both. No snapshots or scroll-driven rendering.</p><div className="controls"><label>Profile <select aria-label="Profile" value={profile} onChange={e=>setProfile(e.target.value as typeof profile)}><option value="player">Player glass</option><option value="loupe">Magnifying le`
+- [ ] `tests/browser/release.tsx:8` — `<LiquidGlass data-testid="legacy" quality="high" angle={angle} lens="convex" lensStrength={.8} lensCenter={[.4,.6]} liquid="ripple" liquidScale={5} liquidSpeed={1} effectMode={off?'off':'svg'} style={{width:200,height:100}}>4.1 controls</LiquidGlass></>;`
+- [ ] `tests/types/consumer.tsx:7` — `const props: LiquidGlassProps = { quality: 'high', mode: 'custom', effectMode: 'blur', angle: 45, shapeAdapt: true, lens: 'convex', lensStrength: .8, lensCenter: [.4,.6], liquid: 'ripple', liquidSpeed: 1, liquidScale: 5, refraction: 'lens', displacementScale: 80 };`
+- [ ] `verify/lens.html:35` — `<div class="row"><div class="cap">classic</div>`
+- [ ] `verify/lens.html:39` — `<div class="row"><div class="cap">convex</div>`
+- [ ] `verify/lens.html:40` — `<liquid-glass class="sq" radius="28" lens="convex"><span class="lab">square</span></liquid-glass>`
+- [ ] `verify/lens.html:41` — `<liquid-glass class="nav" radius="22" lens="convex"><span class="lab">navbar</span></liquid-glass></div>`
+
+### library — motion and browser classification
+- [ ] `demo/demo.html:143` — ``;function km(e){let t=/url\(["']?([^"')]+)["']?\)/.exec(e||"");return t?t[1]:null}function Em(e){return new Promise(t=>{let n=new Image;n.crossOrigin="anonymous",n.onload=()=>t(n),n.onerror=()=>t(null),n.src=e})}function Cm(e,t,n,r){let l=document.createElement("canvas");l.width=e.width,l.height=e.height;let i=l.getContext("2d");if(!i)return e;let o=l.width/Math.max(1,r.width),u=n.backgroundColor;u&&u!=="transparent"&&!/rgba\(\s*0\s*,\s*0\s*,\s*`
+- [ ] `demo/demo.html:160` — ``,Bu=`data:image/svg+xml,${encodeURIComponent(Ge)}`;return zf.set(tn,Bu),Bu},[bt,C,ft]),zu=`liquid-glass-filter-${(0,G.useId)()}`,Bf=P?"transparent":S&&Tu(S)?S:`hsl(0 0% 100% / ${C.frost})`;S&&!Tu(S)&&console.warn("[LiquidGlass] `glassColor` must be semi-transparent (alpha between 0 and 1). Falling back to frost-based color.");let Iu=(()=>{if(typeof navigator>"u"||typeof window>"u")return!1;let z=navigator.userAgent||"",I=navigator.vendor||"",N=/`
+- [ ] `src/__tests__/quality.test.ts:10` — `it('does NOT short-circuit strong devices (benchmark must run to honor isMobile + throttling)', () => {`
+- [ ] `src/__tests__/quality.test.ts:23` — `it('is behaviour-preserving: any non-null short-circuit equals classifyQuality for EVERY opsPerMs and isMobile', () => {`
+- [ ] `src/__tests__/quality.test.ts:31` — `for (const isMobile of [true, false]) {`
+- [ ] `src/__tests__/quality.test.ts:33` — `expect(classifyQuality({ cores, deviceMemory, isMobile, opsPerMs })).toBe(decisive);`
+- [ ] `src/__tests__/quality.test.ts:42` — `const strong = { cores: 8, deviceMemory: 8, isMobile: false, opsPerMs: 40000 };`
+- [ ] `src/__tests__/quality.test.ts:54` — `expect(classifyQuality({ ...strong, isMobile: true })).toBe('standard');`
+- [ ] `src/__tests__/quality.test.ts:58` — `expect(classifyQuality({ cores: 8, deviceMemory: 6, isMobile: false, opsPerMs: 32000 })).toBe('extreme');`
+- [ ] `src/__tests__/quality.test.ts:59` — `expect(classifyQuality({ cores: 12, deviceMemory: 16, isMobile: false, opsPerMs: 50000 })).toBe('extreme');`
+- [ ] `src/__tests__/quality.test.ts:64` — `expect(classifyQuality({ cores: 6, deviceMemory: 8, isMobile: false, opsPerMs: 20000 })).toBe('high');`
+- [ ] `src/__tests__/quality.test.ts:66` — `expect(classifyQuality({ cores: 8, deviceMemory: 8, isMobile: true, opsPerMs: 40000 })).toBe('standard');`
+- [ ] `src/core/useQuality.ts:26` — `const prefersReducedMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;`
+- [ ] `src/core/useQuality.ts:64` — `const ua = navigator.userAgent || '';`
+- [ ] `src/core/useQuality.ts:65` — `const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);`
+- [ ] `src/core/useQuality.ts:92` — `const q = classifyQuality({ cores, deviceMemory, isMobile, opsPerMs });`
+- [ ] `src/index.tsx:375` — `const isIOS = (() => {`
+- [ ] `src/index.tsx:377` — `const ua = navigator.userAgent || '';`
+- [ ] `src/index.tsx:390` — `const isMobile = (() => {`
+- [ ] `src/index.tsx:392` — `const ua = navigator.userAgent || '';`
+- [ ] `src/index.tsx:399` — `// Note: every iOS browser (incl. CriOS/FxiOS) is WebKit, hence the isIOS guard.`
+- [ ] `src/index.tsx:400` — `const supportsSvgBackdropFilter = (() => {`
+- [ ] `src/index.tsx:402` — `if (isIOS) return false;`
+- [ ] `src/index.tsx:403` — `const ua = navigator.userAgent || '';`
+- [ ] `src/index.tsx:409` — `const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;`
+- [ ] `src/index.tsx:415` — `if (effectMode === 'svg') return supportsSvgBackdropFilter;`
+- [ ] `src/index.tsx:417` — `if (!supportsSvgBackdropFilter) return false;`
+- [ ] `src/index.tsx:420` — `return !isMobile;`
+- [ ] `src/index.tsx:424` — `const base = (resolvedQuality === 'low' || isMobile || effectMode === 'blur') ? Math.min(cssBlur, 2) : cssBlur;`
+- [ ] `src/index.tsx:443` — `? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)`
+- [ ] `src/index.tsx:463` — `const cssMirror = mounted && (isIOS || (typeof navigator !== 'undefined' && /safari/i.test(navigator.userAgent) && !/chrome|chromium|android|edg|opr/i.test(navigator.userAgent)));`
+- [ ] `src/index.tsx:474` — `const media = window.matchMedia('(prefers-reduced-motion: reduce)');`
+- [ ] `src/index.tsx:485` — `maxScale: isMobile || resolvedQuality === 'low' ? 14 : undefined`
+- [ ] `src/interactive/index.tsx:35` — `const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;`
+- [ ] `src/quality.ts:20` — `* both the benchmark result (`opsPerMs`) and `isMobile`, so the caller can safely skip the`
+- [ ] `src/quality.ts:24` — `* first ('low') branch for every `opsPerMs`/`isMobile`. There is intentionally NO high-end`
+- [ ] `src/quality.ts:35` — `isMobile: boolean;`
+- [ ] `src/quality.ts:44` — `export function classifyQuality({ cores, deviceMemory, isMobile, opsPerMs }: QualitySignals): LiquidQuality {`
+- [ ] `src/quality.ts:46` — `if (cores <= 4 || deviceMemory <= 2 || opsPerMs < 16000 || isMobile) return 'standard';`
+- [ ] `src/quality.ts:47` — `if (cores >= 8 && deviceMemory >= 6 && opsPerMs >= 32000 && !isMobile) return 'extreme';`
+- [ ] `src/web-component/index.ts:17` — `function isChromium(): boolean {`
+- [ ] `src/web-component/index.ts:19` — `const ua = navigator.userAgent || '';`
+- [ ] `src/web-component/index.ts:98` — `window.matchMedia('(prefers-reduced-motion: reduce)').matches;`
+- [ ] `src/web-component/index.ts:104` — `const chromium = isChromium();`
+- [ ] `tests/browser/safari.tsx:24` — `const result={revision:'css-rim-v3',userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,panels:clones.length,cssLensCount:document.querySelectorAll('[data-liquid-glass-mirror="css"]').length,mapCount:document.querySelectorAll('#panels feImage[href^="data:image/png"]').length,medianFrameIntervalMs:samples[Math.floor(samples.length*.5)],p95FrameIntervalMs:samples[Math.floor(samples.length*.95)],maxAlignmentErrorPx:alignmentError({sour`
+
+### library — parallel declarations / embedded records
+- [ ] `demo/demo-entry.tsx:5` — `type Mode = 'auto' | 'svg' | 'blur' | 'webgl' | 'off';`
+- [ ] `src/LiquidGlass.stories.tsx:3` — `import LiquidGlass, { type LiquidGlassHandle } from './index';`
+- [ ] `src/LiquidGlass.stories.tsx:7` — `type LiquidGlassComponent = typeof LiquidGlass;`
+- [ ] `src/LiquidGlass.stories.tsx:108` — `type Story = StoryObj<LiquidGlassComponent>;`
+- [ ] `src/__tests__/liquid.test.ts:4` — `it('exposes the three presets and a type guard', () => {`
+- [ ] `src/core/DisplacementFilter.tsx:5` — `interface Props {`
+- [ ] `src/core/displacementField.ts:60` — `export interface FieldOpts {`
+- [ ] `src/core/displacementMap.ts:16` — `export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';`
+- [ ] `src/core/displacementMap.ts:18` — `export interface DisplacementParams {`
+- [ ] `src/core/displacementMap.ts:113` — `interface LensInner {`
+- [ ] `src/core/liquid.ts:8` — `export type LiquidPreset = 'ripple' | 'flow' | 'wobble';`
+- [ ] `src/core/liquid.ts:17` — `export interface LiquidConfig {`
+- [ ] `src/core/liquid.ts:26` — `export interface LiquidOptions {`
+- [ ] `src/core/liquid.ts:35` — `interface PresetSpec extends LiquidConfig {`
+- [ ] `src/core/liquid.ts:44` — `const PRESETS: Record<LiquidPreset, PresetSpec> = {`
+- [ ] `src/core/mirrorEngine.ts:2` — `import { useEffect, useState, type RefObject } from 'react';`
+- [ ] `src/core/mirrorEngine.ts:7` — `export interface MirrorEngineOptions {`
+- [ ] `src/core/mirrorOptics.ts:14` — `type Geometry = ReturnType<typeof lensGeometry>;`
+- [ ] `src/core/nativeOptics.ts:14` — `export interface LensOptions {`
+- [ ] `src/core/useGeometry.ts:1` — `import { useEffect, useState, type RefObject } from 'react';`
+- [ ] `src/core/useQuality.ts:2` — `import { decisiveTier, classifyQuality, type LiquidQuality } from '../quality';`
+- [ ] `src/core/useTextColor.ts:1` — `import { useEffect, useState, type RefObject } from 'react';`
+- [ ] `src/cssColor.ts:3` — `export interface Rgba { r: number; g: number; b: number; a: number }`
+- [ ] `src/displacementCache.ts:10` — `export interface LruCache {`
+- [ ] `src/index.tsx:9` — `export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';`
+- [ ] `src/index.tsx:22` — `const QUALITY_DIVISORS: Record<LiquidQuality, number> = {`
+- [ ] `src/index.tsx:29` — `const QUALITY_QUANTIZATION_STEPS: Record<LiquidQuality, number> = {`
+- [ ] `src/index.tsx:36` — `export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {`
+- [ ] `src/index.tsx:238` — `export interface LiquidGlassHandle {`
+- [ ] `src/interactive/index.tsx:1` — `import React, { useEffect, useRef, useImperativeHandle, forwardRef, type RefObject } from 'react';`
+- [ ] `src/interactive/index.tsx:2` — `import LiquidGlass, { type LiquidGlassProps, type LiquidGlassHandle } from '../index';`
+- [ ] `src/interactive/index.tsx:3` — `import { stepSpring, isSettled, clamp, type SpringState } from './spring';`
+- [ ] `src/interactive/index.tsx:6` — `export interface PointerElasticOptions {`
+- [ ] `src/interactive/index.tsx:124` — `export interface LiquidGlassInteractiveProps extends LiquidGlassProps, PointerElasticOptions {}`
+- [ ] `src/interactive/options.ts:8` — `export interface ResolvedElastic {`
+- [ ] `src/interactive/spring.ts:6` — `export interface SpringState {`
+- [ ] `src/interactive/spring.ts:13` — `export interface SpringConfig {`
+- [ ] `src/mirror/index.tsx:2` — `import LiquidGlass, { type LiquidGlassProps, type LiquidGlassHandle } from '../index';`
+- [ ] `src/mirror/index.tsx:4` — `export interface LiquidGlassMirrorProps extends LiquidGlassProps {`
+- [ ] `src/quality.ts:9` — `export type LiquidQuality = 'low' | 'standard' | 'high' | 'extreme';`
+- [ ] `src/quality.ts:11` — `export interface DeviceHints {`
+- [ ] `src/quality.ts:34` — `export interface QualitySignals extends DeviceHints {`
+- [ ] `tests/types/consumer.tsx:2` — `import { LiquidGlass, type LiquidGlassHandle, type LiquidGlassProps } from 'simple-liquid-glass';`
+
+### library — manual lab references
+- [ ] `playwright.config.ts:5` — `use: { baseURL: 'http://127.0.0.1:4174', screenshot: 'only-on-failure' },`
+- [ ] `playwright.config.ts:7` — `webServer: { command: 'npx vite --host 127.0.0.1 --port 4174 --strictPort', url: 'http://127.0.0.1:4174/tests/browser/', reuseExistingServer: false }`
+- [ ] `scripts/build-safari-lab.mjs:2` — `await build({configFile:false,publicDir:false,build:{outDir:'/private/tmp/liquid-glass-safari-preview',emptyOutDir:true,sourcemap:false,rollupOptions:{input:['tests/browser/safari.html','tests/browser/optics.html']}}});`
+- [ ] `scripts/serve-safari-lab.mjs:6` — `const files=new Map(['safari','optics'].map(name=>[`/tests/browser/${name}.html`,`${root}/tests/browser/${name}.html`]));`
+- [ ] `scripts/serve-safari-lab.mjs:17` — `server.listen(4175,'0.0.0.0',()=>{`
+- [ ] `scripts/serve-safari-lab.mjs:18` — `console.log('http://localhost:4175/tests/browser/safari.html?run');`
+- [ ] `scripts/serve-safari-lab.mjs:19` — `for(const list of Object.values(networkInterfaces()))for(const item of list||[])if(item.family==='IPv4'&&!item.internal)console.log(`Phone URL: http://${item.address}:4175/tests/browser/safari.html?run`);`
+- [ ] `src/core/displacementField.ts:7` — `* byte-exact mirror of the raster. The browser pixel-Jacobian (verify/fold-check.html) confirms`
+- [ ] `tests/browser/glass.spec.ts:15` — `await page.goto('/tests/browser/');`
+- [ ] `tests/browser/glass.spec.ts:28` — `await page.goto('/tests/browser/?mirror');`
+- [ ] `tests/browser/glass.spec.ts:41` — `await page.goto('/tests/browser/?effect=off');`
+- [ ] `tests/browser/glass.spec.ts:53` — `await page.goto('/tests/browser/?interactive&effect=off');`
+- [ ] `tests/browser/glass.spec.ts:61` — `await page.goto('/tests/browser/?mirror');`
+- [ ] `tests/browser/glass.spec.ts:78` — `await page.goto('/tests/browser/?mirror&track');`
+- [ ] `tests/browser/glass.spec.ts:92` — `await page.goto('/tests/browser/?mirror&track&panels=6');`
+- [ ] `tests/browser/optics.spec.ts:4` — `await page.goto('/tests/browser/optics.html');`
+- [ ] `tests/browser/release.spec.ts:4` — `await page.goto('/tests/browser/release.html');`
+- [ ] `tests/browser/visual-refraction.spec.ts:7` — `await page.goto('/tests/browser/safari.html');`
+- [ ] `tests/browser/visual-refraction.spec.ts:45` — `await page.goto('/tests/browser/safari.html');`
+- [ ] `verify/serve.mjs:20` — `if (p === '/') p = '/verify/liquid.html';`
+
+### library — superseded CSS
+- [ ] `examples/src/App.css:1` — `:root { color: #111; }`
+- [ ] `examples/src/index.css:1` — `:root {`
+
+## showcase scanned files
+- eslint.config.js
+- index.html
+- public/404.html
+- src/App.tsx
+- src/components/CodeBlock.tsx
+- src/components/DemoShell.tsx
+- src/components/Draggable.tsx
+- src/components/Footer.tsx
+- src/components/GlassCursor.tsx
+- src/components/GlassLogo.tsx
+- src/components/GlassMemo.tsx
+- src/components/GlassMusicPlayer.tsx
+- src/components/GlassNav.tsx
+- src/components/LensStudio.tsx
+- src/components/MediaScene.tsx
+- src/components/PackageActions.tsx
+- src/components/StudioGlass.tsx
+- src/lib/codegen.ts
+- src/lib/copyText.ts
+- src/lib/demos.ts
+- src/lib/packagePrompt.ts
+- src/lib/presets.ts
+- src/lib/releases.ts
+- src/lib/usePageMeta.ts
+- src/main.tsx
+- src/pages/ExamplesHub.tsx
+- src/pages/Home.tsx
+- src/pages/NotFound.tsx
+- src/pages/Playground.tsx
+- src/pages/UseWithAI.tsx
+- src/pages/WhatsNew.tsx
+- src/pages/examples/Dock.tsx
+- src/pages/examples/Gallery.tsx
+- src/pages/examples/Interactive.tsx
+- src/pages/examples/LensModes.tsx
+- src/pages/examples/LiquidAnimation.tsx
+- src/pages/examples/Login.tsx
+- src/pages/examples/Modal.tsx
+- src/pages/examples/MusicPlayer.tsx
+- src/pages/examples/Notifications.tsx
+- src/pages/examples/Pricing.tsx
+- src/pages/examples/Weather.tsx
+- src/pages/examples/WebComponentDemo.tsx
+- src/styles/studio.css
+- src/styles/theme.css
+- src/vite-env.d.ts
+- vite.config.ts
+
+### showcase — dead modules / old playground
+- [ ] `src/components/Draggable.tsx:3` — `export default function Draggable({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {`
+- [ ] `src/components/GlassCursor.tsx:36` — `export default function GlassCursor() {`
+- [ ] `src/lib/codegen.ts:1` — `import { DEFAULTS, LIBRARY_DEFAULTS, type Controls } from './presets'`
+- [ ] `src/lib/codegen.ts:11` — `export function controlsToJsx(controls: Controls): string {`
+- [ ] `src/lib/codegen.ts:13` — `for (const key of Object.keys(DEFAULTS) as (keyof Controls)[]) {`
+- [ ] `src/lib/codegen.ts:15` — `if (value === undefined || value === LIBRARY_DEFAULTS[key]) continue`
+- [ ] `src/lib/demos.ts:114` — `title: 'Draggable checklist',`
+- [ ] `src/lib/presets.ts:14` — `export const DEFAULTS: Controls = {`
+- [ ] `src/lib/presets.ts:28` — `// explicit undefined is load-bearing: codegen iterates Object.keys(DEFAULTS)`
+- [ ] `src/lib/presets.ts:47` — `// Actual library defaults from the package's JSDoc — codegen diffs against these`
+- [ ] `src/lib/presets.ts:48` — `export const LIBRARY_DEFAULTS: Partial<Controls> = {`
+- [ ] `src/lib/presets.ts:94` — `export const PRESETS: Preset[] = [`
+- [ ] `src/pages/examples/WebComponentDemo.tsx:3` — `export default function WebComponentDemo() {`
+- [ ] `src/styles/theme.css:595` — `the Draggable spring, smooth scroll) — */`
+
+### showcase — clipboard
+- [ ] `src/components/CodeBlock.tsx:4` — `const [copied, setCopied] = useState(false)`
+- [ ] `src/components/CodeBlock.tsx:6` — `navigator.clipboard.writeText(code).catch(() => {})`
+- [ ] `src/components/CodeBlock.tsx:7` — `setCopied(true)`
+- [ ] `src/components/CodeBlock.tsx:8` — `setTimeout(() => setCopied(false), 1500)`
+- [ ] `src/components/CodeBlock.tsx:13` — `{copied ? 'Copied!' : 'Copy'}`
+- [ ] `src/components/LensStudio.tsx:6` — `import {copyText} from '../lib/copyText'`
+- [ ] `src/components/LensStudio.tsx:21` — `const [values,setValues]=useState(defaults),[profile,setProfile]=useState<NonNullable<LiquidGlassProps['lensProfile']>>('player'),[scene,setScene]=useState('coast'),[copied,setCopied]=useState(false),[copyError,setCopyError]=useState(false)`
+- [ ] `src/components/LensStudio.tsx:25` — `return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} `
+- [ ] `src/components/PackageActions.tsx:3` — `import {copyText} from '../lib/copyText'`
+- [ ] `src/components/PackageActions.tsx:7` — `const copy=async(text:string,label:string)=>setStatus(await copyText(text)?`${label} copied`:'Copy unavailable. Open Documentation for the text.')`
+- [ ] `src/components/PackageActions.tsx:8` — `return <div className="package-actions"><span className="package-intro">THE OPEN-SOURCE REACT GLASS COMPONENT</span><button className="package-install" aria-label="Copy npm install command" onClick={()=>void copy('npm install simple-liquid-glass','Install command')}><code>npm install simple-liquid-glass</code>{status==='Install command copied'?<Check size={17}/>:<Copy size={17}/>}</button><button className="package-prompt" onClick={()=>void copy(`
+- [ ] `src/lib/copyText.ts:1` — `export async function copyText(text:string):Promise<boolean>{`
+- [ ] `src/lib/copyText.ts:2` — `try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return true}}catch{/* Local HTTP previews can require the selection fallback. */}`
+- [ ] `src/lib/copyText.ts:5` — `let copied=false;try{copied=document.execCommand('copy')}catch{copied=false}finally{field.remove();previous?.focus({preventScroll:true})}return copied`
+
+### showcase — release metadata
+- [ ] `index.html:106` — `"text": "Install via npm: npm i simple-liquid-glass. Then wrap your content with the LiquidGlass React component."`
+- [ ] `index.html:161` — `Getting started is straightforward. Install via npm with <code>npm i simple-liquid-glass</code> and wrap any content inside`
+- [ ] `src/components/Footer.tsx:2` — `export default function Footer(){return <footer className="studio-footer"><div><Link to="/" className="footer-brand">simple liquid glass.</Link><p>A little less interface. A little more feeling.</p></div><div className="footer-right"><a href="https://github.com/lucaperullo/simple-liquid-glass" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://www.npmjs.com/package/simple-liquid-glass" target="_blank" rel="noreferrer">npm ↗</a><Link to`
+- [ ] `src/components/GlassNav.tsx:7` — `return <header className="studio-header"><Link className="studio-brand" to="/" onClick={()=>setOpen(false)}><GlassLogo/>simple<span className="brand-light">liquid glass</span><sup>5.1</sup></Link><nav className={open?'studio-links is-open':'studio-links'} aria-label="Main navigation"><NavLink to="/examples" onClick={()=>setOpen(false)}>Collection</NavLink><NavLink to="/playground" onClick={()=>setOpen(false)}>Playground</NavLink><NavLink to="/ai"`
+- [ ] `src/components/PackageActions.tsx:4` — `import {PACKAGE_PROMPT} from '../lib/packagePrompt'`
+- [ ] `src/components/PackageActions.tsx:8` — `return <div className="package-actions"><span className="package-intro">THE OPEN-SOURCE REACT GLASS COMPONENT</span><button className="package-install" aria-label="Copy npm install command" onClick={()=>void copy('npm install simple-liquid-glass','Install command')}><code>npm install simple-liquid-glass</code>{status==='Install command copied'?<Check size={17}/>:<Copy size={17}/>}</button><button className="package-prompt" onClick={()=>void copy(`
+- [ ] `src/lib/packagePrompt.ts:1` — `export const PACKAGE_PROMPT = `Build a React interface using simple-liquid-glass@5.1.0.`
+- [ ] `src/lib/releases.ts:12` — `export const RELEASES: Release[] = [`
+- [ ] `src/lib/releases.ts:13` — `{ version:'5.0.0',date:'2026-09-08',headline:'A new material, beautiful by default',points:['A rounded player lens with 80px default refraction.','New lens profiles and explicit pixel strength control.','Existing directional and animated controls remain available.','React 16–19 compatibility, generated types, and revised package validation.'] },`
+- [ ] `src/lib/releases.ts:82` — `export const LATEST_RELEASE = RELEASES[0]`
+- [ ] `src/lib/releases.ts:84` — `export const LATEST_VERSION = LATEST_RELEASE.version`
+- [ ] `src/lib/releases.ts:86` — `export const LATEST_VERSION_SHORT = LATEST_VERSION.split('.').slice(0, 2).join('.')`
+- [ ] `src/pages/UseWithAI.tsx:3` — `import {PACKAGE_PROMPT} from '../lib/packagePrompt'`
+- [ ] `src/pages/UseWithAI.tsx:4` — `export default function UseWithAI(){usePageMeta('Build with glass — Simple Liquid Glass','Get started with Simple Liquid Glass 5.1 and a ready-to-copy AI prompt.');return <section className="standalone-studio docs-page"><span className="eyebrow">A SMALL API. A BIG DIFFERENCE.</span><h1>From idea to interface.</h1><p className="page-intro">Everything you need to start working with the material.</p><div className="docs-columns"><div><h2>Install</h2`
+- [ ] `src/pages/WhatsNew.tsx:5` — `import { RELEASES, LATEST_VERSION_SHORT } from '../lib/releases'`
+- [ ] `src/pages/WhatsNew.tsx:28` — `usePageMeta('What’s new — Simple Liquid Glass', `Every feature added across the changelog up to ${LATEST_VERSION_SHORT}: water-drop ripples, AI/LLM tooling, animated refraction, lens modes, interactive glass, and the web component.`)`
+- [ ] `src/pages/WhatsNew.tsx:32` — `<h1 className="sectionTitle">What&apos;s new in {LATEST_VERSION_SHORT}</h1>`
+- [ ] `src/pages/WhatsNew.tsx:64` — `{RELEASES.map(r => (`
+
+### showcase — showcase quality
+- [ ] `index.html:168` — `depth and polish. Simple Liquid Glass – React Glassmorphism Component focuses on high‑quality visuals, clarity of API,`
+- [ ] `src/components/GlassCursor.tsx:118` — `quality="extreme" autodetectquality={false}`
+- [ ] `src/components/LensStudio.tsx:24` — `const code=`<LiquidGlass\n  quality="extreme"\n  autodetectquality={false}\n  mirror={false}\n  mobileFallback="svg"\n  refraction="lens"\n  lensProfile="${profile}"\n  lensOptions={${JSON.stringify(lensSettings,null,2)}}\n${Object.entries(optics).map(([key,value])=>`  ${key}={${value}}`).join('\n')}\n  background="${glassProps.background}"\n>\n  <YourChecklist />\n</LiquidGlass>``
+- [ ] `src/components/StudioGlass.tsx:3` — `export default function StudioGlass(props:LiquidGlassProps){return <LiquidGlass radius={28} blur={1.5} saturation={115} aberrationIntensity={.12} frost={0} background="rgba(255,255,255,.10)" mirror={false} {...props} quality="extreme" autodetectquality={false} mobileFallback="svg" style={{height:'auto',boxShadow:'0 24px 64px rgba(8,30,30,.24), inset 0 1px 0 rgba(255,255,255,.65)',...props.style}}/>}`
+- [ ] `src/lib/packagePrompt.ts:3` — `Use quality="extreme", autodetectquality={false}, mirror={false}, and mobileFallback="svg".`
+- [ ] `src/lib/presets.ts:11` — `| 'quality' | 'effectMode' | 'autodetectquality'`
+- [ ] `src/lib/presets.ts:42` — `quality: 'extreme',`
+- [ ] `src/lib/presets.ts:44` — `autodetectquality: false,`
+- [ ] `src/lib/presets.ts:74` — `quality: 'low',`
+- [ ] `src/lib/presets.ts:76` — `autodetectquality: false,`
+- [ ] `src/lib/presets.ts:81` — `// is missing"; `mobileFallback: 'svg'` keeps the refraction. (Refraction is Chromium-only — Safari /`
+- [ ] `src/lib/presets.ts:83` — `export const SCENE_GLASS = {`
+- [ ] `src/lib/presets.ts:84` — `quality: 'extreme',`
+- [ ] `src/lib/presets.ts:85` — `autodetectquality: false,`
+- [ ] `src/lib/presets.ts:86` — `mobileFallback: 'svg',`
+- [ ] `src/lib/releases.ts:19` — `'Everything else is unchanged: lens modes, angle, shapeAdapt, liquid animation, the interactive export (followPointer, clickRipple), the web component, and quality presets.',`
+- [ ] `src/lib/releases.ts:59` — `'LiquidGlassHandle.getQuality() to read the resolved rendering quality via ref.',`
+- [ ] `src/lib/releases.ts:76` — `'quality presets (low → extreme) + autodetectquality, and a richer masked edge-refraction fallback replacing the flat blur.',`
+- [ ] `src/pages/Home.tsx:39` — `<section id="create" data-chapter className="experience-lab" aria-label="The material room"><div className="experience-copy material-heading"><span className="experience-kicker">THE MATERIAL ROOM</span><h2>A change of light.<br/><em>A different feeling.</em></h2><p>You’re the designer now. Shape the glass around a working component.</p></div><LensStudio/><div className="experience-build"><div><span className="experience-kicker">TAKE A LITTLE OF T`
+- [ ] `src/pages/UseWithAI.tsx:4` — `export default function UseWithAI(){usePageMeta('Build with glass — Simple Liquid Glass','Get started with Simple Liquid Glass 5.1 and a ready-to-copy AI prompt.');return <section className="standalone-studio docs-page"><span className="eyebrow">A SMALL API. A BIG DIFFERENCE.</span><h1>From idea to interface.</h1><p className="page-intro">Everything you need to start working with the material.</p><div className="docs-columns"><div><h2>Install</h2`
+- [ ] `src/pages/WhatsNew.tsx:43` — `<LiquidGlass mobileFallback="svg" mode="custom" radius={22} quality="extreme" liquid="ripple" displace={1.1} dispersion={90} aberrationIntensity={2} frost={0.06}>`
+- [ ] `src/pages/examples/Dock.tsx:4` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Dock.tsx:20` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={28} frost={0.16} blur={5} saturation={180} displace={0.7} dispersion={50} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/Gallery.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Gallery.tsx:27` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={12} frost={0.22} blur={4} displace={0.6} dispersion={45} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/LensModes.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/LensModes.tsx:17` — `<LiquidGlass {...SCENE_GLASS}`
+- [ ] `src/pages/examples/LensModes.tsx:18` — `mode="custom" radius={20} quality="extreme"`
+- [ ] `src/pages/examples/LiquidAnimation.tsx:4` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/LiquidAnimation.tsx:12` — `<LiquidGlass {...SCENE_GLASS}`
+- [ ] `src/pages/examples/LiquidAnimation.tsx:13` — `mode="custom" radius={28} quality="extreme"`
+- [ ] `src/pages/examples/Login.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Login.tsx:15` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={24} frost={0.22} blur={5} displace={0.8} dispersion={55} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/Modal.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Modal.tsx:35` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={22} frost={0.25} blur={6} displace={0.7} dispersion={50} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/Notifications.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Notifications.tsx:29` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={18} frost={0.22} blur={5} displace={0.7} dispersion={50} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/Pricing.tsx:3` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Pricing.tsx:36` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={26} frost={0.2} blur={5} displace={0.8} dispersion={65} aberrationIntensity={2}>`
+- [ ] `src/pages/examples/Weather.tsx:2` — `import { SCENE_GLASS } from '../../lib/presets'`
+- [ ] `src/pages/examples/Weather.tsx:16` — `<LiquidGlass {...SCENE_GLASS} mode="custom" quality="extreme" autodetectquality={false} radius={26} frost={0.22} blur={5} displace={0.8} dispersion={60} aberrationIntensity={2}>`
+
+### showcase — demo ownership
+- [ ] `src/components/DemoShell.tsx:3` — `import { DEMOS } from '../lib/demos'`
+- [ ] `src/components/DemoShell.tsx:8` — `const SOURCES = import.meta.glob('../pages/examples/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>`
+- [ ] `src/components/DemoShell.tsx:10` — `const WIDGET_SOURCES = import.meta.glob('./Glass*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>`
+- [ ] `src/components/DemoShell.tsx:12` — `function sourceFor(file: string): string {`
+- [ ] `src/components/DemoShell.tsx:13` — `if(file === 'MusicPlayer') return WIDGET_SOURCES['./GlassMusicPlayer.tsx']`
+- [ ] `src/components/DemoShell.tsx:14` — `if(file === 'Interactive') return WIDGET_SOURCES['./GlassMemo.tsx']`
+- [ ] `src/components/DemoShell.tsx:15` — `return SOURCES[`../pages/examples/${file}.tsx`] ?? ''`
+- [ ] `src/components/DemoShell.tsx:21` — `const idx = DEMOS.findIndex(d => d.slug === slug)`
+- [ ] `src/components/DemoShell.tsx:22` — `const demo = idx >= 0 ? DEMOS[idx] : undefined`
+- [ ] `src/components/DemoShell.tsx:28` — `const prev = DEMOS[(idx - 1 + DEMOS.length) % DEMOS.length]`
+- [ ] `src/components/DemoShell.tsx:29` — `const next = DEMOS[(idx + 1) % DEMOS.length]`
+- [ ] `src/components/DemoShell.tsx:34` — `{DEMOS.map(d => (`
+- [ ] `src/components/DemoShell.tsx:42` — `{DEMOS.map(d => <option key={d.slug} value={d.slug}>{d.title}</option>)}`
+- [ ] `src/components/DemoShell.tsx:47` — `<div className="demoScene" style={{ background: demo.sceneCss }}>`
+- [ ] `src/components/DemoShell.tsx:53` — `<CodeBlock code={sourceFor(demo.file)} />`
+- [ ] `src/components/Footer.tsx:2` — `export default function Footer(){return <footer className="studio-footer"><div><Link to="/" className="footer-brand">simple liquid glass.</Link><p>A little less interface. A little more feeling.</p></div><div className="footer-right"><a href="https://github.com/lucaperullo/simple-liquid-glass" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://www.npmjs.com/package/simple-liquid-glass" target="_blank" rel="noreferrer">npm ↗</a><Link to`
+- [ ] `src/components/GlassMusicPlayer.tsx:6` — `{title:'Blue hour',subtitle:'Coastal studies',src:'/media/blue-hour.mp3',cover:'/media/coast.jpg'},`
+- [ ] `src/components/GlassMusicPlayer.tsx:7` — `{title:'Slow sun',subtitle:'Desert studies',src:'/media/slow-sun.mp3',cover:'/media/dunes.jpg'},`
+- [ ] `src/components/LensStudio.tsx:25` — `return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} `
+- [ ] `src/lib/demos.ts:8` — `previewCss: string`
+- [ ] `src/lib/demos.ts:9` — `sceneCss: string`
+- [ ] `src/lib/demos.ts:17` — `const scene = (_lead: string, seed: string) => `linear-gradient(#0001,#0002), url('/media/${seed.length % 2 ? 'coast':'dunes'}.jpg') center/cover``
+- [ ] `src/lib/demos.ts:18` — `const sceneThumb = scene`
+- [ ] `src/lib/demos.ts:20` — `export const DEMOS: DemoEntry[] = [`
+- [ ] `src/lib/demos.ts:26` — `previewCss: sceneThumb('#8b5cf0', 'midnight-vinyl'),`
+- [ ] `src/lib/demos.ts:27` — `sceneCss: scene('#8b5cf0', 'midnight-vinyl'),`
+- [ ] `src/lib/demos.ts:35` — `previewCss: sceneThumb('#4f8de8', 'alpine-ridge-dock'),`
+- [ ] `src/lib/demos.ts:36` — `sceneCss: scene('#4f8de8', 'alpine-ridge-dock'),`
+- [ ] `src/lib/demos.ts:44` — `previewCss: sceneThumb('#4fb85f', 'studio-desk-busy'),`
+- [ ] `src/lib/demos.ts:45` — `sceneCss: scene('#4fb85f', 'studio-desk-busy'),`
+- [ ] `src/lib/demos.ts:53` — `previewCss: sceneThumb('#4f8de8', 'dawn-sky-clouds'),`
+- [ ] `src/lib/demos.ts:54` — `sceneCss: scene('#4f8de8', 'dawn-sky-clouds'),`
+- [ ] `src/lib/demos.ts:62` — `previewCss: sceneThumb('#8b5cf0', 'glass-atrium-light'),`
+- [ ] `src/lib/demos.ts:63` — `sceneCss: scene('#8b5cf0', 'glass-atrium-light'),`
+- [ ] `src/lib/demos.ts:71` — `previewCss: sceneThumb('#e6912a', 'city-night-lights'),`
+- [ ] `src/lib/demos.ts:72` — `sceneCss: scene('#e6912a', 'city-night-lights'),`
+- [ ] `src/lib/demos.ts:80` — `previewCss: sceneThumb('#e8504a', 'neon-ridge-dusk'),`
+- [ ] `src/lib/demos.ts:81` — `sceneCss: scene('#e8504a', 'neon-ridge-dusk'),`
+- [ ] `src/lib/demos.ts:89` — `previewCss: sceneThumb('#4fb85f', 'gallery-hall-art'),`
+- [ ] `src/lib/demos.ts:90` — `sceneCss: scene('#4fb85f', 'gallery-hall-art'),`
+- [ ] `src/lib/demos.ts:98` — `previewCss: sceneThumb('#4f8de8', 'liquid-ripple-sea'),`
+- [ ] `src/lib/demos.ts:99` — `sceneCss: scene('#4f8de8', 'liquid-ripple-sea'),`
+- [ ] `src/lib/demos.ts:107` — `previewCss: sceneThumb('#8b5cf0', 'lens-grid-optics'),`
+- [ ] `src/lib/demos.ts:108` — `sceneCss: scene('#8b5cf0', 'lens-grid-optics'),`
+- [ ] `src/lib/demos.ts:116` — `previewCss: sceneThumb('#e8504a', 'pointer-elastic-stone'),`
+- [ ] `src/lib/demos.ts:117` — `sceneCss: scene('#e8504a', 'pointer-elastic-stone'),`
+- [ ] `src/pages/ExamplesHub.tsx:3` — `import {DEMOS} from '../lib/demos'`
+- [ ] `src/pages/ExamplesHub.tsx:6` — `export default function ExamplesHub(){usePageMeta('The collection — Simple Liquid Glass','Explore real glass components, from navigation and weather to music players.');return <section className="collection-page"><span className="eyebrow">THE COMPONENT COLLECTION</span><h1>A thousand ways<br/>to feel different.</h1><p className="page-intro">Familiar patterns. A completely different material.<br/>Explore an example, then make it yours.</p><div cla`
+- [ ] `src/pages/Home.tsx:27` — `<MediaScene key={mood} src={`/media/${mood}.mp4`} poster={`/media/${mood}-poster.jpg`} label="Listening room film"/>`
+- [ ] `src/pages/Home.tsx:34` — `<img className="scene-media" src="/media/dunes.jpg" alt="Sculpted rose dunes at sunset" loading="lazy"/><div className="experience-shade"/>`
+- [ ] `src/pages/WhatsNew.tsx:42` — `<div style={{ background: "radial-gradient(70% 60% at 30% 20%, #4f8de855, transparent), url('/media/coast.jpg') center/cover", padding: 18 }}>`
+
+### showcase — lens vocabulary
+- [ ] `src/components/LensStudio.tsx:21` — `const [values,setValues]=useState(defaults),[profile,setProfile]=useState<NonNullable<LiquidGlassProps['lensProfile']>>('player'),[scene,setScene]=useState('coast'),[copied,setCopied]=useState(false),[copyError,setCopyError]=useState(false)`
+- [ ] `src/components/LensStudio.tsx:23` — `const glassProps={...optics,lensOptions:lensSettings,lensProfile:profile,background:`rgba(255,255,255,${tint})`}`
+- [ ] `src/components/LensStudio.tsx:24` — `const code=`<LiquidGlass\n  quality="extreme"\n  autodetectquality={false}\n  mirror={false}\n  mobileFallback="svg"\n  refraction="lens"\n  lensProfile="${profile}"\n  lensOptions={${JSON.stringify(lensSettings,null,2)}}\n${Object.entries(optics).map(([key,value])=>`  ${key}={${value}}`).join('\n')}\n  background="${glassProps.background}"\n>\n  <YourChecklist />\n</LiquidGlass>``
+- [ ] `src/components/LensStudio.tsx:25` — `return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} `
+- [ ] `src/lib/demos.ts:104` — `file: 'LensModes',`
+- [ ] `src/lib/demos.ts:106` — `blurb: 'classic / convex / shift / rim — four ways the glass bends light.',`
+- [ ] `src/lib/demos.ts:109` — `Component: lazy(() => import('../pages/examples/LensModes')),`
+- [ ] `src/lib/packagePrompt.ts:5` — `Use refraction="lens", lensProfile="player", displacementScale={80}, radius={32}, and blur={1} as a starting point.`
+- [ ] `src/lib/packagePrompt.ts:6` — `Supported lens profiles are material, loupe, player, and track. Use blur, saturation, aberrationIntensity, frost, and background to tune the material.`
+- [ ] `src/lib/presets.ts:38` — `lens: 'classic',`
+- [ ] `src/lib/presets.ts:70` — `lens: 'classic',`
+- [ ] `src/lib/presets.ts:102` — `{ name: 'Convex magnifier', controls: { lens: 'convex', lensStrength: 1.4, displace: 1.4, dispersion: 80, aberrationIntensity: 2 } },`
+- [ ] `src/lib/releases.ts:34` — `'lens: classic / convex / shift / rim — choose the displacement field; plus lensStrength and lensCenter.',`
+- [ ] `src/pages/examples/LensModes.tsx:2` — `import type { LensMode } from 'simple-liquid-glass'`
+- [ ] `src/pages/examples/LensModes.tsx:5` — `const LENSES: { mode: LensMode; label: string; note: string }[] = [`
+- [ ] `src/pages/examples/LensModes.tsx:6` — `{ mode: 'classic', label: 'Classic', note: 'Linear radial field' },`
+- [ ] `src/pages/examples/LensModes.tsx:7` — `{ mode: 'convex', label: 'Convex', note: 'One coherent dome magnifier' },`
+- [ ] `src/pages/examples/LensModes.tsx:12` — `export default function LensModes() {`
+
+### showcase — motion and browser classification
+- [ ] `src/components/GlassCursor.tsx:41` — `if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return`
+- [ ] `src/components/GlassCursor.tsx:49` — `const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches`
+- [ ] `src/components/MediaScene.tsx:8` — `const video=ref.current!;const media=matchMedia('(prefers-reduced-motion: reduce)');wanted.current=!media.matches`
+- [ ] `src/pages/Home.tsx:18` — `const media=matchMedia('(prefers-reduced-motion: reduce)'),stories=Array.from(root.current?.querySelectorAll<HTMLElement>('.scroll-story')??[])`
+
+### showcase — parallel declarations / embedded records
+- [ ] `src/components/DemoShell.tsx:8` — `const SOURCES = import.meta.glob('../pages/examples/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>`
+- [ ] `src/components/DemoShell.tsx:10` — `const WIDGET_SOURCES = import.meta.glob('./Glass*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>`
+- [ ] `src/components/GlassMemo.tsx:11` — `return <div ref={card} className="memo-widget"><StudioGlass radius={30} {...glassProps}><div className="memo-inner"><div className="memo-toolbar"><span>FIELD NOTES</span><button className="drag-handle" aria-label="Move checklist. Drag or use arrow keys; Home resets position." onPointerDown={e=>{if(e.button!==0)return;e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,x:e.clientX-position.current.x,y:e.clientY-position.cur`
+- [ ] `src/lib/codegen.ts:1` — `import { DEFAULTS, LIBRARY_DEFAULTS, type Controls } from './presets'`
+- [ ] `src/lib/demos.ts:1` — `import { lazy, type ComponentType, type LazyExoticComponent } from 'react'`
+- [ ] `src/lib/demos.ts:3` — `export interface DemoEntry {`
+- [ ] `src/lib/packagePrompt.ts:1` — `export const PACKAGE_PROMPT = `Build a React interface using simple-liquid-glass@5.1.0.`
+- [ ] `src/lib/packagePrompt.ts:7` — `Customize individual optics with lensOptions: strength, depth, curvature, bend, bendWidth, sheen, sheenWidth, sheenAngle, sheenFalloff, specular, glow, glowSpread, glowFalloff, and brightness. Omit displacementScale when controlling relative strength. Import LensOptions for its TypeScript type and resolveLensOptions for profile defaults.`
+- [ ] `src/lib/presets.ts:3` — `export type Controls = Pick<`
+- [ ] `src/lib/presets.ts:89` — `export interface Preset {`
+- [ ] `src/lib/releases.ts:5` — `export interface Release {`
+- [ ] `src/pages/examples/Login.tsx:1` — `import { useState, type CSSProperties } from 'react'`
+- [ ] `src/styles/studio.css:1` — `:root{--bg:#f6f5f1;--bg-0:#efeee9;--bg-raised:#fff;--bg-sunk:#eeede8;--text:#252724;--text-dim:#6c7069;--text-faint:#8c918a;--line:#ddded7;--line-strong:#c8ccc2;--font:Arial,Helvetica,sans-serif;--accent:#36694a;--mono:'SFMono-Regular',Consolas,monospace;color-scheme:light}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialias`
+- [ ] `src/vite-env.d.ts:3` — `import type React from 'react'`
+- [ ] `src/vite-env.d.ts:7` — `interface IntrinsicElements {`
+
+### showcase — manual lab references
+No matches.
+
+### showcase — superseded CSS
+- [ ] `src/components/GlassCursor.tsx:47` — `root.classList.add('glass-cursor-on')`
+- [ ] `src/components/GlassCursor.tsx:63` — `!!t.closest('a, button, input, textarea, select, summary, label, [role="button"], [onclick], .hubCard, .pgBgThumb, [data-clickable]')`
+- [ ] `src/components/GlassCursor.tsx:102` — `root.classList.remove('glass-cursor-on')`
+- [ ] `src/components/LensStudio.tsx:25` — `return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} `
+- [ ] `src/styles/studio.css:1` — `:root{--bg:#f6f5f1;--bg-0:#efeee9;--bg-raised:#fff;--bg-sunk:#eeede8;--text:#252724;--text-dim:#6c7069;--text-faint:#8c918a;--line:#ddded7;--line-strong:#c8ccc2;--font:Arial,Helvetica,sans-serif;--accent:#36694a;--mono:'SFMono-Regular',Consolas,monospace;color-scheme:light}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialias`
+- [ ] `src/styles/studio.css:3` — `@media(min-width:1600px){.hero-landscape{height:640px}}`
+- [ ] `src/styles/studio.css:4` — `@media(max-width:1000px){.studio-links{gap:20px}.hero-aside{min-width:220px}.hero-heading h1{font-size:9vw}.hero-landscape{height:510px}.showcase-scene{height:480px}.studio-settings{padding:30px}.studio-canvas{min-height:600px}.build-section{gap:30px}.code-editor pre{padding:25px;font-size:11px}.collection-grid{grid-template-columns:1fr 1fr}.studio-brand{font-size:17px}}`
+- [ ] `src/styles/studio.css:5` — `@media(max-width:700px){.studio-header{height:78px;padding:0 6%}.studio-brand{font-size:16px}.menu-button{display:block;color:var(--text)}.studio-links{display:none}.studio-links.is-open{position:absolute;top:78px;left:0;right:0;z-index:20;background:#f6f5f1;display:flex;align-items:flex-start;flex-direction:column;padding:30px 6%;border-bottom:1px solid var(--line)}.studio-links a:last-child{border:0;padding:0}.editorial-hero,.collection-section`
+- [ ] `src/styles/studio.css:8` — `.weather-wrap>[data-liquid-glass],.studio-canvas>[data-liquid-glass]{align-self:center;justify-self:center;height:auto}.hero-landscape .destination-card,.weather-content,.studio-sample,.film-status{text-shadow:0 1px 12px #143d3033}.wide-film::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#0c4f4745,transparent 75%);pointer-events:none;z-index:-1}.film-glass{z-index:1}`
+- [ ] `src/styles/studio.css:16` — `.memo-widget{position:relative;z-index:2;flex-shrink:0;width:306px;max-width:calc(100% - 32px)}.memo-toolbar{justify-content:space-between}.memo-widget .drag-handle{touch-action:none;cursor:grab}.memo-widget .drag-handle:active{cursor:grabbing;background:#ffffff30}.memo-inner h3{margin:17px 0 6px;font-size:25px;letter-spacing:-.045em}.memo-inner>p{font-size:11px;opacity:.8;margin:0 0 20px}.memo-list{display:grid;gap:14px;max-height:150px;overflow`
+- [ ] `src/styles/studio.css:17` — `@media(max-width:700px){.wide-film{min-height:700px}.film-glass{left:24px;right:24px;bottom:34px}.wide-film-copy{top:32px;left:24px;bottom:auto}.wide-film-copy h2{font-size:44px}.studio-canvas{min-height:540px}.music-inner,.memo-inner{padding:22px}.memo-stage{min-height:520px}}`
+- [ ] `src/styles/studio.css:25` — `@media(max-width:700px){body:has(.immersive-home) .studio-header{height:78px;padding:0 6%}body:has(.immersive-home) .studio-links.is-open{background:#15372f;border-color:#ffffff30}.experience-scene{height:auto;min-height:1050px;padding:140px 7% 125px;display:block}.opening-copy{width:100%}.opening-copy h1{font-size:clamp(59px,12vw,82px);margin:23px 0}.experience-kicker{font-size:8px;letter-spacing:.13em}.experience-copy p{font-size:12px}.experien`
+- [ ] `src/styles/studio.css:28` — `.glass-logo{display:inline-flex;flex-shrink:0;margin-right:9px;color:inherit}.glass-logo svg{display:block}.package-actions{display:grid;gap:10px;max-width:365px;margin-top:25px}.package-intro{font:8px var(--mono);letter-spacing:.13em;color:#ffffffbd}.package-install{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;border:1px solid #ffffff65;border-radius:12px;color:white;background:#142d2940;text-align:lef`
+- [ ] `src/styles/studio.css:30` — `@media(max-width:900px){.studio-canvas{position:relative;height:540px;min-height:540px}.standalone-studio .studio-canvas{height:540px}.opening-copy h1{font-size:clamp(59px,9vw,90px)}}`
+- [ ] `src/styles/studio.css:31` — `@media(max-width:700px){.glass-logo{margin-right:4px}.studio-brand{font-size:16px}.opening-copy h1{font-size:56px}.package-install code{font-size:10px}.package-install{padding:14px}.package-actions{margin-top:20px}.listening-scene{min-height:1250px}.experience-scene.listening-scene{padding-top:132px}.opening-copy .experience-scroll{margin-top:18px}.studio-canvas{height:540px}.material-heading h2{font-size:44px}}`
+- [ ] `src/styles/theme.css:6` — `:root {`
+- [ ] `src/styles/theme.css:230` — `.mobileSheet { position: fixed; top: 74px; left: 16px; right: 16px; z-index: 49; display: flex; flex-direction: column; gap: 2px; padding: 12px; }`
+- [ ] `src/styles/theme.css:231` — `.mobileSheet a { display: flex; align-items: center; min-height: 44px; padding: 11px 14px; border-radius: 10px; font-size: 16px; color: var(--text-dim); }`
+- [ ] `src/styles/theme.css:232` — `.mobileSheet a:hover { background: oklch(0.97 0.006 85 / 0.06); color: var(--text); }`
+- [ ] `src/styles/theme.css:368` — `html.glass-cursor-on, html.glass-cursor-on * { cursor: none !important; }`
+- [ ] `src/styles/theme.css:444` — `.pgBgThumb { width: 44px; height: 30px; border-radius: 7px; border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; padding: 0; transition: transform 0.16s var(--ease-out); }`
+- [ ] `src/styles/theme.css:445` — `.pgBgThumb:hover { transform: scale(1.06); }`
+- [ ] `src/styles/theme.css:446` — `.pgBgThumb.active { border-color: var(--text); }`
+- [ ] `src/styles/theme.css:546` — `/* duration tokens to pair with the easing tokens in :root */`
+- [ ] `src/styles/theme.css:547` — `:root { --dur-fast: 0.15s; --dur: 0.25s; --dur-slow: 0.35s; }`
+- [ ] `src/styles/theme.css:566` — `.pgBgThumb { min-height: 36px; }`
+- [ ] `src/styles/theme.css:569` — `.mobileSheet { animation: sheetIn var(--dur) var(--ease-out); transform-origin: top center; }`
+- [ ] `src/styles/theme.css:576` — `.mobileSheet a:active { background: oklch(0.97 0.006 85 / 0.12); color: var(--text); }`
+- [ ] `src/styles/theme.css:582` — `.pgBgThumb:active { transform: scale(0.95); opacity: 0.85; }`
+- [ ] `src/styles/theme.css:588` — `.mobileSheet a:focus-visible, .btn:focus-visible, .copyBtn:focus-visible,`
+- [ ] `src/styles/theme.css:589` — `.pgBgThumb:focus-visible, .hubCard:focus-visible, .demoSide a:focus-visible,`

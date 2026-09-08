@@ -1,0 +1,92 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/Footer.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/Footer.tsx
+@@ -1,2 +1,3 @@
++import {LATEST_VERSION,PACKAGE_INFO} from '../lib/releases'
+ import {Link} from 'react-router-dom'
+-export default function Footer(){return <footer className="studio-footer"><div><Link to="/" className="footer-brand">simple liquid glass.</Link><p>A little less interface. A little more feeling.</p></div><div className="footer-right"><a href="https://github.com/lucaperullo/simple-liquid-glass" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://www.npmjs.com/package/simple-liquid-glass" target="_blank" rel="noreferrer">npm ↗</a><Link to="/whats-new">What’s new</Link><a href="/media/credits.txt">Media credits</a><span>Open source · MIT · v5.1.0</span></div></footer>}
++export default function Footer(){return <footer className="studio-footer"><div><Link to="/" className="footer-brand">simple liquid glass.</Link><p>A little less interface. A little more feeling.</p></div><div className="footer-right"><a href={PACKAGE_INFO.repositoryUrl} target="_blank" rel="noreferrer">GitHub ↗</a><a href={PACKAGE_INFO.npmUrl} target="_blank" rel="noreferrer">npm ↗</a><Link to="/whats-new">What’s new</Link><a href="/media/credits.txt">Media credits</a><span>Open source · MIT · v{LATEST_VERSION}</span></div></footer>}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/GlassNav.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/GlassNav.tsx
+@@ -1,8 +1,9 @@
++import {LATEST_VERSION_SHORT,PACKAGE_INFO} from '../lib/releases'
+ import {useState} from 'react'
+ import GlassLogo from './GlassLogo'
+ import {Link,NavLink} from 'react-router-dom'
+ import {ArrowUpRight, Menu, X} from 'lucide-react'
+ export default function GlassNav(){
+  const [open,setOpen]=useState(false)
+- return <header className="studio-header"><Link className="studio-brand" to="/" onClick={()=>setOpen(false)}><GlassLogo/>simple<span className="brand-light">liquid glass</span><sup>5.1</sup></Link><nav className={open?'studio-links is-open':'studio-links'} aria-label="Main navigation"><NavLink to="/examples" onClick={()=>setOpen(false)}>Collection</NavLink><NavLink to="/playground" onClick={()=>setOpen(false)}>Playground</NavLink><NavLink to="/ai" onClick={()=>setOpen(false)}>Documentation</NavLink><a href="https://github.com/lucaperullo/simple-liquid-glass" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={14}/></a></nav><button className="menu-button" aria-label={open?'Close menu':'Open menu'} aria-expanded={open} onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button></header>
++ return <header className="studio-header"><Link className="studio-brand" to="/" onClick={()=>setOpen(false)}><GlassLogo/>simple<span className="brand-light">liquid glass</span><sup>{LATEST_VERSION_SHORT}</sup></Link><nav className={open?'studio-links is-open':'studio-links'} aria-label="Main navigation"><NavLink to="/examples" onClick={()=>setOpen(false)}>Collection</NavLink><NavLink to="/playground" onClick={()=>setOpen(false)}>Playground</NavLink><NavLink to="/ai" onClick={()=>setOpen(false)}>Documentation</NavLink><a href={PACKAGE_INFO.repositoryUrl} target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={14}/></a></nav><button className="menu-button" aria-label={open?'Close menu':'Open menu'} aria-expanded={open} onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button></header>
+ }
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/PackageActions.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/PackageActions.tsx
+@@ -1,3 +1,4 @@
++import {PACKAGE_INFO} from '../lib/releases'
+ import {useState} from 'react'
+ import {Check,Copy,Sparkles} from 'lucide-react'
+ import {copyText} from '../lib/copyText'
+@@ -5,5 +6,5 @@
+ export default function PackageActions(){
+  const [status,setStatus]=useState('')
+  const copy=async(text:string,label:string)=>setStatus(await copyText(text)?`${label} copied`:'Copy unavailable. Open Documentation for the text.')
+- return <div className="package-actions"><span className="package-intro">THE OPEN-SOURCE REACT GLASS COMPONENT</span><button className="package-install" aria-label="Copy npm install command" onClick={()=>void copy('npm install simple-liquid-glass','Install command')}><code>npm install simple-liquid-glass</code>{status==='Install command copied'?<Check size={17}/>:<Copy size={17}/>}</button><button className="package-prompt" onClick={()=>void copy(PACKAGE_PROMPT,'AI prompt')}><Sparkles size={15}/> Copy prompt for your AI <Copy size={14}/></button><span role="status" className="package-status">{status||'React 16.8–19 · No runtime dependencies'}</span></div>
++ return <div className="package-actions"><span className="package-intro">THE OPEN-SOURCE REACT GLASS COMPONENT</span><button className="package-install" aria-label="Copy npm install command" onClick={()=>void copy(PACKAGE_INFO.installCommand,'Install command')}><code>{PACKAGE_INFO.installCommand}</code>{status==='Install command copied'?<Check size={17}/>:<Copy size={17}/>}</button><button className="package-prompt" onClick={()=>void copy(PACKAGE_PROMPT,'AI prompt')}><Sparkles size={15}/> Copy prompt for your AI <Copy size={14}/></button><span role="status" className="package-status">{status||'React 16.8–19 · No runtime dependencies'}</span></div>
+ }
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/packagePrompt.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/packagePrompt.ts
+@@ -1,4 +1,5 @@
+-export const PACKAGE_PROMPT = `Build a React interface using simple-liquid-glass@5.1.0.
++import {LATEST_VERSION,PACKAGE_INFO} from './releases'
++export const PACKAGE_PROMPT = `Build a React interface using ${PACKAGE_INFO.name}@${LATEST_VERSION}.
+ Import { LiquidGlass } from 'simple-liquid-glass'.
+ Use quality="extreme", autodetectquality={false}, mirror={false}, and mobileFallback="svg".
+ Give glass components explicit dimensions or sized children.
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/releases.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/lib/releases.ts
+@@ -10,6 +10,7 @@
+ }
+ 
+ export const RELEASES: Release[] = [
++  { version: '5.1.0', date: '2026-09-08', headline: 'Every detail of the lens, in your hands', points: ['Individual lensOptions for strength, depth, curvature, bend, sheen, specular, glow, and brightness.', 'Exported profile defaults and control ranges for settings panels.', 'Geometry-aware caching, numeric validation, and backward-compatible defaults.'] },
+   { version:'5.0.0',date:'2026-09-08',headline:'A new material, beautiful by default',points:['A rounded player lens with 80px default refraction.','New lens profiles and explicit pixel strength control.','Existing directional and animated controls remain available.','React 16–19 compatibility, generated types, and revised package validation.'] },
+   {
+     version: '4.0.0', date: '2026-06-19', headline: 'Chromium-only refraction, frosted glass everywhere else',
+@@ -80,7 +81,16 @@
+ 
+ /** The current release — drives the version shown across the site. */
+ export const LATEST_RELEASE = RELEASES[0]
+-/** "3.1.0" */
++/** Full current package version. */
+ export const LATEST_VERSION = LATEST_RELEASE.version
+-/** "3.1" — major.minor, for compact badges/headings. */
++/** Major.minor, for compact badges/headings. */
+ export const LATEST_VERSION_SHORT = LATEST_VERSION.split('.').slice(0, 2).join('.')
++
++const PACKAGE_NAME = 'simple-liquid-glass'
++export const PACKAGE_INFO = {
++  name: PACKAGE_NAME,
++  installCommand: `npm install ${PACKAGE_NAME}`,
++  npmUrl: `https://www.npmjs.com/package/${PACKAGE_NAME}`,
++  releaseUrl: `https://www.npmjs.com/package/${PACKAGE_NAME}/v/${LATEST_VERSION}`,
++  repositoryUrl: `https://github.com/lucaperullo/${PACKAGE_NAME}`,
++} as const
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/UseWithAI.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/UseWithAI.tsx
+@@ -1,4 +1,5 @@
++import {LATEST_VERSION_SHORT,PACKAGE_INFO} from '../lib/releases'
+ import CodeBlock from '../components/CodeBlock'
+ import {usePageMeta} from '../lib/usePageMeta'
+ import {PACKAGE_PROMPT} from '../lib/packagePrompt'
+-export default function UseWithAI(){usePageMeta('Build with glass — Simple Liquid Glass','Get started with Simple Liquid Glass 5.1 and a ready-to-copy AI prompt.');return <section className="standalone-studio docs-page"><span className="eyebrow">A SMALL API. A BIG DIFFERENCE.</span><h1>From idea to interface.</h1><p className="page-intro">Everything you need to start working with the material.</p><div className="docs-columns"><div><h2>Install</h2><CodeBlock code="npm install simple-liquid-glass@5"/><h2>Add some glass</h2><CodeBlock code={`import { LiquidGlass } from 'simple-liquid-glass'\n\n<LiquidGlass radius={32} blur={1} quality="extreme"\n  background="rgba(255,255,255,0.06)"\n  style={{ width: 320, padding: 24 }}>\n  Your content\n</LiquidGlass>`}/><p className="page-intro">The background must have some detail to refract. Place your component over imagery, video, or page content.</p></div><div><h2>Bring your AI assistant</h2><p className="page-intro">Copy this context into your coding assistant to use the published 5.1 API.</p><CodeBlock code={PACKAGE_PROMPT} label="Copy AI instructions"/><a className="dark-button" href="https://www.npmjs.com/package/simple-liquid-glass/v/5.1.0" target="_blank" rel="noreferrer">Published documentation ↗</a></div></div></section>}
++export default function UseWithAI(){usePageMeta('Build with glass — Simple Liquid Glass',`Get started with Simple Liquid Glass ${LATEST_VERSION_SHORT} and a ready-to-copy AI prompt.`);return <section className="standalone-studio docs-page"><span className="eyebrow">A SMALL API. A BIG DIFFERENCE.</span><h1>From idea to interface.</h1><p className="page-intro">Everything you need to start working with the material.</p><div className="docs-columns"><div><h2>Install</h2><CodeBlock code={PACKAGE_INFO.installCommand}/><h2>Add some glass</h2><CodeBlock code={`import { LiquidGlass } from 'simple-liquid-glass'\n\n<LiquidGlass radius={32} blur={1} quality="extreme"\n  background="rgba(255,255,255,0.06)"\n  style={{ width: 320, padding: 24 }}>\n  Your content\n</LiquidGlass>`}/><p className="page-intro">The background must have some detail to refract. Place your component over imagery, video, or page content.</p></div><div><h2>Bring your AI assistant</h2><p className="page-intro">Copy this context into your coding assistant to use the published {LATEST_VERSION_SHORT} API.</p><CodeBlock code={PACKAGE_PROMPT} label="Copy AI instructions"/><a className="dark-button" href={PACKAGE_INFO.releaseUrl} target="_blank" rel="noreferrer">Published documentation ↗</a></div></div></section>}
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/WhatsNew.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/pages/WhatsNew.tsx
+@@ -25,7 +25,7 @@
+ </liquid-glass>`
+ 
+ export default function WhatsNew() {
+-  usePageMeta('What’s new — Simple Liquid Glass', `Every feature added across the changelog up to ${LATEST_VERSION_SHORT}: water-drop ripples, AI/LLM tooling, animated refraction, lens modes, interactive glass, and the web component.`)
++  usePageMeta('What’s new — Simple Liquid Glass', `Every feature added across the changelog up to ${LATEST_VERSION_SHORT}: individual lens controls, animated refraction, lens profiles, interactive glass, and the web component.`)
+   return (
+     <div className="container section" style={{ position: 'relative', zIndex: 1 }}>
+       <p className="kicker">Changelog</p>

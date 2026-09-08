@@ -16,7 +16,7 @@ const jsPlugins = () => [
   commonjs(),
   babel({
     babelHelpers: 'bundled',
-    presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
+    presets: [['@babel/preset-env', { targets: { chrome: '64', firefox: '69', safari: '12' }, modules: false }], '@babel/preset-react', '@babel/preset-typescript'],
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
     exclude: 'node_modules/**'
   }),
@@ -28,8 +28,8 @@ export default [
   {
     input: 'src/index.tsx',
     output: [
-      { file: packageJson.main, format: 'cjs', sourcemap: true, exports: 'named' },
-      { file: packageJson.module, format: 'esm', sourcemap: true, exports: 'named' }
+      { file: packageJson.main, format: 'cjs', sourcemap: true, exports: 'named', banner: '"use client";' },
+      { file: packageJson.module, format: 'esm', sourcemap: true, exports: 'named', banner: '"use client";' }
     ],
     plugins: jsPlugins(),
     external: ['react', 'react-dom']
@@ -39,8 +39,8 @@ export default [
   {
     input: 'src/interactive/index.tsx',
     output: [
-      { file: 'dist/interactive.cjs', format: 'cjs', sourcemap: true, exports: 'named' },
-      { file: 'dist/interactive.esm.js', format: 'esm', sourcemap: true, exports: 'named' }
+      { file: 'dist/interactive.cjs', format: 'cjs', sourcemap: true, exports: 'named', banner: '"use client";' },
+      { file: 'dist/interactive.esm.js', format: 'esm', sourcemap: true, exports: 'named', banner: '"use client";' }
     ],
     plugins: jsPlugins(),
     external: ['react', 'react-dom']
@@ -50,8 +50,8 @@ export default [
   {
     input: 'src/mirror/index.tsx',
     output: [
-      { file: 'dist/mirror.cjs', format: 'cjs', sourcemap: true, exports: 'named' },
-      { file: 'dist/mirror.esm.js', format: 'esm', sourcemap: true, exports: 'named' }
+      { file: 'dist/mirror.cjs', format: 'cjs', sourcemap: true, exports: 'named', banner: '"use client";' },
+      { file: 'dist/mirror.esm.js', format: 'esm', sourcemap: true, exports: 'named', banner: '"use client";' }
     ],
     plugins: jsPlugins(),
     external: ['react', 'react-dom']
@@ -65,5 +65,5 @@ export default [
     ],
     plugins: jsPlugins()
   }
-  // Types are copied (with path rewrite for the flat dist layout) by scripts/copy-types.mjs.
+  // Public types are generated from source and bundled by rollup.types.config.js.
 ];

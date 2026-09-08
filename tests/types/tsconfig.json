@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2020", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "jsx": "react", "strict": true, "esModuleInterop": true, "noEmit": true,
+    "skipLibCheck": false, "types": ["react", "react-dom"]
+  },
+  "include": ["consumer.tsx"]
+}

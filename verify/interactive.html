@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>interactive verification</title>
+<style>
+  html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#05060a}
+  .backdrop{position:fixed;inset:0;overflow:hidden;z-index:0}
+  .backdrop .word{position:absolute;font-weight:900;letter-spacing:1px;white-space:nowrap}
+  .wa{top:40px;left:40px;font-size:110px;color:#f59e0b;transform:rotate(-4deg)}
+  .wb{top:250px;left:0;font-size:96px;color:#22d3ee}
+  .wc{top:430px;left:240px;font-size:100px;color:#ec4899;transform:rotate(3deg)}
+  .grid{position:absolute;inset:0;background:
+     repeating-linear-gradient(0deg,rgba(255,255,255,.13) 0 2px,transparent 2px 28px),
+     repeating-linear-gradient(90deg,rgba(255,255,255,.13) 0 2px,transparent 2px 28px)}
+  .label{font-size:13px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}
+</style>
+<script type="importmap">
+{ "imports": {
+  "react": "https://esm.sh/react@18.3.1",
+  "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+} }
+</script>
+</head>
+<body>
+  <div class="backdrop">
+    <div class="grid"></div>
+    <div class="word wa">GLASS</div><div class="word wb">corners</div><div class="word wc">2026</div>
+  </div>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { LiquidGlassInteractive } from '/dist/interactive.esm.js';
+    const h = React.createElement;
+    const card = (props) => h(LiquidGlassInteractive,
+      { radius: 30, elasticity: 0.3, style: { width: 230, height: 120 }, ...props },
+      h('div', { style: { width:'100%', height:'100%', display:'grid', placeItems:'center' } },
+        h('span', { className:'label' }, props['data-label'])));
+    createRoot(document.getElementById('root')).render(
+      h('div', { style: { position:'relative', zIndex:1, display:'flex', flexWrap:'wrap', gap:28, padding:44 } },
+        card({ 'data-label': 'default (no hover light)' }),
+        card({ 'data-label': 'specular ON (clipped)', specular: true, id: 'spec' }),
+        card({ 'data-label': 'followPointer (clipped)', followPointer: true, id: 'follow' }),
+        card({ 'data-label': 'clickRipple (click me)', clickRipple: true, id: 'ripple' }),
+      )
+    );
+    window.__ready = true;
+  </script>
+</body>
+</html>

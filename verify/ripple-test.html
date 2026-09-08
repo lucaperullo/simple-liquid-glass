@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>click ripple — playground</title>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:#05060a;overflow:hidden}
+  .backdrop{position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(60% 60% at 20% 20%, #f59e0b 0%, transparent 60%),
+      radial-gradient(60% 60% at 85% 30%, #ec4899 0%, transparent 55%),
+      radial-gradient(70% 70% at 50% 90%, #22d3ee 0%, transparent 55%),
+      #0b1021;}
+  .grid{position:absolute;inset:0;background:
+     repeating-linear-gradient(0deg,rgba(255,255,255,.16) 0 2px,transparent 2px 30px),
+     repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 2px,transparent 2px 30px)}
+  .word{position:absolute;font-weight:900;color:rgba(255,255,255,.92);font-size:120px;letter-spacing:2px}
+  .w1{top:60px;left:60px;transform:rotate(-4deg)}
+  .w2{bottom:80px;right:90px;font-size:90px;color:rgba(255,255,255,.85)}
+  .stage{position:fixed;inset:0;z-index:1;display:grid;place-items:center}
+  .toolbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:12px;align-items:center;
+    background:rgba(8,12,22,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);
+    border-radius:14px;padding:10px 14px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .toolbar button{font:inherit;font-weight:700;border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 12px;cursor:pointer}
+  .toolbar input[type=range]{width:150px}
+  .panel-label{font-size:18px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6);user-select:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "react": "https://esm.sh/react@18.3.1",
+  "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+} }
+</script>
+</head>
+<body>
+  <div class="backdrop">
+    <div class="grid"></div>
+    <div class="word w1">CLICK</div>
+    <div class="word w2">ripple</div>
+  </div>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { LiquidGlassInteractive } from '/dist/interactive.esm.js';
+    const h = React.createElement;
+    const { useState } = React;
+
+    function App() {
+      const [effect, setEffect] = useState('drop');
+      const [intensity, setIntensity] = useState(1);
+      const btn = (name) => h('button', {
+        onClick: () => setEffect(name),
+        style: { background: effect === name ? '#fff' : 'rgba(255,255,255,.12)', color: effect === name ? '#111' : '#fff' }
+      }, name);
+      return h(React.Fragment, null,
+        h('div', { className: 'toolbar' },
+          'effect:', btn('ripple'), btn('drop'),
+          h('span', { style: { marginLeft: 10 } }, 'intensity'),
+          h('input', { type: 'range', min: 0.5, max: 4, step: 0.1, value: intensity,
+            onChange: (e) => setIntensity(+e.target.value) }),
+          h('span', { style: { width: 36, textAlign: 'right' } }, intensity.toFixed(1) + 'x'),
+          h('span', { style: { opacity: .7, marginLeft: 10, fontWeight: 500 } }, '← click the glass')
+        ),
+        h('div', { className: 'stage' },
+          h(LiquidGlassInteractive, {
+            radius: 40, elasticity: 0.18,
+            clickRipple: effect, rippleIntensity: intensity, followPointer: true,
+            style: { width: 'min(680px, 86vw)', height: 'min(420px, 62vh)' }
+          }, h('div', { style: { width: '100%', height: '100%', display: 'grid', placeItems: 'center' } },
+               h('span', { className: 'panel-label' }, 'click me — ' + effect + ' @ ' + intensity.toFixed(1) + 'x')))
+        )
+      );
+    }
+    createRoot(document.getElementById('root')).render(h(App));
+    window.__ready = true;
+  </script>
+</body>
+</html>

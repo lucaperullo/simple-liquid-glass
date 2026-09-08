@@ -1,0 +1,114 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/LensStudio.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/LensStudio.tsx
+@@ -1,9 +1,12 @@
+ import {useState} from 'react'
+ import {RotateCcw,Copy,Check,Shuffle} from 'lucide-react'
+-import {resolveLensOptions,LENS_OPTION_RANGES} from 'simple-liquid-glass'
++import {resolveLensOptions,LENS_OPTION_RANGES,LENS_PROFILES} from 'simple-liquid-glass'
+ import type {LensOptions,LiquidGlassProps} from 'simple-liquid-glass'
+ import GlassMemo from './GlassMemo'
+ import {copyText} from '../lib/copyText'
++type Profile = keyof typeof LENS_PROFILES
++const PROFILE_LABELS: Record<Profile,string> = {player:'Player — sculpted',material:'Material — soft',loupe:'Loupe — magnifying',track:'Track — subtle'}
++const profiles = (Object.keys(LENS_PROFILES) as Profile[]).sort((a,b)=>Number(b==='player')-Number(a==='player'))
+ const defaults={blur:1,radius:32,dispersion:50,aberrationIntensity:.12,saturation:115,frost:0,tint:.10}
+ const groups=[
+  {name:'Refraction',controls:[{key:'dispersion',label:'Dispersion',min:0,max:50,step:1,unit:''},{key:'aberrationIntensity',label:'Color separation',min:0,max:2,step:.01,unit:''}]},
+@@ -22,5 +25,5 @@
+  const {tint,...optics}=values
+  const glassProps={...optics,lensOptions:lensSettings,lensProfile:profile,background:`rgba(255,255,255,${tint})`}
+  const code=`<LiquidGlass\n  quality="extreme"\n  autodetectquality={false}\n  mirror={false}\n  mobileFallback="svg"\n  refraction="lens"\n  lensProfile="${profile}"\n  lensOptions={${JSON.stringify(lensSettings,null,2)}}\n${Object.entries(optics).map(([key,value])=>`  ${key}={${value}}`).join('\n')}\n  background="${glassProps.background}"\n>\n  <YourChecklist />\n</LiquidGlass>`
+- return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} onClick={()=>setScene('coast')}>Coast</button><button aria-pressed={scene==='dunes'} onClick={()=>setScene('dunes')}>Dunes</button></div></div><div className="studio-settings"><div className="settings-heading"><span>MATERIAL SETTINGS</span><span>EXTREME QUALITY</span></div><h3>Make it your material.</h3><label className="profile-select">Lens profile<select aria-label="Lens profile" value={profile} onChange={e=>{const next=e.target.value as typeof profile;setProfile(next);setLensSettings(resolveLensOptions(next))}}><option value="player">Player — sculpted</option><option value="material">Material — soft</option><option value="loupe">Loupe — magnifying</option><option value="track">Track — subtle</option></select></label><p className="profile-note">Start with a profile, then shape every detail. These controls use the published lensOptions API.</p>{lensGroups.map(group=><fieldset className="material-group" key={group.name}><legend>{group.name}</legend>{group.controls.map(c=><label className="studio-range" key={c.key}><span>{c.label}<output>{lensSettings[c.key]}</output></span><input aria-label={c.label} type="range" min={LENS_OPTION_RANGES[c.key][0]} max={LENS_OPTION_RANGES[c.key][1]} step={c.step} value={lensSettings[c.key]} onChange={e=>{const value=+e.target.value;setLensSettings(v=>({...v,[c.key]:value}))}}/></label>)}</fieldset>)}{groups.map(group=><fieldset className="material-group" key={group.name}><legend>{group.name}</legend>{group.controls.map(c=><label className="studio-range" key={c.key}><span>{c.label}<output>{values[c.key]}{c.unit}</output></span><input aria-label={c.label} type="range" min={c.min} max={c.max} step={c.step} value={values[c.key]} onChange={e=>{const value=+e.target.value;setValues(v=>({...v,[c.key]:value}))}}/></label>)}</fieldset>)}<div className="material-actions"><button onClick={()=>{const next=(['player','material','loupe','track'] as const)[Math.floor(Math.random()*4)];setProfile(next);setLensSettings(resolveLensOptions(next,{depth:Math.round(Math.random()*800)/1000,curvature:Math.round(Math.random()*800)/1000}));setValues({...defaults,blur:Math.round(Math.random()*8)/2,radius:20+Math.round(Math.random()*32),tint:Math.round(Math.random()*20)/100})}}><Shuffle size={15}/> Shuffle</button><button aria-label="Reset controls" onClick={()=>{setValues(defaults);setProfile('player');setLensSettings(resolveLensOptions('player'))}}><RotateCcw size={15}/> Reset</button></div><div className="studio-code"><button aria-label="Copy component code" onClick={async()=>{const success=await copyText(code);setCopied(success);setCopyError(!success)}}>{copied?<Check size={16}/>:<Copy size={16}/>}</button><pre>{code}</pre></div>{copyError&&<p role="status">Select the code above to copy it manually.</p>}</div></div>
++ return <div className="lens-studio"><div className={`studio-canvas scene-${scene}`}><img src={`/media/${scene}.jpg`} alt={scene==='coast'?'Turquoise water meeting limestone cliffs':'Sculpted desert dunes'} loading="lazy"/><div className="studio-canvas-label"><span className="tiny-dot"/> LIVE COMPONENT</div><GlassMemo glassProps={glassProps}/><div className="scene-switch" role="group" aria-label="Background"><button aria-pressed={scene==='coast'} onClick={()=>setScene('coast')}>Coast</button><button aria-pressed={scene==='dunes'} onClick={()=>setScene('dunes')}>Dunes</button></div></div><div className="studio-settings"><div className="settings-heading"><span>MATERIAL SETTINGS</span><span>EXTREME QUALITY</span></div><h3>Make it your material.</h3><label className="profile-select">Lens profile<select aria-label="Lens profile" value={profile} onChange={e=>{const next=e.target.value as typeof profile;setProfile(next);setLensSettings(resolveLensOptions(next))}}>{profiles.map(profile=><option key={profile} value={profile}>{PROFILE_LABELS[profile]}</option>)}</select></label><p className="profile-note">Start with a profile, then shape every detail. These controls use the published lensOptions API.</p>{lensGroups.map(group=><fieldset className="material-group" key={group.name}><legend>{group.name}</legend>{group.controls.map(c=><label className="studio-range" key={c.key}><span>{c.label}<output>{lensSettings[c.key]}</output></span><input aria-label={c.label} type="range" min={LENS_OPTION_RANGES[c.key][0]} max={LENS_OPTION_RANGES[c.key][1]} step={c.step} value={lensSettings[c.key]} onChange={e=>{const value=+e.target.value;setLensSettings(v=>({...v,[c.key]:value}))}}/></label>)}</fieldset>)}{groups.map(group=><fieldset className="material-group" key={group.name}><legend>{group.name}</legend>{group.controls.map(c=><label className="studio-range" key={c.key}><span>{c.label}<output>{values[c.key]}{c.unit}</output></span><input aria-label={c.label} type="range" min={c.min} max={c.max} step={c.step} value={values[c.key]} onChange={e=>{const value=+e.target.value;setValues(v=>({...v,[c.key]:value}))}}/></label>)}</fieldset>)}<div className="material-actions"><button onClick={()=>{const next=profiles[Math.floor(Math.random()*profiles.length)];setProfile(next);setLensSettings(resolveLensOptions(next,{depth:Math.round(Math.random()*800)/1000,curvature:Math.round(Math.random()*800)/1000}));setValues({...defaults,blur:Math.round(Math.random()*8)/2,radius:20+Math.round(Math.random()*32),tint:Math.round(Math.random()*20)/100})}}><Shuffle size={15}/> Shuffle</button><button aria-label="Reset controls" onClick={()=>{setValues(defaults);setProfile('player');setLensSettings(resolveLensOptions('player'))}}><RotateCcw size={15}/> Reset</button></div><div className="studio-code"><button aria-label="Copy component code" onClick={async()=>{const success=await copyText(code);setCopied(success);setCopyError(!success)}}>{copied?<Check size={16}/>:<Copy size={16}/>}</button><pre>{code}</pre></div>{copyError&&<p role="status">Select the code above to copy it manually.</p>}</div></div>
+ }
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/core/displacementMap.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/core/displacementMap.ts
+@@ -13,7 +13,11 @@
+  * - `shift`   — a uniform directional offset (whole pane slides one way; straight stays straight).
+  * - `rim`     — flat clear center, refraction only in a soft band hugging the perimeter.
+  */
+-export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';
++export const LENS_MODES = ['classic', 'convex', 'shift', 'rim'] as const;
++export type LensMode = typeof LENS_MODES[number];
++export function isLensMode(value: unknown): value is LensMode {
++  return typeof value === 'string' && (LENS_MODES as readonly string[]).includes(value);
++}
+ 
+ export interface DisplacementParams {
+   width: number;
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/core/nativeOptics.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/core/nativeOptics.ts
+@@ -10,6 +10,8 @@
+   track: { strength: .03, specular: 1, depth: .3, curvature: .25, bend: .05, bendWidth: .06,
+     sheen: .35, sheenWidth: 3, sheenFalloff: 1.5, sheenAngle: 45, glowFalloff: 1.5, glow: .1 }
+ } as const;
++export type LensProfile = keyof typeof NATIVE_PROFILES;
++
+ /** Public rounded-lens controls. Omitted values inherit the selected profile. */
+ export interface LensOptions {
+   /** Maximum displacement as a fraction of the lens normalization size. 0–0.5. */
+@@ -46,7 +48,7 @@
+   sheen: [0,2], sheenWidth: [0,10], sheenFalloff: [.1,5], sheenAngle: [-360,360],
+   specular: [0,3], glow: [0,1], glowSpread: [.01,2], glowFalloff: [.1,5], brightness: [-1,1]
+ } as const;
+-export function resolveLensOptions(profile: keyof typeof NATIVE_PROFILES = 'player', options: LensOptions = {}): Required<LensOptions> {
++export function resolveLensOptions(profile: LensProfile = 'player', options: LensOptions = {}): Required<LensOptions> {
+   const result: Required<LensOptions> = { ...NATIVE_PROFILES[profile] ?? NATIVE_PROFILES.player, glowSpread: 1, brightness: 0 };
+   for (const key of Object.keys(LENS_OPTION_RANGES) as (keyof LensOptions)[]) {
+     const value = options?.[key];
+@@ -57,7 +59,7 @@
+   return result;
+ }
+ /** Only map-generating values invalidate the shared geometry cache. */
+-export function buildNativeMap(width: number, height: number, radius: number, profile: keyof typeof NATIVE_PROFILES = 'material', options?: LensOptions) {
++export function buildNativeMap(width: number, height: number, radius: number, profile: LensProfile = 'material', options?: LensOptions) {
+   const {strength: _strength, specular: _specular, brightness: _brightness, ...geometry} = resolveLensOptions(profile, options);
+   const key = `material-v2:${width}:${height}:${radius}:${JSON.stringify(geometry)}`;
+   const cached = cacheGet(key); if (cached) return cached;
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/index.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/index.tsx
+@@ -3,10 +3,11 @@
+ import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
+ import type { LiquidPreset } from './core/liquid';
+ export type { LiquidPreset } from './core/liquid';
+-import type { LensOptions } from './core/nativeOptics';
++import type { LensOptions, LensProfile } from './core/nativeOptics';
+ export type { LensOptions } from './core/nativeOptics';
+ export { NATIVE_PROFILES as LENS_PROFILES, LENS_OPTION_RANGES, resolveLensOptions } from './core/nativeOptics';
+-export type LensMode = 'classic' | 'convex' | 'shift' | 'rim';
++import type { LensMode } from './core/displacementMap';
++export type { LensMode } from './core/displacementMap';
+ import { DisplacementFilter } from './core/DisplacementFilter';
+ import { useTextColor } from './core/useTextColor';
+ import { cacheGet, cacheSet } from './displacementCache';
+@@ -62,7 +63,7 @@
+   /** Shape-aware rounded lens or the original gradient optics. Default: lens. */
+   refraction?: 'classic' | 'lens';
+   /** Material, magnifier, player button, or scrub track optics. Used by refraction="lens". */
+-  lensProfile?: 'material' | 'loupe' | 'player' | 'track';
++  lensProfile?: LensProfile;
+   /** Individual rounded-lens overrides. Inherit unset values from lensProfile. Only applies to refraction="lens". */
+   lensOptions?: LensOptions;
+   /** Explicit lens displacement in CSS pixels; overrides scale for refraction="lens". */
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/web-component/index.ts
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass/src/web-component/index.ts
+@@ -8,7 +8,7 @@
+  *   <script type="module" src="…/simple-liquid-glass/web-component"></script>
+  *   <liquid-glass radius="20" frost="0.15" style="width:320px;height:200px"> … </liquid-glass>
+  */
+-import { buildDisplacementDataUri, normalizeAngle } from '../core/displacementMap';
++import { buildDisplacementDataUri, normalizeAngle, isLensMode } from '../core/displacementMap';
+ import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from '../core/liquid';
+ 
+ const TAG = 'liquid-glass';
+@@ -78,8 +78,8 @@
+     const angle = normalizeAngle(attrNum(this, 'angle', 0));
+     const shapeAdapt = this.getAttribute('shape-adapt') !== 'false';
+     const lensAttr = this.getAttribute('lens');
+-    const lens = (['classic', 'convex', 'shift', 'rim'] as const).includes(lensAttr as never)
+-      ? (lensAttr as 'classic' | 'convex' | 'shift' | 'rim')
++    const lens = isLensMode(lensAttr)
++      ? lensAttr
+       : 'classic';
+     const lensStrength = attrNum(this, 'lens-strength', 1);
+     const lensCenterAttr = this.getAttribute('lens-center');

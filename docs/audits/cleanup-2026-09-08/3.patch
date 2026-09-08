@@ -1,0 +1,16 @@
+--- /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/CodeBlock.tsx
++++ /Users/lucaperullo/Desktop/workspace/simple-liquid-glass-showcase/src/components/CodeBlock.tsx
+@@ -1,10 +1,10 @@
+ import { useState } from 'react'
++import { copyText } from '../lib/copyText'
+ 
+ export default function CodeBlock({ code, label }: { code: string; label?: string }) {
+   const [copied, setCopied] = useState(false)
+-  const copy = () => {
+-    navigator.clipboard.writeText(code).catch(() => {})
+-    setCopied(true)
++  const copy = async () => {
++    setCopied(await copyText(code))
+     setTimeout(() => setCopied(false), 1500)
+   }
+   return (

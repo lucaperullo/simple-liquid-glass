@@ -1,4 +1,6 @@
-## Unreleased
+## 5.1.1 — 2026-09-09
+
+- Fix #12: apply the web component’s glass shadow on Chromium as well as Safari/Firefox, including after resize and attribute updates.
 
 - Integrate the 4.1 main history with the 5.1 renderer and generated types. Preserve interactive liquid triggers, pointer following, and click ripples.
 - Use React 16.8-compatible IDs for the interactive pointer filter.

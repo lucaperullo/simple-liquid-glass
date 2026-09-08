@@ -115,3 +115,21 @@ test('six lenses track animated translation, keep unique filters, and release co
   await page.evaluate(() => (window as any).unmountGlass());
   await expect(page.locator('#root [inert]')).toHaveCount(0);
 });
+
+test('web component keeps the same shadow across renderers and rerenders', async ({ page }) => {
+  await page.goto('/tests/browser/?effect=off');
+  await page.evaluate(() => {
+    const el = document.createElement('liquid-glass');
+    el.style.cssText = 'width:200px;height:100px';
+    el.textContent = 'Shadow parity';
+    document.body.append(el);
+  });
+  const host = page.locator('liquid-glass');
+  const surface = host.locator('.lg-glass');
+  const shadow = 'rgba(0, 0, 0, 0.12) 0px 6px 22px 0px';
+  await expect(surface).toHaveCSS('box-shadow', shadow);
+  await host.evaluate(el => { el.setAttribute('radius', '24'); el.style.width = '280px'; });
+  await expect(surface).toHaveCSS('border-radius', '24px');
+  await expect(surface).toHaveCSS('width', '280px');
+  await expect(surface).toHaveCSS('box-shadow', shadow);
+});

@@ -1,8 +1,8 @@
 {
   "name": "simple-liquid-glass",
-  "version": "5.1.0",
+  "version": "5.1.1",
   "type": "module",
-  "description": "Zero-dependency liquid glass for React 16.8\u201319, with SVG refraction, an explicit DOM-mirror fallback for Safari/Firefox, and a framework-agnostic web component.",
+  "description": "Zero-dependency liquid glass for React 16.8–19, with SVG refraction, an explicit DOM-mirror fallback for Safari/Firefox, and a framework-agnostic web component.",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -51,7 +51,7 @@
   },
   "size-limit": [
     {
-      "name": "core \u2014 import { LiquidGlass } (Brotli, includes iOS mirror engine)",
+      "name": "core — import { LiquidGlass } (Brotli, includes iOS mirror engine)",
       "path": "dist/index.esm.js",
       "limit": "15 KB",
       "ignore": [
@@ -60,7 +60,7 @@
       ]
     },
     {
-      "name": "interactive \u2014 import { LiquidGlassInteractive } (Brotli, bundles core)",
+      "name": "interactive — import { LiquidGlassInteractive } (Brotli, bundles core)",
       "path": "dist/interactive.esm.js",
       "limit": "17 KB",
       "ignore": [
@@ -69,7 +69,7 @@
       ]
     },
     {
-      "name": "mirror \u2014 import { LiquidGlassMirror } (Brotli, bundles core)",
+      "name": "mirror — import { LiquidGlassMirror } (Brotli, bundles core)",
       "path": "dist/mirror.esm.js",
       "limit": "15 KB",
       "ignore": [
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "name": "web-component \u2014 <liquid-glass> (Brotli, no React)",
+      "name": "web-component — <liquid-glass> (Brotli, no React)",
       "path": "dist/web-component.esm.js",
       "limit": "6 KB"
     }

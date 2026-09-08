@@ -105,7 +105,6 @@ export class LiquidGlassElement extends ElementBase {
 
     let backdrop: string;
     let glassBg: string;
-    let glassShadow = '';
     let svg = '';
 
     if (chromium) {
@@ -126,14 +125,13 @@ export class LiquidGlassElement extends ElementBase {
       const frostPx = Math.max(blur, 9);
       backdrop = `blur(${frostPx}px) saturate(${Math.max(saturation, 160)}%) brightness(1.04)`;
       glassBg = `${SHEEN}, hsl(0 0% 100% / ${frost})`;
-      glassShadow = 'box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12);';
     }
 
     this.root.innerHTML = `
       <style>
         :host { display: block; position: relative; }
         .lg-glass { position: absolute; inset: 0; z-index: 0; border-radius: ${radius}px; overflow: hidden;
-          background: ${glassBg}; backdrop-filter: ${backdrop}; -webkit-backdrop-filter: ${backdrop}; ${glassShadow} }
+          background: ${glassBg}; backdrop-filter: ${backdrop}; -webkit-backdrop-filter: ${backdrop}; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12); }
         .lg-border { position: absolute; inset: 0; z-index: 2; border-radius: ${radius}px; pointer-events: none;
 
           -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor;

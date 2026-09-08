@@ -104,6 +104,14 @@ All attributes are optional. Pass them as strings; the component parses numeric 
 | `lightness` | number | `53` | Glass lightness; `0`–`100` |
 | `alpha` | number | `0.9` | Glass opacity; `0`–`1` |
 | `border-color` | string | `rgba(120,120,120,0.7)` | CSS color (any format) |
+| `angle` | number | `0` | Refraction direction in degrees; shape-adapted so the on-screen angle is faithful on any aspect ratio (Chromium SVG path) |
+| `shape-adapt` | string | `true` | Aspect-faithful + isotropic refraction so the lens reads like glass cut to the element's shape (long navbar / tall sidebar refracts evenly); set `"false"` for the legacy ≤2.x map |
+| `lens` | string | `classic` | Lens field shape: `classic` (linear radial), `convex` (one coherent dome magnifier, no top/bottom split), `shift` (uniform directional offset, straight lines stay straight), `rim` (clear flat center, refraction only at a soft perimeter band) |
+| `lens-strength` | number | `1` | Manual magnitude of the lens field; `0` disables it |
+| `lens-center` | string | `0.5,0.5` | Lens center for `convex`/`rim`; `"x,y"` each `0`–`1` |
+| `liquid` | string | — | Real animated refraction — the backdrop genuinely warps: `ripple`, `flow`, or `wobble`. Opt-in, GPU-real: animates only while on-screen, pauses on `prefers-reduced-motion` (Chromium SVG path) |
+| `liquid-speed` | number | `1` | Motion rate for `liquid` |
+| `liquid-scale` | number | — | Distortion amplitude in px for `liquid` (defaults per preset) |
 
 ## Reactive attributes
 

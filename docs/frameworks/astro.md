@@ -83,6 +83,14 @@ On Chromium you get real SVG-displacement refraction; on Safari/iOS/Firefox a po
 | `lightness` | number (0–100) | `53` | Glass lightness |
 | `alpha` | number (0–1) | `0.9` | Overall opacity |
 | `border-color` | CSS color | `rgba(120,120,120,0.7)` | Border color |
+| `angle` | number | `0` | **3.0** Refraction direction (degrees), shape-adapted so the on-screen angle is faithful on any aspect ratio (Chromium SVG) |
+| `shape-adapt` | `"true"` \| `"false"` | `true` | **3.0** Aspect-faithful + isotropic refraction so the lens reads like glass cut to the element's shape; `"false"` = legacy ≤2.x map |
+| `lens` | `classic` \| `convex` \| `shift` \| `rim` | `classic` | **3.0** Lens field shape — `convex` = one coherent dome magnifier, `shift` = uniform directional offset (straight lines stay straight), `rim` = clear center with refraction only at a soft perimeter band |
+| `lens-strength` | number | `1` | **3.0** Manual magnitude of the lens field; `0` disables it |
+| `lens-center` | `"x,y"` (each 0–1) | `0.5,0.5` | **3.0** Lens center for `convex`/`rim` |
+| `liquid` | `ripple` \| `flow` \| `wobble` | — | **3.0** Real animated refraction — the backdrop genuinely warps. Opt-in, GPU-real: animates only while on-screen, pauses on `prefers-reduced-motion` (Chromium SVG) |
+| `liquid-speed` | number | `1` | **3.0** Motion rate for `liquid` |
+| `liquid-scale` | number | per preset | **3.0** Distortion amplitude (px) for `liquid` |
 
 > Because it's a web component (not tied to Astro's reactivity), attribute changes after load won't re-render unless you set them via JS: `document.querySelector('liquid-glass').setAttribute('frost','0.25')`.
 

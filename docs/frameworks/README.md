@@ -30,4 +30,9 @@ with `backdropRef` (the live-DOM mirror isn't in the web component yet). Every g
 ```
 
 Attributes: `radius`, `frost`, `blur`, `saturation`, `displace`, `scale`, `lightness`, `alpha`,
-`border-color`. Give it an explicit size and place it over a background.
+`border-color`, `angle`, `shape-adapt`, `lens`, `lens-strength`, `lens-center`, `liquid`,
+`liquid-speed`, `liquid-scale`. Give it an explicit size and place it over a background.
+
+3.0.0 adds directional/shape-adaptive refraction (`angle`, `shape-adapt`), lens modes
+(`lens`, `lens-strength`, `lens-center`), and real animated "liquid" refraction
+(`liquid`, `liquid-speed`, `liquid-scale`).

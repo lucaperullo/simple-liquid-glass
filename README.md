@@ -126,7 +126,7 @@ at the element behind the lens; it must be a **sibling/background**, **not an an
 ```jsx
 import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive';
 
-// Leans toward the cursor with a tiny spring + a pointer‑tracked specular highlight.
+// Leans toward the cursor with a tiny spring. Pass specular to add a tracked highlight.
 // Honors prefers-reduced-motion. Core import is unaffected (this is opt‑in).
 <LiquidGlassInteractive elasticity={0.3}>…</LiquidGlassInteractive>
 ```
@@ -543,3 +543,7 @@ that fallback. The web component does not expose this API.
 are exported for building settings panels without duplicating defaults. Values
 are clamped to these ranges; non-finite values inherit the selected profile.
 Geometry changes invalidate cached maps; strength, specular, and brightness do not.
+
+### Interactive controls
+
+The `/interactive` entry also accepts `liquidTrigger="always" | "hover" | "press"`, `followPointer`, `clickRipple={true | "ripple" | "drop"}`, and `rippleIntensity`. `specular` is opt-in and defaults to `false`. Click ripples are clipped surface overlays; they do not capture or refract the backdrop themselves.

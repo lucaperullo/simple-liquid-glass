@@ -65,3 +65,7 @@ Desktop.ini
 .types/
 playwright-report/
 test-results/
+
+# Local brainstorming and verification scratch
+.superpowers/
+verify/

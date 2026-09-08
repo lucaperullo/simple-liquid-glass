@@ -21,7 +21,7 @@ import { useStableId } from './core/useStableId';
 import { processBackground, isSemiTransparentColor } from './core/background';
 
 const QUALITY_DIVISORS: Record<LiquidQuality, number> = {
-  low: 5,
+  low: 3,
   standard: 3,
   high: 2.5,
   extreme: 2

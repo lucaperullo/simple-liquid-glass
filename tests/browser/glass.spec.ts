@@ -133,3 +133,14 @@ test('web component keeps the same shadow across renderers and rerenders', async
   await expect(surface).toHaveCSS('width', '280px');
   await expect(surface).toHaveCSS('box-shadow', shadow);
 });
+
+test('diagnostics match the active renderer and explicit modes', async ({page,browserName}) => {
+  await page.goto('/tests/browser/');
+  const glass=page.locator('#root [data-liquid-glass]');
+  await expect(glass).toHaveAttribute('data-glass-strategy',browserName==='chromium'?'svg':browserName==='webkit'?'css-rim':'svg-mirror');
+  await expect(glass).toHaveAttribute('data-glass-reason',browserName==='chromium'?'native-svg':'backdrop-mirror');
+  await page.goto('/tests/browser/?effect=off');
+  await expect(glass).toHaveAttribute('data-glass-strategy','off');
+  await page.goto('/tests/browser/?effect=blur');
+  await expect(glass).toHaveAttribute('data-glass-reason','blur-requested');
+});

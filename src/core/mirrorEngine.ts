@@ -27,16 +27,18 @@ export interface MirrorEngineOptions {
  * Requires an EXPLICIT backdrop source (`backdropRef`/`backdropSelector`) that is NOT an ancestor
  * of the lens. There is deliberately NO auto-detect: guessing the backdrop meant cloning a
  * page-sized ancestor every mutation, which exhausts iOS Safari's per-tab memory and crashes the
- * tab. When no usable explicit source is given the hook returns `false` and the caller shows blur.
+ * tab. When no usable explicit source is given the hook reports the failure reason and the caller shows blur.
  *
- * @returns whether the live mirror is active (`false` ⇒ caller renders the frosted-blur fallback).
+ * @returns the live mirror status, including the reason for a blur fallback.
  */
-export function useMirrorEngine(o: MirrorEngineOptions): boolean {
-  const [active, setActive] = useState(false);
+export type MirrorStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-selector' | 'invalid-backdrop' | 'clone-failed';
+
+export function useMirrorEngineState(o: MirrorEngineOptions): MirrorStatus {
+  const [status, setStatus] = useState<MirrorStatus>('pending');
 
   useEffect(() => {
     if (!o.enabled) {
-      setActive(false);
+      setStatus('pending');
       return;
     }
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -48,7 +50,7 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
     try {
       if (!source && o.backdropSelector) source = document.querySelector<HTMLElement>(o.backdropSelector);
     } catch {
-      setActive(false);
+      setStatus('invalid-selector');
       return;
     }
 
@@ -64,16 +66,16 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
           warnedNoBackdrop = true;
           // eslint-disable-next-line no-console
           console.warn(
-            '[simple-liquid-glass] Using blur: set backdropRef/backdropSelector for refraction on Safari/Firefox, or mirror={false} to silence this.'
+            '[simple-liquid-glass] Using blur: supply backdropRef/backdropSelector or set mirror={false}.'
           );
         } else if (source && source.contains(lens)) {
           // eslint-disable-next-line no-console
           console.warn(
-            '[simple-liquid-glass] backdropRef must point at a sibling/background element, not an ancestor of the lens — using the blur fallback.'
+            '[simple-liquid-glass] Using blur: backdropRef must be a sibling/background, not an ancestor.'
           );
         }
       }
-      setActive(false);
+      setStatus(source ? 'invalid-backdrop' : 'missing-backdrop');
       return;
     }
 
@@ -91,10 +93,10 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
         c.style.width = '100%';
         c.style.height = '100%';
         holder.replaceChildren(c);
-        setActive(true);
+        setStatus('active');
       } catch {
         holder.replaceChildren();
-        setActive(false);
+        setStatus('clone-failed');
       }
     };
 
@@ -158,9 +160,14 @@ export function useMirrorEngine(o: MirrorEngineOptions): boolean {
       ro?.disconnect();
       if (cloneRaf) cancelAnimationFrame(cloneRaf);
       holder.replaceChildren();
-      setActive(false);
+      setStatus('pending');
     };
   }, [o.enabled, o.containerRef, o.holderRef, o.backdropRef, o.backdropSelector, o.track]);
 
-  return active;
+  return o.enabled ? status : 'pending';
+}
+
+/** Boolean adapter retained for internal consumers. */
+export function useMirrorEngine(o: MirrorEngineOptions): boolean {
+  return useMirrorEngineState(o) === 'active';
 }

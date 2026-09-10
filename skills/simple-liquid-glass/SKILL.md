@@ -5,7 +5,7 @@ description: Use when building or editing UI with the `simple-liquid-glass` libr
 
 # simple-liquid-glass
 
-Zero-dependency React liquid glass with REAL refraction (SVG displacement map in `backdrop-filter`),
+React liquid glass with automatic iOS WebGL refraction and Chromium SVG refraction,
 plus a framework-agnostic `<liquid-glass>` web component. React 16.8–19, SSR-safe.
 
 The exhaustive API + recipes live in the package's **`llms.txt`** — read it for the full prop table.
@@ -19,8 +19,7 @@ This skill is the working summary + the rules that prevent the common mistakes.
 
 ## The rules (get these right)
 
-1. **Refraction (SVG displacement) is Chromium-only;** on Safari/iOS/Firefox it renders a frosted-glass
-   fallback (no refraction, no workaround).
+1. **iOS uses WebGL automatically.** Supply a sibling `backdropRef`/`backdropSelector`; never an ancestor of the glass. Use `renderer="webgl"` for Android/desktop too. Missing or unsupported sources use CSS blur. `effectMode="blur"`/`"off"` disable refraction everywhere.
 2. **Always give the element an explicit size** (the effect fills 100% of its box).
 3. **`liquid` and the interactive `followPointer`/`clickRipple` are GPU-real and gated** (in-view only,
    pause on `prefers-reduced-motion`, Chromium). Use `liquid` per hero/element, not on hundreds of cards.
@@ -34,7 +33,10 @@ This skill is the working summary + the rules that prevent the common mistakes.
 
 Core: `radius` (50), `scale` (160, displacement strength), `frost` (0.1), `blur` (0),
 `saturation` (140), `aberrationIntensity` (0), `borderColor`, `glassColor`, `autoTextColor` (false),
-`quality` (`'low'`), `effectMode` (`'auto'`).
+`quality` (`'low'`), `effectMode` (`'auto'`), `renderer` (`'auto'`), `backdropRef`/`backdropSelector`, `backdropVersion`.
+WebGL shares `lensProfile`, `lensOptions`, `displacementScale`, and dispersion with the SVG component.
+HTML captures refresh for DOM changes; use `ref.current.refreshBackdrop()` for external changes.
+Point directly at video/canvas for live frames; nested media in an HTML source is a snapshot.
 
 3.0 core: `angle` (0, degrees — directional, shape-true), `shapeAdapt` (true),
 `lens` (`'classic' | 'convex' | 'shift' | 'rim'`), `lensStrength` (1), `lensCenter` ([0.5,0.5]),
@@ -44,7 +46,7 @@ Interactive extras: `elasticity` (0.15), `maxShift` (18), `specular` (false), `f
 `clickRipple` (`false | 'ripple' | 'drop'`), `rippleIntensity` (1),
 `liquidTrigger` (`'always' | 'hover' | 'press'`).
 
-Web component attributes are kebab-case (`shape-adapt`, `lens-strength`, `lens-center`, `liquid-speed`, …).
+The web component supports the same WebGL engine via `backdrop-selector`, `renderer`, `lens-profile`, `strength`, `dispersion`, and `effect-mode`. Other attributes are kebab-case (`shape-adapt`, `lens-strength`, `lens-center`, `liquid-speed`, …).
 
 ## Recipes
 

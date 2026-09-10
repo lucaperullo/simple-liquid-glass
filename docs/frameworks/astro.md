@@ -1,5 +1,27 @@
 # Liquid Glass in Astro: Web Component Integration Guide
 
+## WebGL refraction on iOS and Android
+
+The custom element now uses WebGL automatically on iOS when `backdrop-selector` points to
+an explicit sibling background. Add `renderer="webgl"` to select the same renderer on Android
+or desktop. No React adapter is needed. Without a source, the existing CSS/SVG examples below
+keep their fallback behavior.
+
+```html
+<div id="page-background">Your page content</div>
+<liquid-glass backdrop-selector="#page-background" renderer="webgl"
+  lens-profile="player" strength="0.16" radius="36"
+  style="position:fixed;bottom:24px;left:16px;width:320px;height:72px">
+  Home · Explore · Library
+</liquid-glass>
+```
+
+Omit `renderer` for iOS-only automatic selection. For live video, select the video element
+itself. `effect-mode="blur"`/`"off"` disable refraction. See the
+[current renderer guide](../../README.md#ios-refraction-and-android-opt-in) for capture limits,
+refresh, diagnostics, and the approximately 22 KB Brotli custom-element bundle.
+
+
 **Astro** is an ideal host for the `<liquid-glass>` web component — your site ships zero JavaScript by default, and the component **upgrades itself** in the browser, asking nothing of the framework.
 
 ## Why web components in Astro?
@@ -97,11 +119,11 @@ On Chromium you get real SVG-displacement refraction; on Safari/iOS/Firefox a po
 ## Browser support
 
 - **Chromium** → real SVG-displacement refraction.
-- **Safari / iOS / Firefox** → polished frosted-glass fallback (WebKit can't run SVG filters inside `backdrop-filter`, bug #245510). For **real refraction on iOS/Safari**, use the **React component** with `backdropRef` (see the main README); the web component doesn't include the mirror.
+- **Safari / iOS / Firefox** → polished frosted-glass fallback (WebKit can't run SVG filters inside `backdrop-filter`, bug #245510). For WebGL refraction, supply `backdrop-selector` as shown above; React is not required.
 
 ## Performance
 
-~6 KB gzip, zero dependencies, SSR-safe (only touches the DOM in the browser). Register once per page, use unlimited times.
+~22 KB Brotli including WebGL capture, zero dependencies, SSR-safe (only touches the DOM in the browser). Register once per page, use unlimited times.
 
 ## Troubleshooting
 

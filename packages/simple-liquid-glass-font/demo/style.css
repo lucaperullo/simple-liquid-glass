@@ -1,0 +1,44 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #f5f3ee; color: #252b27; font-family: Arial, sans-serif; }
+main { max-width: 1250px; margin: auto; padding: 32px; }
+header { display: flex; justify-content: space-between; gap: 24px; font-size: 13px; }
+header a { color: inherit; text-decoration: none; font-weight: 700; }
+header span { color: #6c726b; font-weight: 400; }
+.intro { margin: 60px 0 38px; display: flex; align-items: end; justify-content: space-between; }
+.intro div > p { font-size: 10px; letter-spacing: .16em; }
+h1 { font-family: Georgia, serif; font-weight: 400; font-size: clamp(44px, 6vw, 72px); letter-spacing: -.055em; line-height: 1; margin: 24px 0 0; }
+.intro > p { color: #6c726b; line-height: 1.6; font-size: 14px; }
+.scene-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 16px; }
+button { cursor: pointer; font: inherit; }
+.scene-tabs { display: flex; padding: 4px; background: #e7e9e2; border-radius: 24px; }
+.scene-tabs button { background: transparent; border: 0; color: #576451; border-radius: 20px; font-size: 12px; padding: 9px 18px; }
+.scene-tabs button[aria-pressed=true] { background: #fff; color: #273b2c; box-shadow: 0 1px 4px #17201c13; }
+.playback { border: 1px solid #c8cec7; border-radius: 20px; background: transparent; padding: 9px 18px; font-size: 12px; }
+.toolbar-hint { font-size: 11px; color: #626b60; }
+.scene { position: relative; overflow: hidden; border-radius: 20px; height: 440px; background: #1c4d56; }
+.scene-video, .scene-scroll { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene-video { object-fit: cover; }
+.scene-scroll { overflow-y: auto; overscroll-behavior: contain; background: #ddd8bb; scrollbar-width: thin; }
+.scene-scroll article { min-height: 510px; padding: 42px 54px; position: relative; overflow: hidden; }
+.scene-scroll article > span { font-size: 10px; letter-spacing: .18em; }
+.scene-scroll h3 { font-size: clamp(50px, 6vw, 86px); font-family: Georgia, serif; font-weight: 400; line-height: 1; letter-spacing: -.035em; margin: 35px 0 25px; }
+.scene-scroll p { max-width: 270px; font-size: 14px; line-height: 1.6; }
+.story-cover { color: #eff0da; background: linear-gradient(90deg, #0b34324d, transparent), url('/media/coast-poster.jpg') center / cover; }
+.story-cover .scroll-cue { display: block; margin-top: 36px; }
+.story-type { color: #233b32; background: #dfe2a4; }
+.ruler { position: absolute; top: 0; right: 0; width: 25%; height: 100%; background: repeating-linear-gradient(0deg, #254436 0 2px, transparent 2px 19px); }
+.story-photo { background: url('/media/coast-poster.jpg') center 65% / cover; color: white; }
+.glass-heading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0; font-size: clamp(76px, 13vw, 170px); font-weight: 900; line-height: 1.25; letter-spacing: -.04em; white-space: nowrap; max-width: 98%; }
+.scene-label { position: absolute; bottom: 22px; left: 24px; color: #fff; font-size: 9px; letter-spacing: .15em; pointer-events: none; text-shadow: 0 1px 6px #0008; }
+.video-error { position: absolute; top: 20px; left: 24px; color: white; }
+form { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1fr 1fr; gap: 24px; padding: 28px 0; }
+label { display: flex; flex-direction: column; gap: 12px; font-size: 11px; }
+input, select { font: inherit; padding: 12px; background: transparent; border: 1px solid #c8cec7; border-radius: 8px; color: inherit; min-width: 0; }
+input[type=range] { accent-color: #3c6450; padding: 10px 0; }
+footer { max-width: 740px; font-size: 12px; line-height: 1.7; color: #6c726b; margin-top: 8px; }
+footer a { color: inherit; }
+@media(max-width: 760px) { form { grid-template-columns: 1fr 1fr; } }
+@media(max-width: 600px) { main { padding: 24px; } .intro { margin-top: 44px; display: block; } .intro > p { margin: 24px 0 0; } .scene { height: 380px; } .scene-scroll article { padding: 30px; } .scene-label { letter-spacing: .07em; font-size: 8px; } }
+
+.scene-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+@media(max-width:600px) { .scene-toolbar { flex-wrap: wrap; } }

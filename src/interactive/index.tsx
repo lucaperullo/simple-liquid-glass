@@ -162,8 +162,16 @@ export function usePointerElastic(
         );
       }
       if (reduce || elasticity <= 0) return;
-      const nx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2 || 1);
-      const ny = (e.clientY - (r.top + r.height / 2)) / (r.height / 2 || 1);
+      // The bounding rect includes our current spring translation. Remove it
+      // before finding the target, otherwise each pointer event chases a moving
+      // origin and pulls the lens back toward its previous position. Convert
+      // local translation to viewport pixels for scaled elements/ancestors.
+      const scaleX = el.offsetWidth > 0 ? r.width / el.offsetWidth : 1;
+      const scaleY = el.offsetHeight > 0 ? r.height / el.offsetHeight : 1;
+      const centerX = r.left + r.width / 2 - state.x * scaleX;
+      const centerY = r.top + r.height / 2 - state.y * scaleY;
+      const nx = (e.clientX - centerX) / (r.width / 2 || 1);
+      const ny = (e.clientY - centerY) / (r.height / 2 || 1);
       const k = maxShift * (elasticity / 0.15);
       tx = clamp(nx * k, -maxShift, maxShift);
       ty = clamp(ny * k, -maxShift, maxShift);

@@ -1,5 +1,27 @@
 # Using Liquid Glass in Vue 3: Complete Integration Guide
 
+## WebGL refraction on iOS and Android
+
+The custom element now uses WebGL automatically on iOS when `backdrop-selector` points to
+an explicit sibling background. Add `renderer="webgl"` to select the same renderer on Android
+or desktop. No React adapter is needed. Without a source, the existing CSS/SVG examples below
+keep their fallback behavior.
+
+```html
+<div id="page-background">Your page content</div>
+<liquid-glass backdrop-selector="#page-background" renderer="webgl"
+  lens-profile="player" strength="0.16" radius="36"
+  style="position:fixed;bottom:24px;left:16px;width:320px;height:72px">
+  Home · Explore · Library
+</liquid-glass>
+```
+
+Omit `renderer` for iOS-only automatic selection. For live video, select the video element
+itself. `effect-mode="blur"`/`"off"` disable refraction. See the
+[current renderer guide](../../README.md#ios-refraction-and-android-opt-in) for capture limits,
+refresh, diagnostics, and the approximately 22 KB Brotli custom-element bundle.
+
+
 > **Real Apple-style liquid glass in Vue 3** — SVG refraction on Chrome/Chromium, polished frosted-glass fallback on Safari, Firefox, and iOS.
 
 The `<liquid-glass>` web component brings frameworkless glass morphism to Vue 3, Nuxt, and any modern JavaScript app. No dependencies, no build complications, ships as a registered custom element ready to drop into templates.
@@ -379,7 +401,8 @@ The component delivers different effects per engine:
 | Engine | Rendering | Notes |
 |--------|-----------|-------|
 | **Chrome, Edge, Opera** | **Real SVG displacement refraction** | True live distortion; the most visually impressive |
-| **Safari, iOS, all iOS browsers** | **Polished frosted-glass fallback** | Blur + sheen + rim highlight; no live refraction but still beautiful |
+| **iOS browsers** | **WebGL with explicit backdrop** | Frosted fallback without a source |
+| **Desktop Safari** | **WebGL opt-in** | Set renderer and backdrop-selector |
 | **Firefox** | **Polished frosted-glass fallback** | Same as Safari; WebKit limitation |
 
 **Why the difference?**
@@ -387,8 +410,8 @@ The component delivers different effects per engine:
 - WebKit (Safari/iOS) and Firefox don't support SVG refs in `backdrop-filter` (browser limitation, not a flaw in this component).
 - The fallback uses CSS blur, brightness, and layered rings to fake refraction—zero dependencies, solid performance.
 
-**Real iOS Refraction (React only):**
-The React `<LiquidGlass backdropRef={...}>` component includes a live-DOM-mirror feature that refracts a cloned element on iOS/Safari/Firefox. The web component doesn't include this (it requires React refs). If you need real refraction on iOS in Vue, you'd need to use the React component wrapped in an adapter—but in practice, the frosted fallback is polished enough for most use cases.
+**Real iOS Refraction:**
+Use `backdrop-selector` on the custom element; it shares the WebGL engine with React. See the example above.
 
 ---
 
@@ -455,7 +478,7 @@ onMounted(() => {
 
 ## Performance & Bundle Impact
 
-- **Web component size**: ~6 KB gzip (no dependencies)
+- **Web component size**: ~22 KB Brotli including WebGL capture (no dependencies)
 - **Side-effect import**: One-time registration; no per-instance cost
 - **Rendering**: Hardware-accelerated `backdrop-filter` and SVG filters on supported browsers
 - **Multiple instances**: No performance degradation; each instance is independent
@@ -700,7 +723,7 @@ The `<liquid-glass>` element is `display: block` but needs explicit `width` and 
 
 ### Different Visual on Safari vs. Chrome
 
-**Expected behavior.** On Safari/iOS/Firefox, you see the frosted fallback (blur + sheen); on Chrome, you see real SVG refraction. Both are correct. This is not a bug—it's the browser limitation for `backdrop-filter: url(#svg)`.
+**For recipes without an explicit WebGL backdrop**, on Safari/iOS/Firefox you see the frosted fallback (blur + sheen); on Chrome, you see real SVG refraction. Both are correct. This is not a bug—it's the browser limitation for `backdrop-filter: url(#svg)`.
 
 ---
 
@@ -723,10 +746,10 @@ A: Yes. The web component is framework-agnostic. Astro serves it as-is; use the 
 A: You can bind them to reactive refs and animate the underlying Vue values, but the component doesn't expose animation controls. Use CSS transitions or Vue's `<Transition>` component on the parent.
 
 **Q: Do I need to pass a `backdropRef`?**
-A: No. That's a React feature. The web component always uses the CSS fallback (frosted glass on Safari/Firefox) because it can't safely detect what's behind it without crashing on iOS.
+A: No. That's a React feature. Use `backdrop-selector` instead to provide the explicit background for WebGL.
 
 **Q: What's the bundle impact?**
-A: ~6 KB gzip, zero dependencies. Negligible.
+A: ~22 KB Brotli including WebGL capture, zero dependencies. Negligible.
 
 **Q: Does it work in Nuxt?**
 A: Yes. Use a `.client.ts` plugin to register it client-side only.

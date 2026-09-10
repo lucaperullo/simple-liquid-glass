@@ -1,3 +1,12 @@
+import { useWebGL } from './core/webgl/useWebGL';
+import { isIOSDevice, wantsWebGL, type GlassRenderer } from './core/renderer';
+export type { GlassRenderer } from './core/renderer';
+import type { RenderingDiagnostics } from './diagnostics';
+export type { RenderingDiagnostics, RenderingStrategy, RenderingReason } from './diagnostics';
+import { resolveMaterialProps } from './materials';
+export { MATERIAL_PRESETS } from './materials';
+export type { MaterialPreset } from './materials';
+import type { MaterialPreset } from './materials';
 import React, { useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { buildNativeMap, resolveLensOptions } from './core/nativeOptics';
 import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
@@ -12,7 +21,7 @@ import { DisplacementFilter } from './core/DisplacementFilter';
 import { useTextColor } from './core/useTextColor';
 import { cacheGet, cacheSet } from './displacementCache';
 import { buildDisplacementDataUri, normalizeAngle } from './core/displacementMap';
-import { useMirrorEngine } from './core/mirrorEngine';
+import { useMirrorEngineState } from './core/mirrorEngine';
 import { lensGeometry, buildLensMap } from './core/mirrorOptics';
 import { useGeometry } from './core/useGeometry';
 import { useQuality } from './core/useQuality';
@@ -39,6 +48,14 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
    * The content to be displayed inside the liquid glass effect
    */
   children?: React.ReactNode;
+  /** iOS always uses WebGL for refraction. Select webgl to enable it on Android/desktop too. */
+  renderer?: GlassRenderer;
+  /** Change this value to refresh a WebGL HTML snapshot after external visual changes. */
+  backdropVersion?: string | number;
+  /** Coordinated material defaults; explicit props override individual settings. */
+  material?: MaterialPreset;
+  /** Called after mount whenever the rendering strategy, reason, or quality changes. */
+  onDiagnosticsChange?: (diagnostics: RenderingDiagnostics) => void;
   
   /**
    * Mode of the effect
@@ -176,7 +193,7 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
   /**
-   * Mobile rendering strategy. Default: CSS-only on mobile devices, SVG on desktop.
+   * Legacy mobile SVG fallback selection. iOS uses WebGL; renderer="webgl" opts other devices in.
    * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
    */
   mobileFallback?: 'css-only' | 'svg';
@@ -194,7 +211,7 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   mirror?: boolean;
   /**
-   * The element behind the lens to refract (for the iOS/Safari mirror). MUST NOT be an ancestor of
+   * The background to capture for WebGL or mirror refraction. MUST NOT be an ancestor of
    * the lens — point it at a sibling/background element. Falls back to blur when omitted.
    */
   backdropRef?: import('react').RefObject<HTMLElement | null>;
@@ -237,13 +254,20 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
 
 /** Imperative handle exposed via ref. */
 export interface LiquidGlassHandle {
+  /** Refresh the cached WebGL backdrop; normal DOM mutations refresh automatically. */
+  refreshBackdrop(): Promise<void>;
   /** The root container element. */
   element: HTMLDivElement | null;
   /** The currently resolved rendering quality (reflects autodetect, if enabled). */
   getQuality(): LiquidQuality;
+  /** Current rendering strategy and fallback reason. */
+  getDiagnostics(): RenderingDiagnostics;
 }
 
-export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(function LiquidGlass({
+export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(function LiquidGlass(incomingProps: LiquidGlassProps, ref) {
+  const {
+  material,
+  onDiagnosticsChange,
   children,
   mode = "preset",
   scale = 160,
@@ -277,13 +301,15 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   iosBlurMode = 'auto',
   mobileFallback,
   effectMode = 'auto',
+  renderer = 'auto',
+  backdropVersion,
   mirror = true,
   backdropRef,
   backdropSelector,
   mirrorScale = 26,
   track = false,
   ...props
-}: LiquidGlassProps, ref) {
+} = resolveMaterialProps(incomingProps);
   const legacyOptics = angle !== undefined || shapeAdapt !== undefined || lens !== undefined || lensStrength !== undefined || lensCenter !== undefined;
   const refraction = requestedRefraction ?? (legacyOptics ? 'classic' : 'lens');
   const config = {
@@ -293,8 +319,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   };
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const webglHolderRef = useRef<HTMLDivElement | null>(null);
   const mirrorHolderRef = useRef<HTMLDivElement | null>(null);
-  const { dimensions, isResizing, isVisible } = useGeometry(containerRef);
+  const { dimensions, isResizing, isVisible, visibilityReady } = useGeometry(containerRef);
   const effectiveTextColor = useTextColor(containerRef, autoTextColor, textOnDark, textOnLight);
   const uniqueId = useStableId();
   const textClassName = uniqueId ? `lg-text-${uniqueId}` : undefined;
@@ -302,11 +329,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   useEffect(() => setMounted(true), []);
 
   const resolvedQuality = useQuality(incomingQuality, autodetectquality);
-  // Track the latest resolved quality in a ref so the imperative handle can expose it
-  // (getQuality) without recreating the handle on every quality change.
-  const resolvedQualityRef = useRef(resolvedQuality);
-  resolvedQualityRef.current = resolvedQuality;
-
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
   const effectiveRadiusPx = Math.min(config.radius, dimensions.width / 2, dimensions.height / 2);
 
@@ -375,16 +397,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // detect iOS (WebKit on iPhone/iPad or Mac with touch)
   const isIOS = (() => {
     if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    const vendor = navigator.vendor || '';
-    const isAndroid = /Android/i.test(ua);
-    const isAppleUA = /(iPad|iPhone|iPod)/i.test(ua);
-    const isIPadOS13Plus = /Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1;
-    const vendorIsApple = /Apple/i.test(vendor);
-    const hasWK = typeof (window as any).webkit !== 'undefined';
-    const hasMobileToken = /Mobile/i.test(ua);
-    // Strict: real iOS or iPadOS WebKit on Apple device, exclude Android and most desktop emulation
-    return !isAndroid && (isAppleUA || isIPadOS13Plus) && vendorIsApple && hasWK && hasMobileToken;
+    return isIOSDevice(navigator.userAgent || '', navigator.maxTouchPoints || 0);
   })();
 
   // detect generic mobile (Android/iOS phones/tablets)
@@ -406,10 +419,21 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     return /(chrome|chromium|edg|opr)\//i.test(ua);
   })();
 
+  const webglRequested = mounted && wantsWebGL(renderer, effectMode, isIOS);
+  const webglOptions = useMemo(() => ({
+    map: displacementDataUri, scale: filterScale, dispersion: resolvedQuality === 'low' ? 0 : filterConfig.dispersion * aberrationIntensity,
+    specular: refraction === 'lens' ? nativeOptions.specular : 0, classic: refraction !== 'lens',
+    radius: effectiveRadiusPx, blur, saturation
+  }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation]);
+  const webgl = useWebGL(webglRequested && visibilityReady && isVisible, containerRef, webglHolderRef,
+    webglOptions, backdropRef, backdropSelector, backdropVersion);
+  const webglReady = webglRequested && webgl.status === 'active';
+
   // Build backdrop-filter string with effectMode and mobile/iOS fallbacks
   const cssBlur = isIOS && iosBlurMode === 'auto' ? Math.max(blur, iosMinBlur) : blur;
   const useSvgFilter = (() => {
     // effectMode has highest precedence
+    if (webglRequested) return false;
     if (effectMode === 'off') return false;
     if (effectMode === 'blur') return false;
     if (!uniqueId) return false;
@@ -418,7 +442,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     if (!supportsSvgBackdropFilter) return false;
     if (mobileFallback === 'css-only') return false;
     if (mobileFallback === 'svg') return true;
-    return !isMobile;
+    return renderer === 'svg' || !isMobile;
   })();
   const cssOnlyBlurPx = (() => {
     if (effectMode === 'off') return 0;
@@ -426,14 +450,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     return Math.max(0, base);
   })();
 
-  useImperativeHandle(ref, () => ({
-    get element() {
-      return containerRef.current;
-    },
-    getQuality() {
-      return resolvedQualityRef.current;
-    }
-  }), []);
 
   // CSS fallback (Safari/Firefox/iOS): true refraction is impossible (WebKit can't run SVG
   // filters in backdrop-filter), so the surface must instead read as real frosted glass.
@@ -448,14 +464,16 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // displaced clone of it instead of just blurring. Returns false (→ blur) on Chromium, when
   // off-screen, when `mirror` is off, or when no usable backdrop is given. Purely additive: with
   // mirrorActive=false the behavior is identical to the blur fallback.
-  const mirrorActive = useMirrorEngine({
-    enabled: mounted && !!uniqueId && isFallback && isVisible && mirror && effectMode !== 'blur',
+  const mirrorStatus = useMirrorEngineState({
+    enabled: mounted && !!uniqueId && isFallback && isVisible && mirror && !webglRequested && effectMode !== 'blur',
     containerRef,
     holderRef: mirrorHolderRef,
     backdropRef,
     backdropSelector,
     track
   });
+
+  const mirrorActive = mirrorStatus === 'active';
 
   const mirrorGeometry = useMemo(() => lensGeometry(dimensions.width, dimensions.height, config.radius, mirrorScale),
     [dimensions.width, dimensions.height, config.radius, mirrorScale]);
@@ -467,6 +485,39 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     [mirrorActive, mirrorGeometry, cssMirror]);
   const mirrorFilterId = `liquid-glass-mirror-${uniqueFilterId}`;
   const mirrorReady = mirrorActive && !!mirrorMap;
+
+  const diagnostics: RenderingDiagnostics = (() => {
+    let strategy: RenderingDiagnostics['strategy'];
+    let reason: RenderingDiagnostics['reason'];
+    if (effectMode === 'off') { strategy = 'off'; reason = 'effect-disabled'; }
+    else if (!mounted || !uniqueId) { strategy = 'pending'; reason = 'initializing'; }
+    else if (!isVisible) { strategy = 'paused'; reason = 'offscreen'; }
+    else if (effectMode === 'blur') { strategy = 'blur'; reason = 'blur-requested'; }
+    else if (webglReady) { strategy = 'webgl'; reason = isIOS ? 'ios-webgl' : 'webgl-requested'; }
+    else if (webglRequested) { strategy = webgl.status === 'pending' ? 'pending' : 'blur'; reason = webgl.status === 'pending' || webgl.status === 'active' ? 'initializing' : webgl.status; }
+    else if (mirrorReady) { strategy = cssMirror ? 'css-rim' : 'svg-mirror'; reason = 'backdrop-mirror'; }
+    else if (useSvgFilter) { strategy = 'svg'; reason = 'native-svg'; }
+    else {
+      strategy = 'blur';
+      reason = !mirror ? 'mirror-disabled' : mirrorStatus === 'active' ? 'mirror-unavailable'
+        : mirrorStatus === 'pending' ? 'initializing' : mirrorStatus;
+    }
+    return Object.freeze({ strategy, reason, quality: resolvedQuality });
+  })();
+  const diagnosticsRef = useRef(diagnostics);
+  diagnosticsRef.current = diagnostics;
+  const diagnosticsCallback = useRef(onDiagnosticsChange);
+  diagnosticsCallback.current = onDiagnosticsChange;
+  useEffect(() => {
+    if (mounted) diagnosticsCallback.current?.(diagnostics);
+  }, [mounted, diagnostics.strategy, diagnostics.reason, diagnostics.quality]);
+  const refreshBackdropRef = useRef(webgl.refresh); refreshBackdropRef.current = webgl.refresh;
+  useImperativeHandle(ref, () => ({
+    refreshBackdrop() { return refreshBackdropRef.current(); },
+    get element() { return containerRef.current; },
+    getQuality() { return diagnosticsRef.current.quality; },
+    getDiagnostics() { return diagnosticsRef.current; }
+  }), []);
 
   const turbRef = useRef<SVGFETurbulenceElement | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -510,7 +561,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     <feDisplacementMap in="lqBase" in2="lqNoise" scale={liquidCfg.scale} xChannelSelector="R" yChannelSelector="G" />
   </> : null;
   const feBlurForNative = resolvedQuality === 'low' ? Math.min(cssBlur, 2) : cssBlur;
-  const backdropFilterValue = effectMode === 'off' || !isVisible || mirrorReady
+  const backdropFilterValue = effectMode === 'off' || !isVisible || mirrorReady || webglReady
     ? 'none'
     : useSvgFilter
     ? `saturate(${config.saturation}%) ${refraction === 'lens' && feBlurForNative > 0 ? `blur(${feBlurForNative}px) ` : ''}url(#${filterId})`
@@ -527,7 +578,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // through the body, so the blurred backdrop shows through — reads as glass, not milky plastic.
   const fallbackTint =
     'linear-gradient(168deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 11%, rgba(255,255,255,0.03) 46%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.08) 100%)';
-  const glassLayerBackground = isFallback ? fallbackTint : resolvedGlassBackground;
+  const glassLayerBackground = isFallback && !webglReady && !material ? fallbackTint : resolvedGlassBackground;
 
   const glassMorphismStyle: React.CSSProperties = {
     width: "100%",
@@ -542,7 +593,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     // Fallback depth + glass edge: soft outer drop shadow, a bright top rim (light catching the
     // edge), a faint bottom rim, and a hairline full-perimeter rim. (SVG path reads as glass
     // from its refraction, so it gets none of this.)
-    boxShadow: isFallback
+    boxShadow: isFallback && !webglReady
       ? '0 10px 30px rgba(0,0,0,0.20), inset 0 1px 1px rgba(255,255,255,0.75), inset 0 -2px 3px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.22)'
       : refraction === 'lens' ? 'inset 0 1px 2px #ffffffa0, inset 0 -1px 2px #ffffff30, 0 6px 18px #00000018' : undefined,
     // Dynamic: only hint the compositor while actively resizing (see A4). Idle instances
@@ -574,7 +625,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     position: "relative",
     borderRadius: effectiveRadiusPx,
     background: processBackground(background),
-    ...style
+    ...style,
+    isolation: webglRequested ? 'isolate' : style.isolation
   };
 
   return (
@@ -583,8 +635,12 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
       className={className}
       style={containerStyle}
       data-liquid-glass=""
+      data-glass-strategy={diagnostics.strategy}
+      data-glass-reason={diagnostics.reason}
       {...props}
     >
+      {webglRequested && <div ref={webglHolderRef} aria-hidden="true" style={{ position: 'absolute', inset: 0,
+        zIndex: 0, pointerEvents: 'none', borderRadius: effectiveRadiusPx, overflow: 'hidden', visibility: webglReady ? 'visible' : 'hidden' }} />}
       <div style={glassMorphismStyle}>
         {useSvgFilter && effectMode !== 'off' && isVisible && (
         <DisplacementFilter filterId={filterId} displacementDataUri={displacementDataUri}
@@ -594,7 +650,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
       {/* Safari uses a masked CSS magnification rim; other mirrors use SVG displacement.
           The source stays explicit and the decorative copy remains clipped to the lens. */}
-      {uniqueId && isFallback && mirror && effectMode !== 'blur' && (
+      {uniqueId && isFallback && mirror && !webglRequested && effectMode !== 'blur' && (
         <>
           <div
             aria-hidden="true"

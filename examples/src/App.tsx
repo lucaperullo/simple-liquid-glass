@@ -71,7 +71,7 @@ function DraggableLens({ backdropRef }: { backdropRef: React.RefObject<HTMLDivEl
       onPointerCancel={onUp}
       style={{ width: 300, height: 188, touchAction: 'none', cursor: 'grab', willChange: 'transform' }}
     >
-      <LiquidGlass backdropRef={backdropRef} track radius={30} mobileFallback="css-only">
+      <LiquidGlass renderer="auto" backdropRef={backdropRef} track radius={30} mobileFallback="css-only">
         <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.45)', fontWeight: 600, userSelect: 'none' }}>
           drag me over the colors
         </div>
@@ -116,7 +116,7 @@ export default function App() {
           </h1>
           <p className="sub">
             The only <strong>zero-dependency</strong> React liquid-glass component with <strong>real
-            refraction on iOS &amp; Safari</strong> — not a blur fallback. ~6.5&nbsp;KB, SSR-safe,
+            refraction on iOS &amp; Safari</strong> — not a blur fallback. SSR-safe,
             React&nbsp;16.8–19, plus a web component for Vue/Svelte/Astro.
           </p>
           <div className="cta">
@@ -140,17 +140,17 @@ export default function App() {
       <section className="features">
         <div className="feat-bg" />
         <div className="feat-grid">
-          <LiquidGlass radius={22} aberrationIntensity={2} className="feat-card">
+          <LiquidGlass renderer="auto" backdropSelector=".feat-bg" radius={22} aberrationIntensity={2} className="feat-card">
             <h3>Chromatic aberration</h3>
             <p>Red/blue light separation at the edges — Apple's signature look, tunable per instance.</p>
           </LiquidGlass>
 
-          <LiquidGlassInteractive elasticity={0.35} radius={22} className="feat-card">
+          <LiquidGlassInteractive renderer="auto" backdropSelector=".feat-bg" elasticity={0.35} radius={22} className="feat-card">
             <h3>Pointer-reactive</h3>
             <p>The <code>/interactive</code> variant leans toward the cursor with a tiny spring. Honors reduced-motion.</p>
           </LiquidGlassInteractive>
 
-          <LiquidGlass radius={22} className="feat-card">
+          <LiquidGlass renderer="auto" backdropSelector=".feat-bg" radius={22} className="feat-card">
             <h3>Framework-agnostic</h3>
             <p>A <code>&lt;liquid-glass&gt;</code> web component drops the same effect into Vue, Svelte, Astro, or plain HTML.</p>
           </LiquidGlass>
@@ -173,7 +173,7 @@ export default function App() {
             <tbody>
               <tr><td>Real refraction on <b>Safari / iOS</b></td><td className="us"><Check /></td><td><Cross /></td><td><Cross /> (WebGL)</td></tr>
               <tr><td>React <b>16.8 – 19</b></td><td className="us"><Check /></td><td><Cross /> (19 only)</td><td><Check /></td></tr>
-              <tr><td>Bundle (gzip)</td><td className="us"><b>~6.5 KB</b></td><td>~33 KB</td><td>6.8 MB</td></tr>
+
               <tr><td>Zero runtime deps</td><td className="us"><Check /></td><td><Check /></td><td><Cross /> (Three.js)</td></tr>
               <tr><td>SSR-safe (Next.js)</td><td className="us"><Check /></td><td>⚠️</td><td><Cross /></td></tr>
               <tr><td>Web component</td><td className="us"><Check /></td><td><Cross /></td><td><Cross /></td></tr>
@@ -189,11 +189,11 @@ export default function App() {
         <pre><code>{`const bg = useRef(null);
 
 <div ref={bg}>{/* the background behind the glass */}</div>
-<LiquidGlass backdropRef={bg} track>Glass that refracts on iOS</LiquidGlass>`}</code></pre>
+<LiquidGlass renderer="auto" backdropRef={bg} track>Glass that refracts on iOS</LiquidGlass>`}</code></pre>
         <p className="note">
           <code>backdropRef</code> points at a sibling/background element (not an ancestor). On Chromium
-          you get native <code>backdrop-filter</code> refraction; on iOS/Safari/Firefox a live-DOM mirror
-          delivers the real distortion. Omit it and you get a polished frosted-blur fallback.
+          you get native <code>backdrop-filter</code> refraction; on iOS WebGL
+          delivers real-time refraction from video and canvas, with cached HTML snapshots refreshed automatically. Omit it and you get a polished frosted-blur fallback.
         </p>
       </section>
 
@@ -201,7 +201,7 @@ export default function App() {
         <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
         <a href={NPM} target="_blank" rel="noreferrer">npm</a>
         <a href={`${REPO}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer">Changelog</a>
-        <span>MIT · ~6.5 KB · zero dependencies</span>
+        <span>MIT · Real-time iOS WebGL</span>
       </footer>
     </div>
   );

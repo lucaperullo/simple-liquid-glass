@@ -1,3 +1,32 @@
+## 5.3.0 — shared page scenes
+
+- Added the optional `simple-liquid-glass/backdrop` entry with `LiquidGlassScene`, automatic WebGL binding, a shared React backdrop hook, and a framework-independent capture controller.
+- Scene captures share HTML/media snapshots across surfaces, preserve excluded surfaces’ layout, track direct video/canvas sources, and release resources after the last consumer. Explicit backdrops retain precedence.
+- `simple-liquid-text` 0.3.0 integrates with the same scene provider.
+
+- Reuse WebGL staging buffers and upload already cropped frames directly, avoiding per-frame canvas resets and an intermediate copy for each surface.
+- Render video-backed surfaces on newly presented video frames while keeping geometry and optics updates responsive at display refresh rate.
+
+## 5.2.1
+
+- Wait for initial viewport visibility before allocating React WebGL surfaces, preventing offscreen panels from exhausting browser context limits on first render.
+
+## 5.2.0 — integrated WebGL refraction
+
+- iOS/iPadOS automatically uses optimized WebGL when a sibling backdrop is supplied.
+- Added `renderer="webgl"` for Android/desktop opt-in, shared capture, live video/canvas,
+  automatic HTML refresh, `backdropVersion`, and `refreshBackdrop()`.
+- Preserved native overscroll alignment, direct GPU output, half-resolution blur, and last-frame
+  retention during capture. Added context recovery and explicit fallback diagnostics.
+- Added the same runtime to the custom element through `backdrop-selector` and `renderer`.
+- Added the framework-independent `simple-liquid-glass/webgl` surface API for masked renderers, including liquid text.
+- Bundled HTML capture adds roughly 14 KB Brotli to the React build; size budgets reflect it.
+
+## 5.1.2 — 2026-09-09
+
+- Keep native pointer elasticity anchored to the resting element bounds, including scaled layouts, instead of feeding the animated position back into the target.
+- Measure lens maps in layout CSS pixels so scaled entrance animations cannot leave refraction geometry undersized.
+
 ## 5.1.1 — 2026-09-09
 
 - Fix #12: apply the web component’s glass shadow on Chromium as well as Safari/Firefox, including after resize and attribute updates.

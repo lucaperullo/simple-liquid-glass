@@ -24,6 +24,22 @@ const jsPlugins = () => [
 ];
 
 export default [
+  {
+    input: 'src/backdrop/index.tsx',
+    output: [
+      {file:'dist/backdrop.esm.js',format:'esm',sourcemap:true,exports:'named',banner:'"use client";'},
+      {file:'dist/backdrop.cjs',format:'cjs',sourcemap:true,exports:'named',banner:'"use client";'}
+    ],
+    plugins:jsPlugins(),external:['react','react-dom']
+  },
+  {
+    input: 'src/webgl/index.ts',
+    output: [
+      { file: 'dist/webgl.esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { file: 'dist/webgl.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: jsPlugins()
+  },
   // Core entry (.)
   {
     input: 'src/index.tsx',

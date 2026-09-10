@@ -1,0 +1,76 @@
+{
+  "name": "simple-liquid-text",
+  "version": "0.3.0",
+  "description": "Selectable liquid-glass text with glyph-shaped refraction over live content for React.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "rollup -c && tsc && node -e \"require('node:fs').copyFileSync('src/styles.css', 'dist/styles.css')\"",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "playwright test",
+    "dev": "vite --host 127.0.0.1 --port 4186",
+    "prepack": "npm run build && npm test"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-react": "^7.22.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "@playwright/test": "^1.63.0",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "pngjs": "^7.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "rollup": "^4.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucaperullo/simple-liquid-glass.git",
+    "directory": "packages/simple-liquid-glass-font"
+  },
+  "author": "lucaperullo",
+  "license": "MIT",
+  "homepage": "https://simple-liquid-text.vercel.app",
+  "bugs": {
+    "url": "https://github.com/lucaperullo/simple-liquid-glass/issues"
+  },
+  "keywords": [
+    "react",
+    "liquid-glass",
+    "text",
+    "typography",
+    "refraction",
+    "glassmorphism"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "simple-liquid-glass": "^5.3.0"
+  }
+}

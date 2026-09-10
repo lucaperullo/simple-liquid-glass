@@ -1,6 +1,6 @@
 # Simple Liquid Glass
 
-> **Zero-dependency liquid glass for React 16.8–19, with SVG refraction and an explicit backdrop mirror for Safari and Firefox.**
+> **Liquid glass for React 16.8–19, with automatic iOS WebGL refraction, optional Android WebGL, and SVG optics.**
 
 An Apple-style glass effect with displacement, chromatic aberration, gradient borders, and automatic text color. Includes an optional interactive component and a framework-agnostic web component. Server-rendering and hydration are tested alongside browser behavior.
 
@@ -13,17 +13,69 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 **[🔗 Live demo](https://simple-liquid-glass.vercel.app/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
 
 > [!IMPORTANT]
-> **For Safari/iOS rim magnification or Firefox mirror refraction, pass `backdropRef`** pointing to a sibling background element. Without an explicit source the component uses frosted CSS.
+> **For WebGL refraction on iOS (or any platform with `renderer="webgl"`), use `LiquidGlassScene` or pass `backdropRef`** pointing to a sibling background element. Without either source the component uses frosted CSS.
 
 ## Why simple-liquid-glass?
 
-- No runtime dependencies; React is a peer dependency for the React entry points.
-- Chromium SVG backdrop refraction, plus an explicit DOM mirror on Safari/Firefox.
+- No additional renderer installation: WebGL and HTML capture are bundled. React is a peer dependency for React entry points.
+- Automatic WebGL refraction on iOS; opt into it on Android or desktop with `renderer="webgl"`. Chromium SVG and desktop Safari/Firefox mirrors remain available.
 - React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
-- A separate web component for other frameworks, with a frosted fallback on Safari/Firefox.
+- A separate web component for other frameworks, with the same iOS WebGL engine.
 - Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
 
-### Choose your path
+## Automatic page backgrounds with `LiquidGlassScene`
+
+Available in 5.3.0 through the optional `simple-liquid-glass/backdrop` entry. Wrap the content you want to refract and the glass surfaces that use it:
+
+```tsx
+import LiquidGlass from 'simple-liquid-glass';
+import { LiquidGlassScene } from 'simple-liquid-glass/backdrop';
+
+export function Page() {
+  return (
+    <LiquidGlassScene>
+      <section>{/* HTML, images, video, or canvas */}</section>
+      <section>{/* More page content */}</section>
+      <LiquidGlass style={{ position: 'fixed', bottom: 20 }}>
+        Navigation
+      </LiquidGlass>
+    </LiquidGlassScene>
+  );
+}
+```
+
+iOS/iPadOS connects automatically. Use `renderer="webgl"` on a surface to opt in on Android or desktop. Existing `backdropRef` and `backdropSelector` props take precedence. SVG-only pages do not start a scene capture.
+
+The scene shares section snapshots, fonts, mutation tracking, and a capture queue across its surfaces. Each visible lens gets a small moving canvas. Use direct-child sections to divide long pages into practical capture regions. A single large wrapper still works but is captured as one region. Keep sticky/parallax content in a separate explicit backdrop; continuously animated HTML styles cannot be reproduced at video-frame speed by cached snapshots.
+
+`LiquidGlassScene` accepts normal div props and a div ref, plus `fontEmbedCSS`, `maxCacheBytes` (default 64 MiB, minimum 8 MiB), and `onCaptureError(error, section)`. Active snapshots may exceed the budget when needed to cover visible surfaces. Fonts/images must be accessible to browser capture; cross-origin media needs suitable CORS headers. Protected media, cross-origin iframes and shadow DOM are not guaranteed to capture.
+
+Auto-connected surfaces are hidden in snapshots while retaining their layout footprint, preventing recursive rendering. Glass with an explicit source can be captured by other scene surfaces. Add `data-liquid-glass-ignore` to other content you want hidden in the capture. An initial CSS fallback is shown while the first snapshot is prepared.
+
+Nested scenes bind to the nearest provider. Captures are released when the last consumer leaves. Call the glass handle's `refreshBackdrop()` after external theme/style changes; DOM edits and loads are tracked automatically.
+
+### Liquid text and custom renderers
+
+`simple-liquid-text` 0.3.0 automatically connects to the same provider:
+
+```tsx
+import LiquidGlass from 'simple-liquid-glass';
+import { LiquidGlassScene } from 'simple-liquid-glass/backdrop';
+import { LiquidGlassText } from 'simple-liquid-text';
+import 'simple-liquid-text/styles.css';
+
+<LiquidGlassScene>
+  <section>{/* Background content */}</section>
+  <LiquidGlassText renderer="webgl">Liquid type</LiquidGlassText>
+  <LiquidGlass renderer="webgl">Shared background</LiquidGlass>
+</LiquidGlassScene>
+```
+
+For a custom React renderer, `useLiquidGlassBackdrop(elementRef, enabled)` returns `{ backdropRef, connected, ready, refresh }`. Bind the returned canvas only when `connected && ready`, and disable this hook when supplying an explicit backdrop. `refresh` has stable identity.
+
+For non-React integrations, `createLiquidGlassBackdrop(root, options)` returns a shared capture controller. Call `register(element, onReady)` to obtain `{ canvas, refresh, release }`, feed `canvas` to `createWebGLSurface`, then call `release()` and `destroy()` during teardown. The controller does not change renderer selection or mount WebGL outputs.
+
+## Choose your path
 
 - **React, simple** → `import { LiquidGlass } from 'simple-liquid-glass'`
 - **Pointer-reactive / “alive”** → `import { LiquidGlassInteractive } from 'simple-liquid-glass/interactive'`
@@ -76,50 +128,69 @@ function App() {
 }
 ```
 
-### Backdrop mirrors on Safari / iOS / Firefox
+### iOS refraction and Android opt-in
 
-The built-in mirror copies an explicit background element. Firefox uses SVG displacement on
-that copy. Safari/iOS uses **CSS rim magnification** to avoid native Safari's incorrectly positioned
-SVG displacement textures. A masked, mildly magnified copy appears only around the rounded rim;
-the original background remains visible through the clear center. This is an optical approximation,
-not arbitrary per-pixel refraction, and high-contrast edges can show blending.
+Pass the background element once. iOS automatically uses the optimized WebGL renderer,
+including native overscroll tracking. For Android or desktop, add `renderer="webgl"`.
+`renderer="auto"` preserves the existing choices on non-iOS devices. iOS uses WebGL even if
+`renderer="svg"` or legacy `effectMode="svg"` is supplied; `effectMode="blur"` and `"off"`
+still explicitly disable refraction.
 
-```jsx
+```tsx
 import { useRef } from 'react';
 import { LiquidGlass } from 'simple-liquid-glass';
 
-function Card() {
-  const bg = useRef(null);
-  return (
-    <div style={{ position: 'relative' }}>
-      <div ref={bg}>{/* the background that sits behind the glass */}</div>
-      <LiquidGlass backdropRef={bg} radius={24} track>
-        <div style={{ padding: 20 }}>Glass with optical rims on iOS</div>
-      </LiquidGlass>
-    </div>
-  );
+export function Page() {
+  const background = useRef<HTMLDivElement>(null);
+  return <>
+    <div ref={background}>{/* Your page content */}</div>
+    <LiquidGlass
+      backdropRef={background}
+      renderer="webgl" // Omit to enable WebGL automatically on iOS only.
+      lensProfile="player"
+      lensOptions={{ strength: 0.16 }}
+      radius={36}
+      style={{ position: 'fixed', bottom: 24, left: 16,
+        width: 'calc(100% - 32px)', height: 72 }}
+    >
+      <nav>Home · Explore · Library</nav>
+    </LiquidGlass>
+  </>;
 }
 ```
 
-Per engine:
+The source must be a sibling/background, never an ancestor of the glass. `backdropSelector`
+is an alternative to a ref. Multiple panels can share the same source; HTML capture and its
+observers are shared. Normal scrolling only changes the sample coordinates, without recapturing
+HTML. React panels release their GPU resources when offscreen or unmounted. `track` is not
+required for WebGL.
 
-- **Chromium** → real `backdrop-filter` refraction (the mirror stays off — nothing to pay for)
-- **Safari / iOS** with a `backdropRef` → CSS rim magnification over a live copy
-- **Firefox** with a `backdropRef` → SVG displacement over a live copy
-- **Safari / iOS / Firefox** without a usable backdrop → frosted-blur fallback
+The WebGL renderer uses the package's canonical displacement map and existing `lensProfile`,
+`lensOptions`, `scale`, `displacementScale`, `radius`, `dispersion`, `aberrationIntensity`, `blur`, and `saturation`
+controls. As with SVG, low quality disables chromatic separation; otherwise it uses
+`dispersion / 50 * aberrationIntensity` for rounded lenses. CSS tint, border, and brightness layers remain configurable. `mirror`/`mirrorScale`
+only configure the older desktop Safari/Firefox mirror, not WebGL.
 
-**Why you must pass `backdropRef`.** The library can't safely *guess* what's behind a floating
-glass panel. Auto-detecting it means cloning a page-sized ancestor, which exhausts iOS Safari's
-memory and crashes the tab — so it's required, not magic. Point `backdropRef` (or `backdropSelector`)
-at the element behind the lens; it must be a **sibling/background**, **not an ancestor** of the lens
-(an ancestor would mirror the glass into itself — that case degrades to blur). Notes:
+For live video, point `backdropRef` directly at a `<video muted autoPlay playsInline>` element.
+A direct canvas source is live too. For HTML sources, text, attributes, images loading, inputs,
+and size changes refresh the snapshot automatically at a bounded interval, including during continuous updates. Change
+`backdropVersion` or call `ref.current.refreshBackdrop()` after changes outside the subtree,
+such as a stylesheet/theme change. Refresh retains the previous frame until the new capture is
+ready. `refreshBackdrop()` returns a promise and rejects if HTML capture fails.
 
-- `track` — re-align the clone at approximately 30 Hz when the lens or background **moves** (translation/animation).
-- `mirrorScale` — requested distortion strength (default 26), capped to half the optical rim width to avoid folds. `0` disables displacement. `mirror={false}` — opt out (blur on iOS).
-- Keep lenses modest in size — the iOS filter cost scales with lens area.
+Capture boundaries: this renders the explicit source, not arbitrary overlapping page layers.
+Video/canvas nested inside an HTML source are snapshots; pass the media element itself for live
+frames. Cross-origin media requires CORS permission; protected video and unsupported capture
+content use the CSS fallback. CSS-only background animations require explicit refreshes; the
+SVG `liquid` turbulence animation is not implemented in WebGL. Axis-aligned translation and scale
+are supported; rotated/perspective source geometry and glass-through-glass compositing are not.
+Long HTML sources use a bounded-resolution snapshot (up to 64 MiB). Keep backdrop regions focused
+and panel counts modest: each visible panel owns a WebGL context.
 
-> `LiquidGlassMirror` from `simple-liquid-glass/mirror` still exists as a thin back-compat wrapper
-> (it just forwards to `<LiquidGlass>`), but it's no longer needed — the core does this directly.
+Without a valid source, WebGL support, or a successful initial capture, the glass remains usable
+with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl`, `ios-webgl`,
+`webgl-requested`, or the fallback reason. Desktop Safari retains CSS rim magnification and
+Firefox retains its DOM mirror when WebGL is not selected.
 
 ### Pointer‑reactive elasticity — `LiquidGlassInteractive`
 
@@ -142,7 +213,7 @@ For Vue / Svelte / Angular / Astro / plain HTML (no React):
 </liquid-glass>
 ```
 
-**Per-framework guides:** [Vue 3 / Nuxt](docs/frameworks/vue.md) · [Svelte / SvelteKit](docs/frameworks/svelte.md) · [Astro](docs/frameworks/astro.md) · [plain HTML / vanilla JS / Angular](docs/frameworks/vanilla.md). (The web component does Chromium refraction + a frosted fallback on Safari/iOS; for real iOS refraction use the React `backdropRef` path above.)
+**Per-framework guides:** [Vue 3 / Nuxt](docs/frameworks/vue.md) · [Svelte / SvelteKit](docs/frameworks/svelte.md) · [Astro](docs/frameworks/astro.md) · [plain HTML / vanilla JS / Angular](docs/frameworks/vanilla.md). (The web component uses `backdrop-selector` for automatic iOS WebGL; `renderer="webgl"` enables it on other platforms.)
 
 ### Advanced Usage with Custom Settings
 
@@ -226,6 +297,8 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `style` | `CSSProperties` | - | Additional inline styles |
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
+| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS; opt in elsewhere with webgl |
+| `backdropVersion` | `string \| number` | — | Change to refresh cached HTML |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
@@ -284,13 +357,14 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 | Engine | `effectMode="auto"` |
 |--------|--------------------|
 | Chromium desktop | SVG displacement (full effect) |
-| Chromium Android | Layered CSS (perf) — opt into SVG with `mobileFallback="svg"` |
-| Safari / iOS browsers | CSS rim magnification with `backdropRef`; frosted CSS otherwise |
+| Chromium Android | Layered CSS — opt into WebGL with `renderer="webgl"` or SVG with `renderer="svg"` |
+| iOS / iPadOS browsers | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
+| Desktop Safari | CSS rim mirror by default; WebGL with `renderer="webgl"` |
 | Firefox | DOM mirror with `backdropRef`; frosted CSS otherwise |
 
 **Frosted CSS fallback:** blur, tint, saturation, and inset highlights provide the glass appearance when no usable mirror backdrop is provided. Performance depends on lens size, scene complexity, and device.
 
-The experimental WebGL mode from 1.4.x was removed in 2.0.0. Current React builds use the explicit DOM mirror described above for fallback-engine refraction.
+The current WebGL renderer integrates the optimized direct-output pipeline tested in the scenario lab. It is distinct from the older removed experiment.
 
 ## Performance and Fallbacks
 
@@ -422,7 +496,7 @@ The JavaScript build targets Chrome 64, Firefox 69, and Safari 12 syntax. Actual
 
 The mirror is a decorative DOM snapshot. Use a small, explicit sibling backdrop. Canvas pixels, video playback, shadow-root contents, inherited contextual styles, and CSS animations are not guaranteed to match the source. The root’s computed presentation is copied before IDs are namespaced; descendant contextual styles can still differ. Prefer class-based styling. A six-panel scene was measured on an iPhone 15 Pro (Safari 26.6.1); complex scenes still require their own physical-device visual and performance checks.
 
-`effectMode="off"` removes backdrop filtering. `effectMode="blur"` disables the mirror and uses the CSS fallback. The web component can be imported during SSR; instantiate it only in a browser. Install React and React DOM explicitly when using a React entry point; the web component needs neither.
+`effectMode="off"` removes backdrop filtering. `effectMode="blur"` disables WebGL and the mirror and uses the CSS fallback. The web component can be imported during SSR; instantiate it only in a browser. Install React and React DOM explicitly when using a React entry point; the web component needs neither.
 
 ### Development checks
 
@@ -435,17 +509,21 @@ npm run size
 npm run test:compat
 npx playwright install chromium firefox webkit
 npm run test:browser
+npm run test:webgl
+npm install --prefix packages/simple-liquid-glass-font
+npm run build --prefix packages/simple-liquid-glass-font
+npm run test:scene
 ```
 
 Public TypeScript declarations are generated from source during the build. Bundle budgets use **Brotli**, not gzip. CI also checks React 16.8.6, 17.0.2, 18.3.1, and 19 in isolated installations.
 
 ### Safari lens optics
 
-Safari/iOS bypasses SVG filters for the mirror. A cached alpha mask reveals a magnified source copy at the rounded rim, leaving the center clear. `mirrorScale` controls the magnification and is bounded by panel geometry; zero gives no optical offset. Firefox retains the rounded-rectangle SVG displacement map. Both maps are generated only for active mirrors, with neither dimension above 256 pixels.
+Desktop Safari bypasses SVG filters for its optional mirror. iOS uses the WebGL path above. A cached alpha mask reveals a magnified source copy at the rounded rim, leaving the center clear. `mirrorScale` controls the magnification and is bounded by panel geometry; zero gives no optical offset. Firefox retains the rounded-rectangle SVG displacement map. Both maps are generated only for active mirrors, with neither dimension above 256 pixels.
 
-Use `track` for translated lenses or backgrounds. Root transforms are represented by the copy's alignment and are not replayed on the copy. Rotation, scaling, and animations inside the backdrop remain outside the supported alignment contract. The web component still uses its frosted Safari fallback.
+Use `track` for translated lenses or backgrounds. Root transforms are represented by the copy's alignment and are not replayed on the copy. Rotation, scaling, and animations inside the backdrop remain outside the supported alignment contract. The web component uses WebGL on iOS with an explicit backdrop; desktop Safari retains its CSS fallback unless WebGL is requested.
 
-Core is 8.79 kB Brotli, interactive 9.74 kB, and mirror 8.86 kB. Existing 9/10/9 kB budgets pass.
+The 5.3.0 Brotli budgets are 30 KB for core, 33 KB for interactive, 31 KB for mirror, and 23 KB for the web component. The optional shared-scene entry is separate. Run `npm run size` to measure the current builds.
 
 The prior SVG mirror failed physical iPhone visual validation despite automated WebKit pixel checks passing. The replacement CSS path visibly renders all six rims in native Safari 26.5 in the iPhone simulator, with sharp centers; physical-device aesthetic acceptance remains pending. Blending near high-contrast text is a known limitation of the approximation. Earlier device timings are retained as historical measurements, not evidence that the failed SVG visuals worked. See [validation notes](docs/superpowers/plans/2026-09-08-safari-lens.md).
 
@@ -475,8 +553,8 @@ The 512×512 map is cached by geometry; strength, blur and color adjustments reu
 
 The rounded lens is now the default. The original gradient look is available with `refraction="classic"`, with
 strength bounded to 10% of the shorter side to prevent extreme tearing. Native
-filters have explicit sampling bounds and neutral padding. This does not add iOS
-refraction support. The experimental GPU and video demos have been removed.
+filters have explicit sampling bounds and neutral padding. iOS uses the integrated WebGL
+renderer described above; the library demo covers both static HTML and live video.
 
 For matching a video surface's refraction strength, set `displacementScale` to
 `strength * Math.hypot(surfaceWidth, surfaceHeight) / Math.SQRT2`. This optional
@@ -547,3 +625,92 @@ Geometry changes invalidate cached maps; strength, specular, and brightness do n
 ### Interactive controls
 
 The `/interactive` entry also accepts `liquidTrigger="always" | "hover" | "press"`, `followPointer`, `clickRipple={true | "ripple" | "drop"}`, and `rippleIntensity`. `specular` is opt-in and defaults to `false`. Click ripples are clipped surface overlays; they do not capture or refract the backdrop themselves.
+
+### Material presets
+
+```tsx
+<LiquidGlass material="smoked">Your content</LiquidGlass>
+<LiquidGlass material="frosted" blur={4} glassColor="rgba(220,230,255,0.3)">
+  A customized finish
+</LiquidGlass>
+```
+
+`material` accepts `clear`, `frosted`, `smoked`, or `subtle`. Each coordinates the
+lens profile, blur, saturation, color separation, frost, tint, and border color.
+Explicit props override individual preset settings; `undefined` inherits the preset.
+Omitting `material` preserves the existing defaults. Rendering quality and browser
+fallback rules still apply, including the low-quality blur cap. Material selection
+does not choose text colors: set those for your content and background.
+
+`MATERIAL_PRESETS` and the `MaterialPreset` type are exported for material pickers
+and design tools. React wrappers inherit the same `material` prop. These additions
+are currently part of the React API, not the web component.
+
+### Rendering diagnostics
+
+```tsx
+<LiquidGlass
+  onDiagnosticsChange={({ strategy, reason, quality }) => {
+    console.log({ strategy, reason, quality });
+  }}
+/>
+```
+
+The callback runs after mounting and when the selected renderer, reason, or quality
+changes. `ref.current.getDiagnostics()` reads the current snapshot; `getQuality()`
+continues to work. The root also exposes `data-glass-strategy` and `data-glass-reason`
+for inspection. These report the library's rendering decision, not a guarantee of
+browser support, visual fidelity, or frame rate.
+
+| Strategy | Meaning |
+| --- | --- |
+| `pending` | Waiting for client initialization |
+| `off` | Effects explicitly disabled |
+| `paused` | Offscreen effects paused |
+| `svg` | Native SVG backdrop refraction |
+| `css-rim` | Safari-style mirror rim magnification |
+| `svg-mirror` | SVG displacement on a mirrored backdrop |
+| `blur` | CSS fallback |
+
+Reasons include `effect-disabled`, `offscreen`, `blur-requested`, `native-svg`,
+`backdrop-mirror`, `mirror-disabled`, `missing-backdrop`, `invalid-selector`,
+`invalid-backdrop`, `clone-failed`, `mirror-unavailable`, and `initializing`.
+For `missing-backdrop`, supply a sibling background using `backdropRef` or
+`backdropSelector`. For `invalid-backdrop`, move the source outside the lens and its
+ancestors. `RenderingDiagnostics`, `RenderingStrategy`, and `RenderingReason` are
+exported TypeScript types.
+
+
+### WebGL in Vue, Svelte, Astro, Angular or plain HTML
+
+```html
+<script type="module">
+  import 'simple-liquid-glass/web-component';
+</script>
+<div id="background">Your page content</div>
+<liquid-glass backdrop-selector="#background" renderer="webgl"
+  lens-profile="player" strength="0.16" radius="36"
+  style="position:fixed;bottom:24px;left:16px;width:320px;height:72px">
+  Home · Explore · Library
+</liquid-glass>
+```
+
+Omit `renderer` for automatic iOS selection. WebGL attributes include `lens-profile`, `strength`,
+`dispersion`, `radius`, `scale`, `blur`, `saturation`, `backdrop-selector`, and `backdrop-version`.
+`effect-mode="blur"` or `"off"` explicitly disables refraction. Call
+`element.refreshBackdrop()` for a manual capture refresh. Disconnecting the element releases
+its context and source subscription.
+
+The bundled renderer increases the React core to approximately **29 KB Brotli**, including HTML
+capture (React excluded); the web component is approximately **22 KB Brotli**. No separate
+runtime dependency installation is required. See `THIRD_PARTY_NOTICES.md` for bundled licenses.
+Run `npm run test:webgl` for the library integration/overscroll tests in Chromium and WebKit.
+
+### Shared WebGL surfaces
+
+`simple-liquid-glass/webgl` exports the framework-independent `createWebGLSurface(element,
+output, backdrop, options, onStatus)` engine and its TypeScript types. It accepts a displacement
+map URI, scale, dispersion, radius, blur and saturation; the output holder can be CSS-masked.
+`additiveDispersion` and `neutralPoint` support glyph maps. The returned surface exposes
+`update(options)`, `refresh()` and `destroy()`. This is the canonical engine used by
+`simple-liquid-text`, including overscroll tracking and background capture lifecycle.

@@ -1,0 +1,9 @@
+Demo footage and poster reused from the project's existing showcase.
+
+coast.mp4: “Flying low over the sea of a beach”, Mixkit, item 44392.
+https://mixkit.co/free-stock-video/flying-low-over-the-sea-of-a-beach-44392/
+License recorded by the showcase: Mixkit Stock Video Free License.
+https://mixkit.co/license/#videoFree
+coast-poster.jpg is a frame from the clip.
+
+Media is included only in the local demo, not in the published npm package.

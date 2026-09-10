@@ -15,3 +15,24 @@ const interactiveOptics = <LiquidGlassInteractive lensOptions={{strength:.14,glo
 // @ts-expect-error lens controls are numeric
 const invalidOptics = <LiquidGlass lensOptions={{depth:'deep'}} />;
 void customized; void interactiveOptics; void invalidOptics;
+const material = <LiquidGlass material="smoked" onDiagnosticsChange={diagnostics => { const strategy: string = diagnostics.strategy; void strategy; }} />;
+ref.current?.getDiagnostics().reason;
+// @ts-expect-error unknown materials must be rejected
+const invalidMaterial = <LiquidGlass material="plastic" />;
+void material; void invalidMaterial;
+
+const gpu = <LiquidGlass renderer="webgl" backdropSelector="#background" backdropVersion={1} />;
+const interactiveGpu = <LiquidGlassInteractive renderer="webgl" backdropSelector="#background" />;
+ref.current?.refreshBackdrop().then(() => {});
+// @ts-expect-error unsupported renderer
+const invalidRenderer = <LiquidGlass renderer="canvas2d" />;
+void gpu; void interactiveGpu; void invalidRenderer;
+
+import { createWebGLSurface, type WebGLSurfaceOptions } from 'simple-liquid-glass/webgl';
+const surfaceOptions: WebGLSurfaceOptions = { map: '', scale: 80, dispersion: 1, specular: 0,
+  classic: false, additiveDispersion: true, neutralPoint: 128/255, radius: 0, blur: 0, saturation: 100 };
+void createWebGLSurface; void surfaceOptions;
+
+import {LiquidGlassScene,useLiquidGlassBackdrop,createLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
+const scene = <LiquidGlassScene maxCacheBytes={64*1024*1024} onCaptureError={(error,section)=>{void error;void section}}><LiquidGlass /></LiquidGlassScene>;
+void scene;void useLiquidGlassBackdrop;void createLiquidGlassBackdrop;

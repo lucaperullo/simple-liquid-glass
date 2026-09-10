@@ -1,8 +1,8 @@
 {
   "name": "simple-liquid-glass",
-  "version": "5.1.1",
+  "version": "5.3.0",
   "type": "module",
-  "description": "Zero-dependency liquid glass for React 16.8–19, with SVG refraction, an explicit DOM-mirror fallback for Safari/Firefox, and a framework-agnostic web component.",
+  "description": "Liquid glass for React 16.8\u201319 and web components, with automatic iOS WebGL refraction, optional Android WebGL, SVG optics, and explicit backdrop capture.",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -26,6 +26,16 @@
       "types": "./dist/web-component.d.ts",
       "import": "./dist/web-component.esm.js",
       "require": "./dist/web-component.cjs"
+    },
+    "./webgl": {
+      "types": "./dist/webgl.d.ts",
+      "import": "./dist/webgl.esm.js",
+      "require": "./dist/webgl.cjs"
+    },
+    "./backdrop": {
+      "types": "./dist/backdrop.d.ts",
+      "import": "./dist/backdrop.esm.js",
+      "require": "./dist/backdrop.cjs"
     }
   },
   "files": [
@@ -47,40 +57,42 @@
     "typecheck": "tsc --noEmit",
     "test:browser": "playwright test",
     "test:compat": "node scripts/check-compat.cjs",
-    "test:types": "tsc -p tests/types/tsconfig.json"
+    "test:types": "tsc -p tests/types/tsconfig.json",
+    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs",
+    "test:scene": "node experiments/scene/test.mjs"
   },
   "size-limit": [
     {
-      "name": "core — import { LiquidGlass } (Brotli, includes iOS mirror engine)",
+      "name": "core \u2014 import { LiquidGlass } (Brotli, includes WebGL and HTML capture)",
       "path": "dist/index.esm.js",
-      "limit": "15 KB",
+      "limit": "30 KB",
       "ignore": [
         "react",
         "react-dom"
       ]
     },
     {
-      "name": "interactive — import { LiquidGlassInteractive } (Brotli, bundles core)",
+      "name": "interactive \u2014 import { LiquidGlassInteractive } (Brotli, bundles core)",
       "path": "dist/interactive.esm.js",
-      "limit": "17 KB",
+      "limit": "33 KB",
       "ignore": [
         "react",
         "react-dom"
       ]
     },
     {
-      "name": "mirror — import { LiquidGlassMirror } (Brotli, bundles core)",
+      "name": "mirror \u2014 import { LiquidGlassMirror } (Brotli, bundles core)",
       "path": "dist/mirror.esm.js",
-      "limit": "15 KB",
+      "limit": "31 KB",
       "ignore": [
         "react",
         "react-dom"
       ]
     },
     {
-      "name": "web-component — <liquid-glass> (Brotli, no React)",
+      "name": "web-component \u2014 <liquid-glass> (Brotli, no React)",
       "path": "dist/web-component.esm.js",
-      "limit": "6 KB"
+      "limit": "23 KB"
     }
   ],
   "repository": {
@@ -165,6 +177,7 @@
     "@types/pngjs": "^6.0.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "html-to-image": "1.11.11",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "pngjs": "^7.0.0",

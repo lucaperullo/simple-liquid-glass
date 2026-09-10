@@ -67,3 +67,5 @@ export default tseslint.config([
   },
 ])
 ```
+
+The glass examples use `renderer="auto"` and explicit sibling background sources for iOS WebGL. Direct video/canvas sources update in real time; HTML sources are cached and refresh automatically. The draggable lens samples the color grid and the feature cards sample their separate background layer.

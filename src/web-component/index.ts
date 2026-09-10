@@ -1,3 +1,7 @@
+import { createWebGLEngine } from '../core/webgl/runtime';
+import type { WebGLEngine } from '../core/webgl/types';
+import { isIOSDevice, wantsWebGL } from '../core/renderer';
+import { buildNativeMap, resolveLensOptions, type LensProfile } from '../core/nativeOptics';
 /**
  * `<liquid-glass>` custom element — framework-agnostic (vanilla / Vue / Svelte / Angular /
  * Astro / plain HTML). Reuses the canonical displacement-map generator so the look matches
@@ -34,13 +38,16 @@ const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement
 
 export class LiquidGlassElement extends ElementBase {
   static get observedAttributes(): string[] {
-    return ['radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha', 'angle', 'shape-adapt', 'lens', 'lens-strength', 'lens-center', 'liquid', 'liquid-speed', 'liquid-scale'];
+    return ['renderer', 'effect-mode', 'backdrop-selector', 'backdrop-version', 'lens-profile', 'strength', 'dispersion', 'radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha', 'angle', 'shape-adapt', 'lens', 'lens-strength', 'lens-center', 'liquid', 'liquid-speed', 'liquid-scale'];
   }
 
   private readonly filterId = `lg-wc-${++uid}`;
   private readonly root: ShadowRoot;
   private ro?: ResizeObserver;
   private liquidRaf = 0;
+  private webgl?: WebGLEngine;
+  /** Refresh cached HTML after stylesheet or external visual changes. */
+  refreshBackdrop(): Promise<void> { return this.webgl?.refresh() ?? Promise.resolve(); }
 
   constructor() {
     super();
@@ -56,6 +63,7 @@ export class LiquidGlassElement extends ElementBase {
   }
 
   disconnectedCallback(): void {
+    this.webgl?.destroy(); this.webgl = undefined;
     this.ro?.disconnect();
     if (this.liquidRaf) cancelAnimationFrame(this.liquidRaf);
   }
@@ -65,6 +73,7 @@ export class LiquidGlassElement extends ElementBase {
   }
 
   private render(): void {
+    this.webgl?.destroy(); this.webgl = undefined;
     const radius = attrNum(this, 'radius', 50);
     const frost = attrNum(this, 'frost', 0.1);
     const blur = attrNum(this, 'blur', 0);
@@ -101,7 +110,13 @@ export class LiquidGlassElement extends ElementBase {
     const r = this.getBoundingClientRect();
     const width = r.width || 300;
     const height = r.height || 180;
-    const chromium = isChromium();
+    const rendererAttr = this.getAttribute('renderer');
+    const renderer = rendererAttr === 'webgl' || rendererAttr === 'svg' ? rendererAttr : 'auto';
+    const effectAttr = this.getAttribute('effect-mode');
+    const effect = effectAttr === 'blur' || effectAttr === 'off' || effectAttr === 'svg' ? effectAttr : 'auto';
+    const ios = isIOSDevice(navigator.userAgent, navigator.maxTouchPoints || 0);
+    const webgl = wantsWebGL(renderer, effect, ios);
+    const chromium = isChromium() && !webgl && effect !== 'blur' && effect !== 'off';
 
     let backdrop: string;
     let glassBg: string;
@@ -127,6 +142,9 @@ export class LiquidGlassElement extends ElementBase {
       glassBg = `${SHEEN}, hsl(0 0% 100% / ${frost})`;
     }
 
+    if (effect === 'off') { backdrop = 'none'; glassBg = 'transparent'; }
+    delete this.dataset.glassReason;
+    this.dataset.glassStrategy = effect === 'off' ? 'off' : chromium ? 'svg' : 'blur';
     this.root.innerHTML = `
       <style>
         :host { display: block; position: relative; }
@@ -143,6 +161,40 @@ export class LiquidGlassElement extends ElementBase {
       <div class="lg-content"><slot></slot></div>
       ${svg}
     `;
+
+    if (webgl) {
+      let source: HTMLElement | null = null;
+      try { const selector = this.getAttribute('backdrop-selector'); if (selector) source = document.querySelector<HTMLElement>(selector); }
+      catch { this.dataset.glassReason = 'invalid-selector'; }
+      if (!source || source.contains(this) || this.contains(source)) {
+        this.dataset.glassReason ||= source ? 'invalid-backdrop' : 'missing-backdrop';
+      } else {
+        const holder = document.createElement('div');
+        holder.style.cssText = `position:absolute;inset:0;border-radius:${radius}px;overflow:hidden;pointer-events:none;visibility:hidden`;
+        holder.setAttribute('aria-hidden', 'true'); this.root.prepend(holder);
+        const profileAttr = this.getAttribute('lens-profile');
+        const profile: LensProfile = profileAttr === 'material' || profileAttr === 'loupe' || profileAttr === 'track' ? profileAttr : 'player';
+        const options = resolveLensOptions(profile, this.hasAttribute('strength') ? { strength: attrNum(this, 'strength', .16) } : undefined);
+        const nativeWidth = this.offsetWidth || width, nativeHeight = this.offsetHeight || height;
+        try {
+          this.webgl = createWebGLEngine(this, holder, source, {
+            map: buildNativeMap(nativeWidth, nativeHeight, radius, profile, options),
+            scale: scale / 160 * options.strength * (profile === 'player' ? 500 : Math.hypot(nativeWidth, nativeHeight) / Math.SQRT2),
+            dispersion: Math.min(1, Math.abs(attrNum(this, 'dispersion', 50)) / 50),
+            specular: options.specular, classic: false, radius, blur, saturation
+          }, status => {
+            const active = status === 'active';
+            this.dataset.glassStrategy = active ? 'webgl' : status === 'pending' ? 'pending' : 'blur';
+            this.dataset.glassReason = active ? ios ? 'ios-webgl' : 'webgl-requested' : status;
+            holder.style.visibility = active ? 'visible' : 'hidden';
+            const glass = this.root.querySelector<HTMLElement>('.lg-glass')!;
+            glass.style.backdropFilter = active ? 'none' : backdrop;
+            glass.style.setProperty('-webkit-backdrop-filter', active ? 'none' : backdrop);
+            glass.style.background = active ? `hsl(0 0% 100% / ${frost})` : glassBg;
+          });
+        } catch { this.dataset.glassReason = 'webgl-unavailable'; }
+      }
+    }
 
     const borderLayer = this.root.querySelector<HTMLElement>('.lg-border');
     if (borderLayer) borderLayer.style.background = `linear-gradient(315deg, ${borderColor} 0%, rgba(120,120,120,0) 30%, rgba(120,120,120,0) 70%, ${borderColor} 100%) border-box`;

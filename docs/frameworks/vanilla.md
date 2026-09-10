@@ -1,5 +1,27 @@
 # Liquid Glass in Plain HTML / Vanilla JavaScript
 
+## WebGL refraction on iOS and Android
+
+The custom element now uses WebGL automatically on iOS when `backdrop-selector` points to
+an explicit sibling background. Add `renderer="webgl"` to select the same renderer on Android
+or desktop. No React adapter is needed. Without a source, the existing CSS/SVG examples below
+keep their fallback behavior.
+
+```html
+<div id="page-background">Your page content</div>
+<liquid-glass backdrop-selector="#page-background" renderer="webgl"
+  lens-profile="player" strength="0.16" radius="36"
+  style="position:fixed;bottom:24px;left:16px;width:320px;height:72px">
+  Home · Explore · Library
+</liquid-glass>
+```
+
+Omit `renderer` for iOS-only automatic selection. For live video, select the video element
+itself. `effect-mode="blur"`/`"off"` disable refraction. See the
+[current renderer guide](../../README.md#ios-refraction-and-android-opt-in) for capture limits,
+refresh, diagnostics, and the approximately 22 KB Brotli custom-element bundle.
+
+
 Apple's liquid glass effect—now in your static HTML, no framework required.
 
 ## One-Line Setup: CDN
@@ -417,7 +439,7 @@ All attributes are **optional**. Sensible defaults ship with the component.
 - Everything behind the glass warps and distorts in real time
 - Attributes `displace` and `scale` control the intensity and scale of the refraction
 
-### Safari, iOS, Firefox
+### Safari, iOS, Firefox without an explicit WebGL backdrop
 - **Polished frosted-glass fallback**: blur, saturation boost, subtle sheen gradient
 - No live displacement—browser engines don't support SVG filters in `backdrop-filter`
 - Still looks premium and matches the glass aesthetic, just not the true refraction warp
@@ -597,7 +619,7 @@ export class GlassSliderComponent {
 
 ## Real Refraction on iOS / Safari (React)
 
-The web component uses the frosted-glass fallback on Safari and iOS because it doesn't have access to the background element. If you're building a React app and need **true refraction on iOS/Safari**, use the React component with `backdropRef`:
+The web component supports iOS WebGL with `backdrop-selector`, as shown above. If you're building a React app and need **true refraction on iOS/Safari**, use the React component with `backdropRef`:
 
 ```jsx
 import { useRef } from 'react';
@@ -630,7 +652,7 @@ With `backdropRef`, Safari and iOS show real refraction—the background element
 
 ## Size & Performance
 
-- **Web component**: ~6 KB (gzip), zero runtime dependencies
+- **Web component**: ~22 KB Brotli including bundled WebGL capture
 - **Auto-registers**: just one CDN `<script type="module">` line
 - **SSR-safe**: only touches the DOM in the browser
 - **Responsive**: automatically re-renders on resize
@@ -721,7 +743,7 @@ document.getElementById('light-mode').addEventListener('click', () => applyTheme
 
 ### "I don't see a refraction effect, just a blur"
 
-That's normal on Safari and Firefox. The web component shows the frosted fallback on non-Chromium browsers (Chrome, Edge, Opera, Brave, Arc all show real refraction). If you're on Chromium and still don't see it:
+Without an explicit WebGL backdrop, the web component shows the frosted fallback on non-Chromium browsers (Chrome, Edge, Opera, Brave, Arc all show real refraction). If you're on Chromium and still don't see it:
 
 - Ensure `displace` and `scale` are not 0
 - Try adjusting `saturation` higher

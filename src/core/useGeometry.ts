@@ -11,6 +11,7 @@ export function useGeometry(containerRef: RefObject<HTMLDivElement | null>) {
   // Whether the element is on (or near) screen. Offscreen instances drop their expensive
   // backdrop-filter so a page with many glass cards only pays for the visible ones.
   const [isVisible, setIsVisible] = useState(true);
+  const [visibilityReady, setVisibilityReady] = useState(false);
   // Update dimensions when the container size changes
   useEffect(() => {
     if (!containerRef.current) return;
@@ -22,7 +23,10 @@ export function useGeometry(containerRef: RefObject<HTMLDivElement | null>) {
     const updateDimensions = () => {
       if (!containerRef.current) return;
 
-      const { width, height } = containerRef.current.getBoundingClientRect();
+      // Filters are sized in local CSS pixels. getBoundingClientRect includes
+      // animation transforms, which ResizeObserver does not track: measuring a
+      // scaled entrance would otherwise leave the lens permanently undersized.
+      const { offsetWidth: width, offsetHeight: height } = containerRef.current;
       if (width === 0 || height === 0) return;
       if (width === lastW && height === lastH) return; // ignore no-op (incl. ResizeObserver's initial fire)
       lastW = width;
@@ -60,13 +64,13 @@ export function useGeometry(containerRef: RefObject<HTMLDivElement | null>) {
   // glass instances only pay for the ones in view. Defaults to visible for SSR/first paint
   // and where IntersectionObserver is unavailable, so nothing regresses.
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
+    if (typeof IntersectionObserver === 'undefined') { setVisibilityReady(true); return; }
     const el = containerRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
         const entry = entries[entries.length - 1];
-        if (entry) setIsVisible(entry.isIntersecting);
+        if (entry) { setIsVisible(entry.isIntersecting); setVisibilityReady(true); }
       },
       { rootMargin: '200px' } // re-enable just before it scrolls into view (no pop-in)
     );
@@ -74,5 +78,5 @@ export function useGeometry(containerRef: RefObject<HTMLDivElement | null>) {
     return () => io.disconnect();
   }, []);
 
-  return { dimensions, isResizing, isVisible };
+  return { dimensions, isResizing, isVisible, visibilityReady };
 }

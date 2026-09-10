@@ -1,16 +1,13 @@
 # simple-liquid-glass
 
-> Zero-dependency React "liquid glass" component. It renders Apple-style liquid glass with an SVG
-> displacement map (real refraction on Chromium), and ships a framework-agnostic `<liquid-glass>`
-> web component for Vue/Svelte/Astro/vanilla. React 16.8–19, SSR-safe. ~10 KB React core /
-> ~6.5 KB web component, gzip.
->
-> **Support rule:** refraction is Chromium-only; Safari/iOS/Firefox render frosted glass (no
-> refraction); there is no `backdropRef`/`mirror`.
+> React and framework-agnostic liquid glass with automatic iOS WebGL refraction.
+> Select `renderer="webgl"` for Android/desktop. WebGL needs an explicit sibling background.
+> React 16.8–19, SSR-safe. Approximately 29 KB React / 22 KB custom element, Brotli,
+> including bundled HTML capture. No additional renderer installation.
 
 This file is written for LLMs/agents: it contains the complete public API, copy-paste recipes, and
 the constraints needed to use the library correctly and autonomously. When in doubt, prefer the
-patterns here over guessing. Version: 3.x.
+patterns here over guessing. See README.md for current integration examples.
 
 ## Install
 
@@ -33,23 +30,24 @@ Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no Rea
 
 ## How refraction works — and the #1 thing to get right
 
-The real refraction is an SVG displacement map driven through `feDisplacementMap` inside
-`backdrop-filter`. **That only runs on Chromium** (Chrome/Edge/Android Chrome). On Safari, iOS, and
-Firefox, `backdrop-filter` cannot run SVG filters, so the component renders a deliberate, polished
-**frosted glass** (blur + saturation + subtle tint + gradient border) — real glass, just not
-refraction. This is a hard platform limitation: WebKit can't run SVG filters in `backdrop-filter`,
-and no web API exposes a live page backdrop to WebGL/canvas. There is no `backdropRef`/`mirror` and
-no workaround that delivers live refraction on those engines.
-
-| Engine | Refraction |
-|---|---|
-| Chrome / Edge / Android Chrome (Chromium) | ✅ real SVG refraction |
-| Safari / iOS / Firefox | frosted glass (no refraction) |
+iOS/iPadOS automatically uses WebGL, including Chrome/Firefox on iOS. `renderer="webgl"`
+opts Android and desktop into the same pipeline. `renderer="svg"` selects the existing SVG path
+on supported non-iOS browsers. `effectMode="blur"`/`"off"` take precedence everywhere.
+WebGL requires a sibling `backdropRef` or `backdropSelector`, never an ancestor of the glass.
+It shares the package's lens maps and controls. Direct video/canvas sources are live; HTML is
+cached and automatically refreshed for DOM mutations. Use `backdropVersion` or the imperative
+`refreshBackdrop(): Promise<void>` for external stylesheet changes. Nested media in HTML is not
+live. CORS restrictions apply. Capture/context failures use blur with diagnostic reasons.
+Desktop Safari/Firefox still support explicit mirrors when WebGL is not selected.
 
 ## `<LiquidGlass>` props (React core)
 
 | prop | type | default | notes |
 |---|---|---|---|
+| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | iOS uses WebGL unless blur/off |
+| `backdropRef` | RefObject<HTMLElement> | — | explicit sibling backdrop |
+| `backdropSelector` | string | — | selector alternative |
+| `backdropVersion` | string \| number | — | refresh HTML capture |
 | `children` | ReactNode | — | content inside the glass |
 | `mode` | `'preset' \| 'custom'` | `'preset'` | preset applies tuned defaults; props still override |
 | `scale` | number | `160` | displacement strength (negative inverts the bend) |
@@ -108,9 +106,10 @@ Also: `usePointerElastic(ref, options)` — apply the elastic spring to any `Liq
 `angle`, `shape-adapt` (`"false"` to disable), `lens`, `lens-strength`, `lens-center` (`"x,y"`),
 `liquid`, `liquid-speed`, `liquid-scale`.
 
-Like the React core, the web component renders real SVG refraction on Chromium and a frosted-glass
-fallback on Safari/iOS/Firefox. There is no `backdrop-selector`/`backdrop`/`mirror`/`mirror-scale`/
-`track` — and no refraction on the non-Chromium engines.
+The custom element supports `renderer`, `backdrop-selector`, `backdrop-version`, `effect-mode`,
+`lens-profile`, `strength`, and `dispersion` in addition to the attributes above. iOS automatically
+uses WebGL with an explicit source. `renderer="webgl"` opts other platforms in. It exposes
+`refreshBackdrop(): Promise<void>` and `data-glass-strategy`/`data-glass-reason`.
 
 Note: pointer interaction props (`followPointer`, `clickRipple`, `rippleIntensity`, `liquidTrigger`,
 elasticity) are **React-only** (`LiquidGlassInteractive`) — they are NOT web-component attributes.
@@ -167,9 +166,9 @@ SSR-safe out of the box — it only touches the DOM in effects. Use it in client
 
 ## Constraints & gotchas (read before generating code)
 
-- **Refraction (SVG displacement) is Chromium-only.** Chrome/Edge/Android Chrome get real refraction;
-  Safari/iOS/Firefox render frosted glass (blur + saturation + subtle tint + gradient border). There
-  is no `backdropRef`/`mirror` and no way to get live refraction on the non-Chromium engines.
+- **Always provide an explicit sibling backdrop for WebGL.** Do not point at document.body or
+  another ancestor of the glass. HTML capture is not a browser screenshot and does not include
+  unrelated overlapping layers. Direct video/canvas sources are required for live media.
 - **`liquid` and `followPointer`/`clickRipple` are GPU-real and gated**: animate only while on-screen,
   pause on `prefers-reduced-motion`, Chromium SVG path; treat `liquid` as a per-element design choice,
   not for hundreds of cards. `liquidTrigger: 'hover' | 'press'` costs nothing until interaction.
@@ -186,3 +185,6 @@ SSR-safe out of the box — it only touches the DOM in effects. Use it in client
 - npm: https://www.npmjs.com/package/simple-liquid-glass
 - repo: https://github.com/lucaperullo/simple-liquid-glass
 - changelog: https://github.com/lucaperullo/simple-liquid-glass/blob/main/CHANGELOG.md
+
+## Shared page backdrop (5.3.0)
+Import LiquidGlassScene from simple-liquid-glass/backdrop and wrap page sections plus glass. WebGL surfaces without explicit backdropRef/backdropSelector bind automatically; explicit sources always win. iOS auto-selects WebGL; Android/desktop use renderer="webgl". The provider shares captures, not WebGL contexts. Automatic surfaces are excluded without removing layout space; explicitly sourced glass remains capturable. simple-liquid-text 0.3.0 uses the same provider. Divide long pages into direct-child sections; avoid sticky/parallax HTML inside cached regions. Cross-origin content must permit capture.

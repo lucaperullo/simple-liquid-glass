@@ -1,6 +1,28 @@
 # Liquid Glass in Svelte & SvelteKit
 
-> **Real refraction on Chromium. Polished frosted-glass fallback on Safari/iOS/Firefox.** Zero dependencies, ~6 KB gzip.
+## WebGL refraction on iOS and Android
+
+The custom element now uses WebGL automatically on iOS when `backdrop-selector` points to
+an explicit sibling background. Add `renderer="webgl"` to select the same renderer on Android
+or desktop. No React adapter is needed. Without a source, the existing CSS/SVG examples below
+keep their fallback behavior.
+
+```html
+<div id="page-background">Your page content</div>
+<liquid-glass backdrop-selector="#page-background" renderer="webgl"
+  lens-profile="player" strength="0.16" radius="36"
+  style="position:fixed;bottom:24px;left:16px;width:320px;height:72px">
+  Home · Explore · Library
+</liquid-glass>
+```
+
+Omit `renderer` for iOS-only automatic selection. For live video, select the video element
+itself. `effect-mode="blur"`/`"off"` disable refraction. See the
+[current renderer guide](../../README.md#ios-refraction-and-android-opt-in) for capture limits,
+refresh, diagnostics, and the approximately 22 KB Brotli custom-element bundle.
+
+
+> **Real refraction on Chromium. Polished frosted-glass fallback on Safari/iOS/Firefox.** Zero dependencies, ~22 KB Brotli including WebGL capture.
 
 The `<liquid-glass>` custom element works seamlessly in Svelte and SvelteKit. This guide covers npm bundler setup, CDN usage, SvelteKit SSR safety, and practical examples.
 
@@ -137,15 +159,15 @@ The component watches all attributes via `observedAttributes`, so changes re-ren
 | Browser | Effect |
 |---------|--------|
 | Chromium (Chrome/Edge/Brave/Opera) | SVG displacement — real refraction |
-| Safari / iOS | Frosted blur + sheen fallback |
+| Safari / iOS | WebGL with explicit backdrop; frosted fallback otherwise |
 | Firefox | Frosted blur + sheen fallback |
 
-For **real refraction on iOS/Safari**, use the **React component** with `backdropRef` (the web component doesn't include the live-DOM mirror). See the [main README](https://github.com/lucaperullo/simple-liquid-glass#real-refraction-on-ios--safari--firefox--built-into-liquidglass).
+For **WebGL refraction**, use `backdrop-selector` and optionally `renderer="webgl"` on the custom element. See the [main README](https://github.com/lucaperullo/simple-liquid-glass#real-refraction-on-ios--safari--firefox--built-into-liquidglass).
 
 ## Troubleshooting
 
 - **Nothing renders** → ensure the import runs client-side, the element has explicit `width`/`height`, and there's a background behind it.
-- **Blurry on iOS** → that's the fallback; real iOS refraction needs the React `backdropRef` path.
+- **Blurry on iOS** → that's the fallback; supply `backdrop-selector` for automatic iOS WebGL refraction.
 - **Attribute not updating** → bind a variable (`radius={x}`), not a string literal.
 
 ## Links

@@ -44,7 +44,7 @@ full-page refraction, Chromium's native `backdrop-filter` is still cheaper. Test
 
 ~6.5 KB gzip, zero npm deps, React 16.8–19, SSR-safe. There's a `<liquid-glass>` web component too.
 
-Links: [npm](https://www.npmjs.com/package/simple-liquid-glass) · [GitHub](https://github.com/lucaperullo/simple-liquid-glass) · [Live demo](https://simple-liquid-glass.vercel.app/)
+Links: [npm](https://www.npmjs.com/package/simple-liquid-glass) · [GitHub](https://github.com/lucaperullo/simple-liquid-glass) · [Live demo](https://glass.lucaperullo.it/)
 
 ---
 
@@ -90,7 +90,7 @@ on a real iPhone.
 page on iOS and crash the tab. Keep lenses modest; cost scales with area. For full-page effects,
 Chromium's native `backdrop-filter` is more efficient.
 
-Links: [npm](https://www.npmjs.com/package/simple-liquid-glass) · [GitHub](https://github.com/lucaperullo/simple-liquid-glass) · [Demo](https://simple-liquid-glass.vercel.app/)
+Links: [npm](https://www.npmjs.com/package/simple-liquid-glass) · [GitHub](https://github.com/lucaperullo/simple-liquid-glass) · [Demo](https://glass.lucaperullo.it/)
 
 ---
 

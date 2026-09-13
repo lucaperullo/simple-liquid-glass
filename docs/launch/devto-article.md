@@ -256,7 +256,7 @@ Real glass refraction on the web isn't a myth, and it doesn't require abandoning
 
 If you're building with React and want your liquid glass to look professional on iPhone, the pieces are here. Pass `backdropRef`, set `track` if the lens moves, and let the browser do the heavy lifting.
 
-The live demo is on [simple-liquid-glass.vercel.app](https://simple-liquid-glass.vercel.app/). Pull it up on your iPhone and watch the refraction work. Then check it on Chrome. Same component, two different techniques under the hood — both honest, both fast.
+The live demo is on [glass.lucaperullo.it](https://glass.lucaperullo.it/). Pull it up on your iPhone and watch the refraction work. Then check it on Chrome. Same component, two different techniques under the hood — both honest, both fast.
 
 Happy building.
 
@@ -265,6 +265,6 @@ Happy building.
 **Links:**
 - [simple-liquid-glass on npm](https://www.npmjs.com/package/simple-liquid-glass)
 - [GitHub repo](https://github.com/lucaperullo/simple-liquid-glass)
-- [Live demo](https://simple-liquid-glass.vercel.app/)
+- [Live demo](https://glass.lucaperullo.it/)
 - [WebKit bug 245510 (backdrop-filter SVG)](https://bugs.webkit.org/show_bug.cgi?id=245510)
 - [caniuse: filter](https://caniuse.com/css-filters) (filter property on elements)

@@ -1,0 +1,35 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "simple-liquid-text.vercel.app"
+        }
+      ],
+      "destination": "https://text.lucaperullo.it/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "simple-liquid-text-lucaperullos-projects.vercel.app"
+        }
+      ],
+      "destination": "https://text.lucaperullo.it/:path*",
+      "permanent": true
+    }
+  ]
+}

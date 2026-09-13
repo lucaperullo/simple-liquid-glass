@@ -1,0 +1,41 @@
+{
+  "headers": [
+    {
+      "source": "/releases/(.*).apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "simple-liquid-launcher.vercel.app"
+        }
+      ],
+      "destination": "https://launcher.lucaperullo.it/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "simple-liquid-launcher-lucaperullos-projects.vercel.app"
+        }
+      ],
+      "destination": "https://launcher.lucaperullo.it/:path*",
+      "permanent": true
+    }
+  ]
+}

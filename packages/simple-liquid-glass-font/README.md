@@ -2,7 +2,7 @@
 
 Selectable liquid-glass text in your own font, with glyph-shaped refraction over live video and scrolling content. React component with real-time iOS refraction through the shared `simple-liquid-glass` WebGL engine. No bundled typeface or font downloads.
 
-[Live showcase](https://simple-liquid-text.vercel.app) · [Companion glass surfaces](https://simple-liquid-glass.vercel.app)
+[Live showcase](https://text.lucaperullo.it) · [Companion glass surfaces](https://glass.lucaperullo.it)
 
 ```sh
 npm install simple-liquid-text
@@ -104,7 +104,7 @@ npm run test:browser
 npm pack
 ```
 
-Install the resulting tarball in another project with `npm install /path/to/simple-liquid-text-0.2.0.tgz`. Packing runs the build, optical-field tests, and server-rendering tests automatically.
+Install the resulting tarball in another project with `npm install /path/to/simple-liquid-text-0.3.1.tgz`. Packing runs the build, optical-field tests, and server-rendering tests automatically.
 
 The browser suite covers font changes, glyph alignment, selection, print fallback, pixel-level clipping, refraction at zero blur, dispersion, live-video playback, and scrolling beneath a stationary lens. It also checks that the selected strength reaches the renderer without attenuation and that the comparison button restores it. Native refraction checks run in Chromium. WebGL glyph clipping, nested scrolling, and live video are tested in Chromium, Firefox, and WebKit. A separate plain-blur probe skips native blur checks when the graphics backend does not render CSS backdrop blur. Physical iPhone testing remains useful for device-specific browser behavior.
 
@@ -118,3 +118,7 @@ Wrap your page content and text in `LiquidGlassScene` from `simple-liquid-glass/
   <LiquidGlassText renderer="webgl">Liquid type</LiquidGlassText>
 </LiquidGlassScene>
 ```
+
+### 0.3.1 — official domains
+
+The package homepage and documentation now use `https://text.lucaperullo.it`. Rendering behavior and the shared scene API are unchanged from 0.3.0.

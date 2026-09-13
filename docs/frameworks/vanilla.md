@@ -773,7 +773,7 @@ You need both steps:
 
 ## Links & Resources
 
-- **Live Demo**: https://simple-liquid-glass.vercel.app/
+- **Live Demo**: https://glass.lucaperullo.it/
 - **GitHub**: https://github.com/lucaperullo/simple-liquid-glass
 - **npm Package**: https://www.npmjs.com/package/simple-liquid-glass
 - **Changelog**: https://github.com/lucaperullo/simple-liquid-glass/blob/main/CHANGELOG.md

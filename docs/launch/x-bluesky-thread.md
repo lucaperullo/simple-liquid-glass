@@ -35,7 +35,7 @@ variant). A framework-agnostic web component. React 16 → 19. SSR-safe. TypeScr
 ↓ links in the reply. If it helps, a GitHub star means a lot.
 
 **Reply to 1/:** github.com/lucaperullo/simple-liquid-glass · npm: simple-liquid-glass · demo:
-simple-liquid-glass.vercel.app
+glass.lucaperullo.it
 
 ## Standalone single-post variants
 

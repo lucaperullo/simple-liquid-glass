@@ -1,0 +1,16 @@
+Simple Liquid Glass showcase — media provenance
+
+coast.jpg and dunes.jpg: Original AI-generated landscape imagery created for this showcase using OpenAI image generation, September 2026. These are illustrative landscapes, not documentary location photography.
+
+coast.mp4: “Flying low over the sea of a beach”, Mixkit, item 44392.
+https://mixkit.co/free-stock-video/flying-low-over-the-sea-of-a-beach-44392/
+Source download: Full HD 1920x1080. Mixkit Stock Video Free License; item page explicitly permits commercial and personal use. Web copy trimmed and compressed for background playback.
+
+waves.mp4: “Turquoise ocean background with foaming waves”, Mixkit, item 2091.
+https://mixkit.co/free-stock-video/turquoise-ocean-background-with-foaming-waves-2091/
+Source download: Full HD 1920x1080. Mixkit Stock Video Free License; item page explicitly permits commercial and personal use. Web copy trimmed and compressed for background playback.
+
+License: https://mixkit.co/license/#videoFree
+Poster images are frames from the corresponding licensed video clips.
+
+Audio: Blue hour and Slow sun — original synthesized ambient studies created for this showcase. No third-party recordings or samples.

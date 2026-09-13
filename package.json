@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "5.3.0",
+  "version": "5.3.1",
   "type": "module",
   "description": "Liquid glass for React 16.8\u201319 and web components, with automatic iOS WebGL refraction, optional Android WebGL, SVG optics, and explicit backdrop capture.",
   "main": "dist/index.cjs",
@@ -147,7 +147,7 @@
   "bugs": {
     "url": "https://github.com/lucaperullo/simple-liquid-glass/issues"
   },
-  "homepage": "https://simple-liquid-glass.vercel.app/",
+  "homepage": "https://glass.lucaperullo.it/",
   "overrides": {
     "serialize-javascript": "^7.0.5",
     "tar": "^7.5.16",

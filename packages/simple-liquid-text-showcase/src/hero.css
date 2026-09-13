@@ -1,0 +1,53 @@
+/* Hero geometry copied from the original Through Glass showcase. */
+.replica-opening.journey-opening{height:165svh;min-height:0;padding:8px}
+.replica-opening .journey-hero{position:sticky;top:8px;height:calc(100svh - 16px);min-height:650px;border-radius:36px}
+.replica-opening .journey-wordmark{position:absolute;top:110px;left:3%;right:3%}
+.replica-opening .journey-wordmark h1{font-family:Arial,Helvetica,sans-serif;font-weight:400;font-style:normal;font-size:clamp(80px,16.2vw,270px);line-height:.94;letter-spacing:-.065em;margin:15px 0 0;white-space:nowrap}
+.replica-opening .journey-eyebrow{font:10px var(--mono);letter-spacing:.1em}
+.replica-opening .journey-portal{position:absolute;width:285px;left:calc(50% - 142.5px);top:49%;transform-origin:center}
+.replica-opening .portal-link{height:138px;display:flex;align-items:center;justify-content:space-between;padding:32px;font-size:20px;letter-spacing:-.04em;color:white}
+.replica-opening .journey-hero-bottom{position:absolute;bottom:32px;left:3%;right:3%;display:flex;justify-content:space-between;align-items:flex-end;gap:25px;font-family:Arial,Helvetica,sans-serif;letter-spacing:normal}
+.replica-opening .journey-hero-caption h2{font-size:clamp(25px,3.1vw,48px);line-height:1.08;margin:0 0 28px}
+.replica-opening .journey-text-link{display:inline-flex;align-items:center;gap:16px;font:10px var(--mono);letter-spacing:.06em;padding:12px 0;margin:0}
+.replica-opening .package-actions{display:grid;gap:10px;width:345px;max-width:365px;margin:0}
+.replica-opening .package-intro{font:8px var(--mono);letter-spacing:.13em;color:#ffffffbd}
+.replica-opening .copy-action button{padding:16px 18px;border:1px solid #ffffff65;border-radius:12px;color:white;background:#142d2940;box-shadow:inset 0 1px 0 #ffffff25;gap:18px}
+.replica-opening .copy-action code{font:11px var(--mono)}
+.replica-opening .copy-action button>span[aria-hidden]{display:none}
+.replica-opening .copy-action:nth-of-type(2) button{border:0;background:none;box-shadow:none;padding:7px 0;font-size:12px;justify-content:flex-start;gap:10px}
+.replica-opening .copy-action:nth-of-type(2) button>span{display:flex;align-items:center;gap:10px}
+.replica-opening .copy-status:empty{display:none}
+.replica-opening .package-status{font-size:10px;min-height:14px;color:#ffffffb5}
+.replica-opening .media-toggle{position:absolute;top:auto;bottom:270px;right:3%;width:32px;height:32px;display:grid;place-items:center;border:1px solid #fff6;background:#0002;color:white;border-radius:50%;z-index:4}
+@media(min-width:1600px){.replica-opening .journey-wordmark{top:13%}.replica-opening .journey-portal{top:52%}}
+@media(max-width:1000px){.replica-opening .journey-hero{min-height:730px}.replica-opening .journey-wordmark{top:115px}.replica-opening .journey-portal{top:42%}}
+@media(max-width:700px){
+ .replica-opening.journey-opening{height:auto;padding:6px}
+ .replica-opening .journey-hero{position:relative;top:0;min-height:650px;height:calc(100svh - 12px);border-radius:26px}
+ .replica-opening .journey-wordmark{top:115px;left:5%;right:5%}
+ .replica-opening .journey-eyebrow{font-size:8px}
+ .replica-opening .journey-wordmark h1{font-size:15.7vw;margin-top:18px}
+ .replica-opening .journey-portal{width:220px;left:calc(50% - 110px);top:34%}
+ .replica-opening .portal-link{height:115px;font-size:17px;padding:26px}
+ .replica-opening .journey-hero-bottom{bottom:75px;left:6%;right:6%;display:block}
+ .replica-opening .journey-hero-caption h2{font-size:30px;margin-bottom:10px}
+ .replica-opening .journey-hero-caption .journey-text-link{display:none}
+ .replica-opening .journey-hero-bottom .package-actions{width:100%;margin-top:24px;max-width:none}
+ .replica-opening .journey-hero>.media-toggle{bottom:325px;right:6%}
+}
+@media(max-width:700px) and (max-height:760px){.replica-opening .journey-wordmark{top:90px}.replica-opening .journey-portal{top:32%}.replica-opening .portal-link{height:85px;padding:20px 26px;font-size:15px}.replica-opening .journey-hero>.media-toggle{bottom:285px}.replica-opening .journey-hero-caption h2{font-size:25px}}
+@media(prefers-reduced-motion:reduce){.replica-opening.journey-opening{height:auto}.replica-opening .journey-hero{position:relative;top:0}}
+/* Let the browser synchronize sticky-hero transforms with native scrolling. */
+@supports(animation-timeline:view()){
+ @media(min-width:1001px) and (prefers-reduced-motion:no-preference){
+  .replica-opening{view-timeline-name:--hero-scroll;view-timeline-axis:block}
+  .replica-opening .journey-wordmark{animation:hero-title-scroll linear both;animation-timeline:--hero-scroll;animation-range:contain 0% contain 100%}
+  .replica-opening .journey-hero>.scene-media{animation:hero-film-scroll linear both;animation-timeline:--hero-scroll;animation-range:contain 0% contain 100%}
+  .replica-opening .journey-portal{animation:hero-portal-scroll linear both;animation-timeline:--hero-scroll;animation-range:contain 0% contain 100%}
+  .replica-opening .journey-hero-bottom{animation:hero-caption-scroll linear both;animation-timeline:--hero-scroll;animation-range:contain 0% contain 100%}
+ }
+}
+@keyframes hero-title-scroll{from{transform:translateY(0)}to{transform:translateY(-24%)}}
+@keyframes hero-film-scroll{from{transform:scale(1)}to{transform:scale(1.1)}}
+@keyframes hero-portal-scroll{from{transform:translateY(0) scale(1)}to{transform:translateY(-35px) scale(1.65)}}
+@keyframes hero-caption-scroll{from{transform:translateY(0);opacity:1}to{transform:translateY(55px);opacity:0}}

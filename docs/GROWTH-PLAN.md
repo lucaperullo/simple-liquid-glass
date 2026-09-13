@@ -34,7 +34,7 @@ playable demo. Fix proof, ride the trend, take the gap (don't have to out-ship a
 
 Ranked by impact ÷ effort.
 
-1. **Deploy a playable live demo to `simple-liquid-glass.vercel.app`** (H / M). The #1 blocker — no
+1. **Deploy a playable live demo to `glass.lucaperullo.it`** (H / M). The #1 blocker — no
    one installs an effect they can't see. `demo/demo.html` already exists. `vercel --prod` with the
    iPhone-refraction showcase above the fold + a "copy `npm i simple-liquid-glass`" button.
 2. **Rewrite npm keywords + description for the wedge** (H / L). ✅ *Done* — see `package.json`.

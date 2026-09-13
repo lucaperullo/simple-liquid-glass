@@ -1,0 +1,30 @@
+{
+  "name": "simple-liquid-text-showcase",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4187",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test:production": "npm run build && playwright test"
+  },
+  "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "lucide-react": "0.541.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "simple-liquid-glass": "5.3.0",
+    "simple-liquid-text": "0.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.0"
+  }
+}

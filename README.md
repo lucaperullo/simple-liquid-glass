@@ -10,7 +10,7 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 [![GitHub stars](https://img.shields.io/github/stars/lucaperullo/simple-liquid-glass?style=flat)](https://github.com/lucaperullo/simple-liquid-glass)
 [![license](https://img.shields.io/npm/l/simple-liquid-glass)](https://github.com/lucaperullo/simple-liquid-glass/blob/main/LICENSE)
 
-**[🔗 Live demo](https://simple-liquid-glass.vercel.app/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
+**[🔗 Live demo](https://glass.lucaperullo.it/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
 
 > [!IMPORTANT]
 > **For WebGL refraction on iOS (or any platform with `renderer="webgl"`), use `LiquidGlassScene` or pass `backdropRef`** pointing to a sibling background element. Without either source the component uses frosted CSS.

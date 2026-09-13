@@ -55,7 +55,7 @@ leans toward your cursor with spring elasticity, and a web component so Vue/Svel
 the same thing.
 
 Honest framing: this isn't a graphics engine. It's a smart rendering strategy for a specific UX
-pattern that's now very much alive on iPhones. The demo is live at simple-liquid-glass.vercel.app
+pattern that's now very much alive on iPhones. The demo is live at glass.lucaperullo.it
 and validated on a real iPhone — open it on Chromium and iOS side by side and you'll see real
 refraction on both.
 
@@ -84,7 +84,7 @@ Developer Tools · Web Components · Open Source
 ## "We're live on PH" share (X / Bluesky / Reddit)
 
 > We shipped the only liquid-glass library with real refraction on iPhone & Safari — no blur
-> fallback, no dependencies, 6.5 KB. Live now on Product Hunt → simple-liquid-glass.vercel.app
+> fallback, no dependencies, 6.5 KB. Live now on Product Hunt → glass.lucaperullo.it
 
 (shorter, for X) — Real iPhone refraction in a 6.5 KB, zero-dep React component. simple-liquid-glass
 is live on Product Hunt.

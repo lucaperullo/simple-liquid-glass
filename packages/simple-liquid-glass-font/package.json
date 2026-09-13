@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-text",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Selectable liquid-glass text with glyph-shaped refraction over live content for React.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -55,7 +55,7 @@
   },
   "author": "lucaperullo",
   "license": "MIT",
-  "homepage": "https://simple-liquid-text.vercel.app",
+  "homepage": "https://text.lucaperullo.it",
   "bugs": {
     "url": "https://github.com/lucaperullo/simple-liquid-glass/issues"
   },

@@ -182,6 +182,9 @@ SSR-safe out of the box — it only touches the DOM in effects. Use it in client
 
 ## Links
 
+- Official demo and documentation: https://glass.lucaperullo.it
+- Text companion: https://text.lucaperullo.it
+- Android launcher: https://launcher.lucaperullo.it
 - npm: https://www.npmjs.com/package/simple-liquid-glass
 - repo: https://github.com/lucaperullo/simple-liquid-glass
 - changelog: https://github.com/lucaperullo/simple-liquid-glass/blob/main/CHANGELOG.md

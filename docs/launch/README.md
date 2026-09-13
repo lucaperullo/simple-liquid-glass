@@ -8,7 +8,7 @@ Paste-ready launch copy for the v2.4.0 growth push. Strategy + sequencing live i
 
 ## ⛔️ Pre-flight — do these BEFORE posting anything
 
-1. **Deploy the live demo** to `simple-liquid-glass.vercel.app`. The conversion-focused landing page
+1. **Deploy the live demo** to `glass.lucaperullo.it`. The conversion-focused landing page
    lives in [`examples/`](../../examples/) (built + verified). From the **repo root** run
    `vercel --prod` — `vercel.json` already builds `examples/` and serves `examples/dist` (root must
    stay the repo so the `../src` alias resolves). Every post links to this; without it, the copy

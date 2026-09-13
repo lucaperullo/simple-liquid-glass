@@ -132,6 +132,6 @@ On Chromium you get real SVG-displacement refraction; on Safari/iOS/Firefox a po
 
 ## Links
 
-- Demo: https://simple-liquid-glass.vercel.app/
+- Demo: https://glass.lucaperullo.it/
 - GitHub: https://github.com/lucaperullo/simple-liquid-glass
 - npm: https://www.npmjs.com/package/simple-liquid-glass

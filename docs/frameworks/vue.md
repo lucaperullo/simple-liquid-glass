@@ -731,7 +731,7 @@ The `<liquid-glass>` element is `display: block` but needs explicit `width` and 
 
 - **GitHub Repository**: [github.com/lucaperullo/simple-liquid-glass](https://github.com/lucaperullo/simple-liquid-glass)
 - **NPM Package**: [npmjs.com/package/simple-liquid-glass](https://www.npmjs.com/package/simple-liquid-glass)
-- **Live Demo**: [simple-liquid-glass.vercel.app](https://simple-liquid-glass.vercel.app)
+- **Live Demo**: [glass.lucaperullo.it](https://glass.lucaperullo.it)
 - **Changelog**: [CHANGELOG.md](https://github.com/lucaperullo/simple-liquid-glass/blob/main/CHANGELOG.md)
 - **Issues & Feature Requests**: [GitHub Issues](https://github.com/lucaperullo/simple-liquid-glass/issues)
 

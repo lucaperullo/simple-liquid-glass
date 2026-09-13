@@ -1,0 +1,268 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.music-widget,.memo-widget {
+  width: 340px;
+  max-width: 100%;
+  color: #fff;
+  text-shadow: 0 1px 12px #102b3530;
+}
+
+.music-inner,.memo-inner {
+  padding: 25px;
+}
+
+.music-widget button,.memo-widget button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+}
+
+.music-widget button:hover,.memo-widget button:hover {
+  background: #ffffff24;
+}
+
+.music-widget button:focus-visible,.memo-widget button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+.widget-eyebrow,.memo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .13em;
+}
+
+.widget-eyebrow>span:last-child {
+  margin-left: auto;
+  opacity: .7;
+}
+
+.music-track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 25px 0 22px;
+}
+
+.music-track img {
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px #102b3540;
+}
+
+.music-track h3 {
+  font-size: 23px;
+  letter-spacing: -.04em;
+  margin: 0 0 5px;
+}
+
+.music-track p {
+  font-size: 11px;
+  margin: 0;
+  opacity: .8;
+}
+
+.music-track button {
+  margin-left: auto;
+}
+
+.music-widget input[type=range] {
+  display: block;
+  width: 100%;
+  height: 18px;
+  accent-color: white;
+  cursor: pointer;
+  margin: 0;
+}
+
+.music-seek>span:last-child {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: .8;
+}
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  margin: 15px 0;
+}
+
+.music-controls .music-play {
+  background: #fff;
+  color: #183d40;
+  width: 58px;
+  height: 58px;
+  box-shadow: 0 8px 25px #102b3538;
+}
+
+.music-controls .music-play:hover {
+  background: #edf5f1;
+}
+
+.music-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.music-volume input {
+  max-width: 95px;
+}
+
+.music-volume>span {
+  font-size: 8px;
+  letter-spacing: .1em;
+  margin-left: auto;
+  opacity: .75;
+}
+
+.memo-widget {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  width: 306px;
+  max-width: calc(100% - 32px);
+}
+
+.memo-toolbar {
+  justify-content: space-between;
+}
+
+.memo-widget .drag-handle {
+  touch-action: none;
+  cursor: grab;
+}
+
+.memo-widget .drag-handle:active {
+  cursor: grabbing;
+  background: #ffffff30;
+}
+
+.memo-inner h3 {
+  margin: 17px 0 6px;
+  font-size: 25px;
+  letter-spacing: -.045em;
+}
+
+.memo-inner>p {
+  font-size: 11px;
+  opacity: .8;
+  margin: 0 0 20px;
+}
+
+.memo-list {
+  display: grid;
+  gap: 14px;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.memo-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.memo-list input {
+  position: absolute;
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.memo-checkbox {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ffffff90;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.memo-list input:focus-visible+.memo-checkbox {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+.memo-list .done .memo-checkbox {
+  background: #fff;
+  color: #23524d;
+}
+
+.memo-list .done>span:last-child {
+  text-decoration: line-through;
+  opacity: .6;
+}
+
+.memo-add {
+  display: flex;
+  margin: 20px 0 14px;
+  padding: 3px 3px 3px 12px;
+  border: 1px solid #ffffff35;
+  border-radius: 13px;
+  background: #133b3920;
+}
+
+.memo-add input {
+  min-width: 0;
+  width: 100%;
+  background: none;
+  border: 0;
+  color: white;
+  font: inherit;
+  font-size: 11px;
+  outline-offset: 4px;
+}
+
+.memo-add input::placeholder {
+  color: #ffffffa0;
+}
+
+.memo-add button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.memo-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8px;
+  letter-spacing: .07em;
+}
+
+.memo-footer button {
+  font-size: 9px;
+  gap: 5px;
+  border-radius: 8px;
+}

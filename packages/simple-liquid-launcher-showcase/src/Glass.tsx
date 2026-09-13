@@ -1,0 +1,3 @@
+import LiquidGlass from 'simple-liquid-glass';
+import type {LiquidGlassProps} from 'simple-liquid-glass';
+export default function Glass({children,className='',radius=24,...props}:LiquidGlassProps){return <LiquidGlass className={className} radius={radius} blur={.6} displacementScale={65} saturation={115} aberrationIntensity={.1} frost={0} background="rgba(255,255,255,.07)" mirror={false} quality="high" autodetectquality={false} mobileFallback="svg" renderer="auto" {...props} style={{height:'auto',boxShadow:'inset 0 1px 0 rgba(255,255,255,.45),0 8px 28px rgba(0,0,0,.08)',...props.style}}>{children}</LiquidGlass>}

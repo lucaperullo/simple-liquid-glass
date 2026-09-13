@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="12" y1="0" x2="112" y2="128" gradientUnits="userSpaceOnUse"><stop stop-color="#375f51"/><stop offset=".5" stop-color="#173e34"/><stop offset="1" stop-color="#0c2823"/></linearGradient>
+    <linearGradient id="glass" x1="35" y1="26" x2="86" y2="106" gradientUnits="userSpaceOnUse"><stop stop-color="#f7fff0"/><stop offset=".19" stop-color="#cfe9d9"/><stop offset=".4" stop-color="#73ac98"/><stop offset=".49" stop-color="#e1f8e9"/><stop offset=".57" stop-color="#426f62"/><stop offset=".77" stop-color="#9bc6ab"/><stop offset="1" stop-color="#edffd9"/></linearGradient>
+    <linearGradient id="rim" x1="25" y1="25" x2="99" y2="105" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset=".5" stop-color="#def5da" stop-opacity=".18"/><stop offset="1" stop-color="#f7ffeb"/></linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientTransform="translate(28 12) rotate(54) scale(105 82)" gradientUnits="userSpaceOnUse"><stop stop-color="#c4e3b0" stop-opacity=".22"/><stop offset="1" stop-color="#c4e3b0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="1" y="1" width="126" height="126" rx="30" fill="url(#tile)"/>
+  <rect x="1" y="1" width="126" height="126" rx="30" fill="url(#light)"/>
+  <rect x="1.5" y="1.5" width="125" height="125" rx="29.5" stroke="#d4eac8" stroke-opacity=".23"/>
+  <path d="M27 27C44 30 84 30 101 27L104 52L98 53C94 40 87 37 73 38L72 79C72 91 78 95 88 96L87 102C73 99 55 100 40 102L39 96C51 94 56 90 56 79L55 38C41 37 34 41 30 53L24 52Z" transform="translate(0 3)" fill="#061e19" fill-opacity=".5"/>
+  <path d="M27 27C44 30 84 30 101 27L104 52L98 53C94 40 87 37 73 38L72 79C72 91 78 95 88 96L87 102C73 99 55 100 40 102L39 96C51 94 56 90 56 79L55 38C41 37 34 41 30 53L24 52Z" fill="url(#glass)" stroke="url(#rim)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M30 30C48 33 83 32 98 30M59 40L60 79C60 90 56 94 49 97" stroke="#f7fff0" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M68 42L67 79C67 90 72 94 79 97" stroke="#133f34" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+</svg>

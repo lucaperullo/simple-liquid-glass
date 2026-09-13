@@ -1,5 +1,10 @@
 ## 5.3.0 — shared page scenes
 
+## 5.3.1 — 2026-09-13
+
+- Move package metadata, documentation and examples to the official `glass.lucaperullo.it` domain. Companion projects use `text.lucaperullo.it` and `launcher.lucaperullo.it`.
+- This release updates links and documentation; the 5.3.0 rendering API and engine are unchanged.
+
 - Added the optional `simple-liquid-glass/backdrop` entry with `LiquidGlassScene`, automatic WebGL binding, a shared React backdrop hook, and a framework-independent capture controller.
 - Scene captures share HTML/media snapshots across surfaces, preserve excluded surfaces’ layout, track direct video/canvas sources, and release resources after the last consumer. Explicit backdrops retain precedence.
 - `simple-liquid-text` 0.3.0 integrates with the same scene provider.

@@ -1,9 +1,12 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const React = require('react');
 const { renderToString } = require('react-dom/server');
 const { LiquidGlass } = require('../../dist/index.cjs');
+
+// Headless CI browsers may lack WebGL; the library then reports the documented blur fallback.
+const webglAvailable = (page: Page) => page.evaluate(() => !!document.createElement('canvas').getContext('webgl'));
 
 test('hydrates production build without hydration errors or lost content', async ({ page, browserName }) => {
   const errors: string[] = [];
@@ -17,8 +20,10 @@ test('hydrates production build without hydration errors or lost content', async
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   if (browserName === 'chromium') {
     await expect(page.locator('.liquid-glass-filter')).toHaveCount(1);
-  } else {
+  } else if (await webglAvailable(page)) {
     await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(1);
+  } else {
+    await expect(page.locator('#root [data-liquid-glass]')).toHaveAttribute('data-glass-reason', 'webgl-unavailable');
   }
   expect(errors).toEqual([]);
 });
@@ -27,9 +32,13 @@ test('engines without SVG backdrop filters refract through WebGL and release it 
   test.skip(browserName === 'chromium');
   await page.goto('/tests/browser/');
   const glass = page.locator('#root [data-liquid-glass]');
-  await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(1);
+  if (await webglAvailable(page)) {
+    await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(1);
+    await expect(glass).toHaveAttribute('data-glass-strategy', 'webgl');
+  } else {
+    await expect(glass).toHaveAttribute('data-glass-reason', 'webgl-unavailable');
+  }
   await expect(page.locator('#root [data-liquid-glass-mirror]')).toHaveCount(0);
-  await expect(glass).toHaveAttribute('data-glass-strategy', 'webgl');
   await page.locator('#content').focus();
   await expect(page.locator('#content')).toBeFocused();
   await page.evaluate(() => (window as any).unmountGlass());
@@ -77,8 +86,9 @@ test('web component keeps the same shadow across renderers and rerenders', async
 test('diagnostics match the active renderer and explicit modes', async ({page,browserName}) => {
   await page.goto('/tests/browser/');
   const glass=page.locator('#root [data-liquid-glass]');
-  await expect(glass).toHaveAttribute('data-glass-strategy',browserName==='chromium'?'svg':'webgl');
-  await expect(glass).toHaveAttribute('data-glass-reason',browserName==='chromium'?'native-svg':'svg-unsupported');
+  const webgl = browserName !== 'chromium' && await webglAvailable(page);
+  await expect(glass).toHaveAttribute('data-glass-strategy',browserName==='chromium'?'svg':webgl?'webgl':'blur');
+  await expect(glass).toHaveAttribute('data-glass-reason',browserName==='chromium'?'native-svg':webgl?'svg-unsupported':'webgl-unavailable');
   await page.goto('/tests/browser/?effect=off');
   await expect(glass).toHaveAttribute('data-glass-strategy','off');
   await page.goto('/tests/browser/?effect=blur');

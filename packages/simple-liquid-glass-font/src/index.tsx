@@ -1,5 +1,5 @@
 import {useLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
-import { createWebGLSurface, isIOSDevice, type GlassRenderer, type WebGLSurface, type WebGLSurfaceStatus } from 'simple-liquid-glass/webgl';
+import { createWebGLSurface, supportsSvgBackdrop, type GlassRenderer, type WebGLSurface, type WebGLSurfaceStatus } from 'simple-liquid-glass/webgl';
 import React, { useEffect, useId, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import { buildGlyphField } from './optics';
@@ -7,7 +7,7 @@ import { buildGlyphField } from './optics';
 export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
   /** Single-line text. Font styles are inherited from the surrounding element. */
   children: string;
-  /** Automatic WebGL on iOS; select webgl for Android/desktop too. */
+  /** Automatic WebGL on Safari, iOS and Firefox; select webgl for Chromium too. */
   renderer?: GlassRenderer;
   /** Explicit sibling background. Select video/canvas directly for live frames. */
   backdropRef?: React.RefObject<HTMLElement | null>;
@@ -51,7 +51,6 @@ export function LiquidGlassText({
   const gpuHolder = useRef<HTMLSpanElement>(null);
   const gpu = useRef<WebGLSurface | null>(null);
   const binding = useRef<{ element: HTMLElement; source: HTMLElement } | null>(null);
-  const [ios, setIOS] = useState(false);
   const [visible, setVisible] = useState(true);
   const [solidText, setSolidText] = useState(false);
   const [gpuStatus, setGpuStatus] = useState<WebGLSurfaceStatus>('pending');
@@ -59,7 +58,7 @@ export function LiquidGlassText({
   const baselineRef = useRef<HTMLSpanElement>(null);
   const [mask, setMask] = useState<string>();
   const [optics, setOptics] = useState<{ map: string; highlight: string; width: number; height: number }>();
-  const [native, setNative] = useState(false);
+  const [native, setNative] = useState<boolean>();
   const filterId = `slgf-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const bend = bounded(refraction, 88, 300);
   const edge = bounded(bevel, 8, 32, 1);
@@ -72,8 +71,7 @@ export function LiquidGlassText({
     const marker = baselineRef.current;
     if (!text || !marker) return;
     // CSS.supports alone also returns true in engines that do not render SVG backdrop filters.
-    setIOS(isIOSDevice(navigator.userAgent, navigator.maxTouchPoints || 0));
-    setNative(/(chrome|chromium|edg|opr)\//i.test(navigator.userAgent) && !/iPad|iPhone|iPod/i.test(navigator.userAgent));
+    setNative(supportsSvgBackdrop(navigator.userAgent, navigator.maxTouchPoints || 0));
     let active = true;
     let lastMeasurement = '';
     const measure = () => {
@@ -144,7 +142,7 @@ export function LiquidGlassText({
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  const wantsGPU = !solidText && (ios || renderer === 'webgl');
+  const wantsGPU = !solidText && native !== undefined && (!native || renderer === 'webgl');
   const scene=useLiquidGlassBackdrop(layoutRef,wantsGPU&&visible&&!backdropRef&&!backdropSelector);
   const gpuReady = wantsGPU && gpuStatus === 'active';
   const gpuOptions = useMemo(() => ({ map: optics?.map ?? '', scale: bend, dispersion: spread,

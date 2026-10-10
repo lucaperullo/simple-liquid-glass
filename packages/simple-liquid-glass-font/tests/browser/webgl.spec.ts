@@ -48,3 +48,8 @@ test('WebGL tint is above the image and accessibility mode releases the canvas',
   await page.emulateMedia({ forcedColors:'none' });
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
 });
+
+test('the default renderer is WebGL wherever SVG backdrop filters are unsupported', async ({ page, browserName }) => {
+  await page.goto('/');
+  await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer', browserName === 'chromium' ? 'native' : 'webgl');
+});

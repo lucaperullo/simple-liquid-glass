@@ -1,7 +1,7 @@
 /** Framework-independent backdrop renderer, also used by simple-liquid-text. */
 import { createWebGLEngine } from '../core/webgl/runtime';
 import type { WebGLOptions, WebGLStatus, WebGLEngine } from '../core/webgl/types';
-export { isIOSDevice } from '../core/renderer';
+export { isIOSDevice, supportsSvgBackdrop } from '../core/renderer';
 export type { GlassRenderer } from '../core/renderer';
 export type { WebGLOptions as WebGLSurfaceOptions, WebGLStatus as WebGLSurfaceStatus, WebGLEngine as WebGLSurface } from '../core/webgl/types';
 

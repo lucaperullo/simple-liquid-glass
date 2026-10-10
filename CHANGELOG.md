@@ -1,3 +1,9 @@
+## 5.4.0 — WebGL on every non-Chromium engine
+
+- Desktop Safari and Firefox now refract through WebGL, like iOS, instead of the DOM mirror. Engine detection lives in one place (`supportsSvgBackdrop`) for the component and the custom element. New diagnostics reason: `svg-unsupported`. `supportsSvgBackdrop` is exported from `simple-liquid-glass/webgl`.
+- Removed the DOM mirror renderer. `mirror`, `mirrorScale`, `track` and `simple-liquid-glass/mirror` remain as deprecated no-ops / aliases.
+- New `reveal` prop (default `'ready'`): glass mounted on the client after hydration stays transparent until its renderer is ready (max 400ms) instead of flashing the CSS placeholder. Server-rendered glass is never hidden. `reveal="immediate"` restores the old behaviour. `<liquid-glass>` gets the same gate (`reveal` attribute); elements already in the page when it is defined never wait.
+
 ## 5.3.0 — shared page scenes
 
 ## 5.3.1 — 2026-09-13

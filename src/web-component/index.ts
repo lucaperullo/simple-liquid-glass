@@ -1,12 +1,12 @@
 import { createWebGLEngine } from '../core/webgl/runtime';
 import type { WebGLEngine } from '../core/webgl/types';
-import { isIOSDevice, wantsWebGL } from '../core/renderer';
+import { isIOSDevice, supportsSvgBackdrop, wantsWebGL } from '../core/renderer';
 import { buildNativeMap, resolveLensOptions, type LensProfile } from '../core/nativeOptics';
 /**
  * `<liquid-glass>` custom element — framework-agnostic (vanilla / Vue / Svelte / Angular /
  * Astro / plain HTML). Reuses the canonical displacement-map generator so the look matches
- * the React component. Chromium gets the SVG-in-backdrop-filter refraction; other engines get
- * the frosted CSS fallback (refraction is Chromium-only — a platform limitation). SSR-safe.
+ * the React component. Chromium gets the SVG-in-backdrop-filter refraction; Safari, iOS and
+ * Firefox refract through WebGL given `backdrop-selector`, else the frosted CSS fallback. SSR-safe.
  *
  * Usage:
  *   <script type="module" src="…/simple-liquid-glass/web-component"></script>
@@ -17,14 +17,10 @@ import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from '../core/liqui
 
 const TAG = 'liquid-glass';
 let uid = 0;
-
-function isChromium(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  if (/(iphone|ipad|ipod)/i.test(ua)) return false;
-  if (/firefox|fxios/i.test(ua)) return false;
-  return /(chrome|chromium|edg|opr)\//i.test(ua);
-}
+/** Longest a spawned element stays transparent while its renderer starts. */
+const REVEAL_TIMEOUT_MS = 400;
+// True while customElements.define upgrades elements already in the page: those never wait.
+let upgradingPage = false;
 
 function attrNum(el: HTMLElement, name: string, fallback: number): number {
   const v = parseFloat(el.getAttribute(name) || '');
@@ -38,7 +34,7 @@ const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement
 
 export class LiquidGlassElement extends ElementBase {
   static get observedAttributes(): string[] {
-    return ['renderer', 'effect-mode', 'backdrop-selector', 'backdrop-version', 'lens-profile', 'strength', 'dispersion', 'radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha', 'angle', 'shape-adapt', 'lens', 'lens-strength', 'lens-center', 'liquid', 'liquid-speed', 'liquid-scale'];
+    return ['renderer', 'effect-mode', 'reveal', 'backdrop-selector', 'backdrop-version', 'lens-profile', 'strength', 'dispersion', 'radius', 'frost', 'blur', 'saturation', 'displace', 'scale', 'border-color', 'lightness', 'alpha', 'angle', 'shape-adapt', 'lens', 'lens-strength', 'lens-center', 'liquid', 'liquid-speed', 'liquid-scale'];
   }
 
   private readonly filterId = `lg-wc-${++uid}`;
@@ -46,6 +42,8 @@ export class LiquidGlassElement extends ElementBase {
   private ro?: ResizeObserver;
   private liquidRaf = 0;
   private webgl?: WebGLEngine;
+  private revealPending?: boolean;
+  private revealTimer?: ReturnType<typeof setTimeout>;
   /** Refresh cached HTML after stylesheet or external visual changes. */
   refreshBackdrop(): Promise<void> { return this.webgl?.refresh() ?? Promise.resolve(); }
 
@@ -63,6 +61,7 @@ export class LiquidGlassElement extends ElementBase {
   }
 
   disconnectedCallback(): void {
+    this.reveal();
     this.webgl?.destroy(); this.webgl = undefined;
     this.ro?.disconnect();
     if (this.liquidRaf) cancelAnimationFrame(this.liquidRaf);
@@ -72,7 +71,19 @@ export class LiquidGlassElement extends ElementBase {
     if (this.isConnected) this.render();
   }
 
+  private reveal(): void {
+    clearTimeout(this.revealTimer);
+    this.revealPending = false;
+    delete this.dataset.glassAwaiting;
+  }
+
   private render(): void {
+    // Upgrades render from attributeChangedCallback before connectedCallback, so decide here.
+    // Spawned elements (toasts, popovers) stay transparent until WebGL is ready, at most 400ms.
+    if (this.revealPending === undefined) {
+      this.revealPending = !upgradingPage && this.getAttribute('reveal') !== 'immediate';
+      if (this.revealPending) this.revealTimer = setTimeout(() => this.reveal(), REVEAL_TIMEOUT_MS);
+    }
     this.webgl?.destroy(); this.webgl = undefined;
     const radius = attrNum(this, 'radius', 50);
     const frost = attrNum(this, 'frost', 0.1);
@@ -114,9 +125,9 @@ export class LiquidGlassElement extends ElementBase {
     const renderer = rendererAttr === 'webgl' || rendererAttr === 'svg' ? rendererAttr : 'auto';
     const effectAttr = this.getAttribute('effect-mode');
     const effect = effectAttr === 'blur' || effectAttr === 'off' || effectAttr === 'svg' ? effectAttr : 'auto';
-    const ios = isIOSDevice(navigator.userAgent, navigator.maxTouchPoints || 0);
-    const webgl = wantsWebGL(renderer, effect, ios);
-    const chromium = isChromium() && !webgl && effect !== 'blur' && effect !== 'off';
+    const svgBackdrop = supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+    const webgl = wantsWebGL(renderer, effect, svgBackdrop);
+    const chromium = svgBackdrop && !webgl && effect !== 'blur' && effect !== 'off';
 
     let backdrop: string;
     let glassBg: string;
@@ -148,6 +159,7 @@ export class LiquidGlassElement extends ElementBase {
     this.root.innerHTML = `
       <style>
         :host { display: block; position: relative; }
+        :host([data-glass-awaiting]) { opacity: 0 !important; }
         .lg-glass { position: absolute; inset: 0; z-index: 0; border-radius: ${radius}px; overflow: hidden;
           background: ${glassBg}; backdrop-filter: ${backdrop}; -webkit-backdrop-filter: ${backdrop}; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12); }
         .lg-border { position: absolute; inset: 0; z-index: 2; border-radius: ${radius}px; pointer-events: none;
@@ -184,8 +196,10 @@ export class LiquidGlassElement extends ElementBase {
             specular: options.specular, classic: false, radius, blur, saturation
           }, status => {
             const active = status === 'active';
+            if (status !== 'pending') this.reveal();
             this.dataset.glassStrategy = active ? 'webgl' : status === 'pending' ? 'pending' : 'blur';
-            this.dataset.glassReason = active ? ios ? 'ios-webgl' : 'webgl-requested' : status;
+            this.dataset.glassReason = active ? svgBackdrop ? 'webgl-requested'
+              : isIOSDevice(navigator.userAgent, navigator.maxTouchPoints || 0) ? 'ios-webgl' : 'svg-unsupported' : status;
             holder.style.visibility = active ? 'visible' : 'hidden';
             const glass = this.root.querySelector<HTMLElement>('.lg-glass')!;
             glass.style.backdropFilter = active ? 'none' : backdrop;
@@ -195,6 +209,9 @@ export class LiquidGlassElement extends ElementBase {
         } catch { this.dataset.glassReason = 'webgl-unavailable'; }
       }
     }
+    // SVG and CSS are painted synchronously; only a starting WebGL engine needs to wait.
+    if (this.revealPending && this.webgl && this.dataset.glassStrategy !== 'webgl') this.dataset.glassAwaiting = '';
+    else this.reveal();
 
     const borderLayer = this.root.querySelector<HTMLElement>('.lg-border');
     if (borderLayer) borderLayer.style.background = `linear-gradient(315deg, ${borderColor} 0%, rgba(120,120,120,0) 30%, rgba(120,120,120,0) 70%, ${borderColor} 100%) border-box`;
@@ -221,7 +238,10 @@ export class LiquidGlassElement extends ElementBase {
 
 export function defineLiquidGlass(tag: string = TAG): void {
   if (typeof window === 'undefined' || !window.customElements) return;
-  if (!customElements.get(tag)) customElements.define(tag, tag === TAG ? LiquidGlassElement : class extends LiquidGlassElement {});
+  if (customElements.get(tag)) return;
+  upgradingPage = true;
+  try { customElements.define(tag, tag === TAG ? LiquidGlassElement : class extends LiquidGlassElement {}); }
+  finally { upgradingPage = false; }
 }
 
 // Auto-register on import (the common case for a web component entry).

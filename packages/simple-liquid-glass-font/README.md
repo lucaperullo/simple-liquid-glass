@@ -1,6 +1,6 @@
 # simple-liquid-text
 
-Selectable liquid-glass text in your own font, with glyph-shaped refraction over live video and scrolling content. React component with real-time iOS refraction through the shared `simple-liquid-glass` WebGL engine. No bundled typeface or font downloads.
+Selectable liquid-glass text in your own font, with glyph-shaped refraction over live video and scrolling content. React component with real-time Safari, iOS and Firefox refraction through the shared `simple-liquid-glass` WebGL engine. No bundled typeface or font downloads.
 
 [Live showcase](https://text.lucaperullo.it) · [Companion glass surfaces](https://glass.lucaperullo.it)
 
@@ -8,7 +8,7 @@ Selectable liquid-glass text in your own font, with glyph-shaped refraction over
 npm install simple-liquid-text
 ```
 
-Version 0.3.0 adds shared `LiquidGlassScene` backgrounds alongside automatic WebGL refraction on iOS and opt-in WebGL on Android and desktop.
+Version 0.4.0 refracts through WebGL automatically on every engine without SVG backdrop filters (Safari, iOS, Firefox); Chromium opts in with `renderer="webgl"`.
 
 ## Usage
 
@@ -39,7 +39,7 @@ Load your font normally with `@font-face`, your framework's font loader, or an e
 | Prop | Default | Purpose |
 | --- | --- | --- |
 | `children` | required string | Single-line text |
-| `renderer` | `auto` | iOS always uses WebGL; choose `webgl` to use it on Android/desktop too |
+| `renderer` | `auto` | Safari, iOS and Firefox always use WebGL; choose `webgl` to use it on Chromium too |
 | `backdropRef` | — | Ref to the visible sibling HTML, image, video, or canvas sampled by WebGL |
 | `backdropSelector` | — | CSS selector alternative to `backdropRef` |
 | `backdropVersion` | — | Change to refresh HTML after external stylesheet or theme changes |
@@ -66,7 +66,7 @@ The requested refraction strength is applied directly. The smooth surface contro
 
 ## Live content
 
-The default renderer selects WebGL automatically on iOS. Supply `backdropRef` or `backdropSelector` pointing to a visible background sibling. A video or canvas source is read directly each frame; HTML is captured once, then sampled on the GPU while scrolling. HTML mutations trigger a throttled refresh. Use `renderer="webgl"` for the same path on Android or desktop.
+The default renderer selects WebGL automatically on Safari, iOS and Firefox. Supply `backdropRef` or `backdropSelector` pointing to a visible background sibling. A video or canvas source is read directly each frame; HTML is captured once, then sampled on the GPU while scrolling. HTML mutations trigger a throttled refresh. Use `renderer="webgl"` for the same path on Chromium.
 
 The source must not contain the text component or be contained by it. For nested scrolling, reference an inner content wrapper that moves inside the scroll container. For live video, reference the video element directly rather than its HTML parent. Use same-origin media or media served with appropriate CORS headers and `crossOrigin="anonymous"`.
 
@@ -80,7 +80,7 @@ Typography and glyph maps update when fonts, geometry, or text change. Actual te
 - Real HTML text remains selectable and accessible. A decorative canvas-generated glyph mask clips the backdrop effect; it is not a canvas replacement for the text. A smoothed glyph surface provides continuous gradients for SVG displacement and directional highlights, including the inner edges of letter counters.
 - The mask is generated after mounting, resized with the text, and refreshed when fonts finish loading. Server rendering and the initial hydration frame use ordinary text.
 - Browsers without the required CSS support use ordinary text. Printing, forced colors, and reduced transparency also restore solid text.
-- **iOS** uses WebGL for real-time refraction. **Chromium (Chrome/Edge)** uses native SVG backdrop displacement by default. Android, desktop Safari, and Firefox can use WebGL with `renderer="webgl"` and an explicit source; browsers unable to initialize WebGL retain the frosted/highlight fallback. This is a visual lens simulation, not a physically exact optical solver.
+- **Safari, iOS and Firefox** use WebGL for real-time refraction. **Chromium (Chrome/Edge/Android)** uses native SVG backdrop displacement by default and can use WebGL with `renderer="webgl"`; browsers unable to initialize WebGL retain the frosted/highlight fallback. This is a visual lens simulation, not a physically exact optical solver.
 - Single-line horizontal text only. Rich children, multiline layout, vertical writing, custom variable-font axes, and advanced text-transform modes are not supported. Standard font weights and italic styles are supported. Prefer literal text for casing transformations.
 - Ancestor opacity, filters, or masks can limit the backdrop that browsers sample. See [MDN's backdrop-filter documentation](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/backdrop-filter).
 - Strict content security policies must allow the component's inline styles and `data:` images for its locally generated mask.
@@ -104,13 +104,13 @@ npm run test:browser
 npm pack
 ```
 
-Install the resulting tarball in another project with `npm install /path/to/simple-liquid-text-0.3.1.tgz`. Packing runs the build, optical-field tests, and server-rendering tests automatically.
+Install the resulting tarball in another project with `npm install /path/to/simple-liquid-text-0.4.0.tgz`. Packing runs the build, optical-field tests, and server-rendering tests automatically.
 
 The browser suite covers font changes, glyph alignment, selection, print fallback, pixel-level clipping, refraction at zero blur, dispersion, live-video playback, and scrolling beneath a stationary lens. It also checks that the selected strength reaches the renderer without attenuation and that the comparison button restores it. Native refraction checks run in Chromium. WebGL glyph clipping, nested scrolling, and live video are tested in Chromium, Firefox, and WebKit. A separate plain-blur probe skips native blur checks when the graphics backend does not render CSS backdrop blur. Physical iPhone testing remains useful for device-specific browser behavior.
 
 ## Shared page backgrounds (0.3.0)
 
-Wrap your page content and text in `LiquidGlassScene` from `simple-liquid-glass/backdrop` (5.3.0+). `LiquidGlassText` automatically uses the scene on iOS; choose `renderer="webgl"` on Android or desktop. No backdrop ref is needed. Glass panels and text share one capture cache. Explicit backdrop refs/selectors still override the scene.
+Wrap your page content and text in `LiquidGlassScene` from `simple-liquid-glass/backdrop` (5.3.0+). `LiquidGlassText` automatically uses the scene on Safari, iOS and Firefox; choose `renderer="webgl"` on Chromium. No backdrop ref is needed. Glass panels and text share one capture cache. Explicit backdrop refs/selectors still override the scene.
 
 ```tsx
 <LiquidGlassScene>
@@ -118,6 +118,10 @@ Wrap your page content and text in `LiquidGlassScene` from `simple-liquid-glass/
   <LiquidGlassText renderer="webgl">Liquid type</LiquidGlassText>
 </LiquidGlassScene>
 ```
+
+### 0.4.0 — WebGL on Safari and Firefox
+
+Desktop Safari and Firefox now use the WebGL renderer automatically, like iOS, instead of the frosted fallback. Requires `simple-liquid-glass` 5.4.0.
 
 ### 0.3.1 — official domains
 

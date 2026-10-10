@@ -5,8 +5,8 @@ import { LiquidGlassInteractive } from '../../dist/interactive.esm.js';
 import '../../dist/web-component.esm.js';
 
 const params = new URLSearchParams(location.search);
-const props = { track: params.has('track'), backdropSelector: '#backdrop', autoTextColor: true, forceTextColor: true,
-  effectMode: params.get('effect') || 'auto', mobileFallback: params.has('mirror') ? 'css-only' : undefined };
+const props = { backdropSelector: '#backdrop', autoTextColor: true, forceTextColor: true,
+  effectMode: params.get('effect') || 'auto' };
 const Component = params.has('interactive') ? LiquidGlassInteractive : LiquidGlass;
 const single = <Component {...props}><button id="content">Glass content</button></Component>;
 const count = Math.min(6, Math.max(1, Number(params.get('panels')) || 1));

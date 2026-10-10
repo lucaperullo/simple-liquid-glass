@@ -18,7 +18,7 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 ## Why simple-liquid-glass?
 
 - No additional renderer installation: WebGL and HTML capture are bundled. React is a peer dependency for React entry points.
-- Automatic WebGL refraction on iOS; opt into it on Android or desktop with `renderer="webgl"`. Chromium SVG and desktop Safari/Firefox mirrors remain available.
+- Automatic WebGL refraction on Safari, iOS and Firefox (engines without SVG backdrop filters); opt into it on Chromium with `renderer="webgl"`.
 - React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
 - A separate web component for other frameworks, with the same iOS WebGL engine.
 - Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
@@ -168,8 +168,8 @@ required for WebGL.
 The WebGL renderer uses the package's canonical displacement map and existing `lensProfile`,
 `lensOptions`, `scale`, `displacementScale`, `radius`, `dispersion`, `aberrationIntensity`, `blur`, and `saturation`
 controls. As with SVG, low quality disables chromatic separation; otherwise it uses
-`dispersion / 50 * aberrationIntensity` for rounded lenses. CSS tint, border, and brightness layers remain configurable. `mirror`/`mirrorScale`
-only configure the older desktop Safari/Firefox mirror, not WebGL.
+`dispersion / 50 * aberrationIntensity` for rounded lenses. CSS tint, border, and brightness layers remain configurable. `mirror`, `mirrorScale` and `track`
+are deprecated and have no effect.
 
 For live video, point `backdropRef` directly at a `<video muted autoPlay playsInline>` element.
 A direct canvas source is live too. For HTML sources, text, attributes, images loading, inputs,
@@ -188,9 +188,16 @@ Long HTML sources use a bounded-resolution snapshot (up to 64 MiB). Keep backdro
 and panel counts modest: each visible panel owns a WebGL context.
 
 Without a valid source, WebGL support, or a successful initial capture, the glass remains usable
-with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl`, `ios-webgl`,
-`webgl-requested`, or the fallback reason. Desktop Safari retains CSS rim magnification and
-Firefox retains its DOM mirror when WebGL is not selected.
+with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl` with `ios-webgl`,
+`svg-unsupported` (desktop Safari/Firefox) or `webgl-requested`, or the fallback reason.
+
+Glass mounted on the client after hydration — toasts, popovers, modals — stays transparent until
+its renderer is ready (at most 400ms), so it never flashes a placeholder look. Server-rendered
+glass is never hidden and content stays in the accessibility tree. Opt out with `reveal="immediate"`.
+
+Entrance animations: animate `transform`, not `opacity`, on elements that wrap the glass. In
+Chromium an ancestor with `opacity < 1` (or `filter`, `mask`, `clip-path`) becomes the backdrop
+root, so `backdrop-filter` sees nothing behind it until the fade ends.
 
 ### Pointer‑reactive elasticity — `LiquidGlassInteractive`
 
@@ -359,10 +366,10 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 | Chromium desktop | SVG displacement (full effect) |
 | Chromium Android | Layered CSS — opt into WebGL with `renderer="webgl"` or SVG with `renderer="svg"` |
 | iOS / iPadOS browsers | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
-| Desktop Safari | CSS rim mirror by default; WebGL with `renderer="webgl"` |
-| Firefox | DOM mirror with `backdropRef`; frosted CSS otherwise |
+| Desktop Safari | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
+| Firefox | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
 
-**Frosted CSS fallback:** blur, tint, saturation, and inset highlights provide the glass appearance when no usable mirror backdrop is provided. Performance depends on lens size, scene complexity, and device.
+**Frosted CSS fallback:** blur, tint, saturation, and inset highlights provide the glass appearance when no usable WebGL backdrop is provided. Performance depends on lens size, scene complexity, and device.
 
 The current WebGL renderer integrates the optimized direct-output pipeline tested in the scenario lab. It is distinct from the older removed experiment.
 
@@ -494,9 +501,7 @@ React 16.8/17 uses a mount-time ID fallback; React 18/19 uses React's hydration-
 
 The JavaScript build targets Chrome 64, Firefox 69, and Safari 12 syntax. Actual visual effects depend on browser CSS/SVG support; automated browser checks run against current Chromium, Firefox, and WebKit, not every historical release. Missing `ResizeObserver` falls back to window resize events.
 
-The mirror is a decorative DOM snapshot. Use a small, explicit sibling backdrop. Canvas pixels, video playback, shadow-root contents, inherited contextual styles, and CSS animations are not guaranteed to match the source. The root’s computed presentation is copied before IDs are namespaced; descendant contextual styles can still differ. Prefer class-based styling. A six-panel scene was measured on an iPhone 15 Pro (Safari 26.6.1); complex scenes still require their own physical-device visual and performance checks.
-
-`effectMode="off"` removes backdrop filtering. `effectMode="blur"` disables WebGL and the mirror and uses the CSS fallback. The web component can be imported during SSR; instantiate it only in a browser. Install React and React DOM explicitly when using a React entry point; the web component needs neither.
+`effectMode="off"` removes backdrop filtering. `effectMode="blur"` disables WebGL and uses the CSS fallback. The web component can be imported during SSR; instantiate it only in a browser. Install React and React DOM explicitly when using a React entry point; the web component needs neither.
 
 ### Development checks
 
@@ -517,15 +522,7 @@ npm run test:scene
 
 Public TypeScript declarations are generated from source during the build. Bundle budgets use **Brotli**, not gzip. CI also checks React 16.8.6, 17.0.2, 18.3.1, and 19 in isolated installations.
 
-### Safari lens optics
-
-Desktop Safari bypasses SVG filters for its optional mirror. iOS uses the WebGL path above. A cached alpha mask reveals a magnified source copy at the rounded rim, leaving the center clear. `mirrorScale` controls the magnification and is bounded by panel geometry; zero gives no optical offset. Firefox retains the rounded-rectangle SVG displacement map. Both maps are generated only for active mirrors, with neither dimension above 256 pixels.
-
-Use `track` for translated lenses or backgrounds. Root transforms are represented by the copy's alignment and are not replayed on the copy. Rotation, scaling, and animations inside the backdrop remain outside the supported alignment contract. The web component uses WebGL on iOS with an explicit backdrop; desktop Safari retains its CSS fallback unless WebGL is requested.
-
-The 5.3.0 Brotli budgets are 30 KB for core, 33 KB for interactive, 31 KB for mirror, and 23 KB for the web component. The optional shared-scene entry is separate. Run `npm run size` to measure the current builds.
-
-The prior SVG mirror failed physical iPhone visual validation despite automated WebKit pixel checks passing. The replacement CSS path visibly renders all six rims in native Safari 26.5 in the iPhone simulator, with sharp centers; physical-device aesthetic acceptance remains pending. Blending near high-contrast text is a known limitation of the approximation. Earlier device timings are retained as historical measurements, not evidence that the failed SVG visuals worked. See [validation notes](docs/superpowers/plans/2026-09-08-safari-lens.md).
+The 5.4.0 Brotli budgets are 30 KB for core, 33 KB for interactive, 31 KB for the deprecated mirror alias, and 23 KB for the web component. The optional shared-scene entry is separate. Run `npm run size` to measure the current builds.
 
 ### Rounded native refraction (Chromium)
 
@@ -614,7 +611,7 @@ The existing `scale` multiplier still applies to relative strength. `blur`,
 `frost`, `dispersion`, and `aberrationIntensity` remain top-level props.
 `lensOptions` affects `refraction="lens"` on React components, including the
 interactive export. It does not alter the classic renderer or add optical
-refraction to Safari/Firefox's blur fallback. The brightness veil also works on
+refraction to the blur fallback. The brightness veil also works on
 that fallback. The web component does not expose this API.
 
 `LENS_PROFILES`, `LENS_OPTION_RANGES`, and `resolveLensOptions(profile, overrides)`
@@ -668,13 +665,12 @@ browser support, visual fidelity, or frame rate.
 | `off` | Effects explicitly disabled |
 | `paused` | Offscreen effects paused |
 | `svg` | Native SVG backdrop refraction |
-| `css-rim` | Safari-style mirror rim magnification |
-| `svg-mirror` | SVG displacement on a mirrored backdrop |
+| `webgl` | WebGL backdrop refraction |
 | `blur` | CSS fallback |
 
 Reasons include `effect-disabled`, `offscreen`, `blur-requested`, `native-svg`,
-`backdrop-mirror`, `mirror-disabled`, `missing-backdrop`, `invalid-selector`,
-`invalid-backdrop`, `clone-failed`, `mirror-unavailable`, and `initializing`.
+`ios-webgl`, `svg-unsupported`, `webgl-requested`, `webgl-unavailable`, `capture-failed`,
+`missing-backdrop`, `invalid-selector`, `invalid-backdrop`, and `initializing`.
 For `missing-backdrop`, supply a sibling background using `backdropRef` or
 `backdropSelector`. For `invalid-backdrop`, move the source outside the lens and its
 ancestors. `RenderingDiagnostics`, `RenderingStrategy`, and `RenderingReason` are

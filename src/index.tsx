@@ -1,5 +1,5 @@
 import { useWebGL } from './core/webgl/useWebGL';
-import { isIOSDevice, wantsWebGL, type GlassRenderer } from './core/renderer';
+import { isIOSDevice, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
 export type { GlassRenderer } from './core/renderer';
 import type { RenderingDiagnostics } from './diagnostics';
 export type { RenderingDiagnostics, RenderingStrategy, RenderingReason } from './diagnostics';
@@ -8,6 +8,15 @@ export { MATERIAL_PRESETS } from './materials';
 export type { MaterialPreset } from './materials';
 import type { MaterialPreset } from './materials';
 import React, { useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+
+/** Longest a client-mounted instance stays transparent while its renderer starts. */
+const REVEAL_TIMEOUT_MS = 400;
+const subscribeNothing = () => () => {};
+// The server snapshot is used during SSR and hydration, so server-rendered glass never waits.
+// React 16/17 lack the hook and keep the immediate reveal.
+const useClientMount = React.useSyncExternalStore
+  ? () => React.useSyncExternalStore(subscribeNothing, () => true, () => false)
+  : () => false;
 import { buildNativeMap, resolveLensOptions } from './core/nativeOptics';
 import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
 import type { LiquidPreset } from './core/liquid';
@@ -21,8 +30,6 @@ import { DisplacementFilter } from './core/DisplacementFilter';
 import { useTextColor } from './core/useTextColor';
 import { cacheGet, cacheSet } from './displacementCache';
 import { buildDisplacementDataUri, normalizeAngle } from './core/displacementMap';
-import { useMirrorEngineState } from './core/mirrorEngine';
-import { lensGeometry, buildLensMap } from './core/mirrorOptics';
 import { useGeometry } from './core/useGeometry';
 import { useQuality } from './core/useQuality';
 import type { LiquidQuality } from './quality';
@@ -198,36 +205,31 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   mobileFallback?: 'css-only' | 'svg';
   /**
+   * `'ready'` keeps client-mounted glass (toasts, popovers, modals) transparent until its renderer
+   * is ready — at most 400ms — so it never shows a placeholder look first. Server-rendered glass is
+   * never hidden, and content stays in the accessibility tree. `'immediate'` shows it at once.
+   * @default 'ready'
+   */
+  reveal?: 'ready' | 'immediate';
+  /**
    * Control the rendering effect: auto-select, force SVG, CSS blur, or disable effects entirely.
    * @default 'auto'
    */
   effectMode?: 'auto' | 'svg' | 'blur' | 'off';
 
-  /**
-   * On the fallback engines (Safari / iOS / Firefox, which can't run SVG filters in
-   * `backdrop-filter`), refract a live displaced **clone** of the element behind the lens instead
-   * of just blurring. Requires `backdropRef` (or `backdropSelector`); falls back to blur otherwise.
-   * @default true
-   */
+  /** @deprecated No effect. Safari, iOS and Firefox now refract through WebGL. */
   mirror?: boolean;
   /**
-   * The background to capture for WebGL or mirror refraction. MUST NOT be an ancestor of
-   * the lens — point it at a sibling/background element. Falls back to blur when omitted.
+   * The background to capture for WebGL refraction (Safari, iOS, Firefox, or `renderer="webgl"`).
+   * MUST NOT be an ancestor of the lens — point it at a sibling/background element. Without it
+   * (and without a `LiquidGlassScene`) those engines fall back to blur.
    */
   backdropRef?: import('react').RefObject<HTMLElement | null>;
   /** Alternative to `backdropRef`: a CSS selector for the backdrop, resolved on mount. */
   backdropSelector?: string;
-  /**
-   * Mirror optical strength, capped to half the rim width. Safari/iOS uses CSS rim magnification;
-   * other mirror engines use displacement. Zero disables the optical offset.
-   * @default 26
-   */
+  /** @deprecated No effect. Safari, iOS and Firefox now refract through WebGL. */
   mirrorScale?: number;
-  /**
-   * Re-align the mirror clone at approximately 30 Hz when the lens or background translates
-   * (dragging, animation). Scroll/resize re-align is automatic for static lenses.
-   * @default false
-   */
+  /** @deprecated No effect. The WebGL renderer re-aligns moving lenses every frame. */
   track?: boolean;
 
   /**
@@ -302,12 +304,13 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   mobileFallback,
   effectMode = 'auto',
   renderer = 'auto',
+  reveal = 'ready',
   backdropVersion,
-  mirror = true,
+  mirror: _mirror,
   backdropRef,
   backdropSelector,
-  mirrorScale = 26,
-  track = false,
+  mirrorScale: _mirrorScale,
+  track: _track,
   ...props
 } = resolveMaterialProps(incomingProps);
   const legacyOptics = angle !== undefined || shapeAdapt !== undefined || lens !== undefined || lensStrength !== undefined || lensCenter !== undefined;
@@ -320,13 +323,20 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const webglHolderRef = useRef<HTMLDivElement | null>(null);
-  const mirrorHolderRef = useRef<HTMLDivElement | null>(null);
   const { dimensions, isResizing, isVisible, visibilityReady } = useGeometry(containerRef);
   const effectiveTextColor = useTextColor(containerRef, autoTextColor, textOnDark, textOnLight);
   const uniqueId = useStableId();
   const textClassName = uniqueId ? `lg-text-${uniqueId}` : undefined;
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const clientMount = useClientMount();
+  const [spawned] = useState(clientMount);
+  const [revealExpired, setRevealExpired] = useState(false);
+  useEffect(() => {
+    if (!spawned) return;
+    const timer = setTimeout(() => setRevealExpired(true), REVEAL_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [spawned]);
 
   const resolvedQuality = useQuality(incomingQuality, autodetectquality);
   // Effective radius in px clamped to box (prevents mismatch when radius > half size)
@@ -407,19 +417,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
 
-  // Only Chromium (Blink) supports SVG filters in backdrop-filter (url(#...)).
-  // Safari/iOS WebKit (bug 245510) and Firefox silently ignore it, so gate on
-  // engine support instead of iOS-only checks (fixes broken effect on Firefox).
-  // Note: every iOS browser (incl. CriOS/FxiOS) is WebKit, hence the isIOS guard.
-  const supportsSvgBackdropFilter = (() => {
-    if (!mounted || typeof navigator === 'undefined') return false;
-    if (isIOS) return false;
-    const ua = navigator.userAgent || '';
-    if (/firefox|fxios/i.test(ua)) return false;
-    return /(chrome|chromium|edg|opr)\//i.test(ua);
-  })();
+  const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
+    && supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
 
-  const webglRequested = mounted && wantsWebGL(renderer, effectMode, isIOS);
+  // Safari, iOS and Firefox can't run SVG filters in backdrop-filter, so they refract through WebGL.
+  const webglRequested = mounted && wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
   const webglOptions = useMemo(() => ({
     map: displacementDataUri, scale: filterScale, dispersion: resolvedQuality === 'low' ? 0 : filterConfig.dispersion * aberrationIntensity,
     specular: refraction === 'lens' ? nativeOptions.specular : 0, classic: refraction !== 'lens',
@@ -460,32 +462,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     ? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)
     : 0;
 
-  // On the fallback engines (Safari/iOS/Firefox), when a backdrop is provided, refract a live
-  // displaced clone of it instead of just blurring. Returns false (→ blur) on Chromium, when
-  // off-screen, when `mirror` is off, or when no usable backdrop is given. Purely additive: with
-  // mirrorActive=false the behavior is identical to the blur fallback.
-  const mirrorStatus = useMirrorEngineState({
-    enabled: mounted && !!uniqueId && isFallback && isVisible && mirror && !webglRequested && effectMode !== 'blur',
-    containerRef,
-    holderRef: mirrorHolderRef,
-    backdropRef,
-    backdropSelector,
-    track
-  });
-
-  const mirrorActive = mirrorStatus === 'active';
-
-  const mirrorGeometry = useMemo(() => lensGeometry(dimensions.width, dimensions.height, config.radius, mirrorScale),
-    [dimensions.width, dimensions.height, config.radius, mirrorScale]);
-  // Native Safari mispositions SVG displacement textures. CSS masks use a separate
-  // compositing path: reveal a mildly magnified source only at the rounded rim.
-  const cssMirror = mounted && (isIOS || (typeof navigator !== 'undefined' && /safari/i.test(navigator.userAgent) && !/chrome|chromium|android|edg|opr/i.test(navigator.userAgent)));
-  const mirrorZoom = 1 + mirrorGeometry.scale / Math.max(mirrorGeometry.width, mirrorGeometry.height);
-  const mirrorMap = useMemo(() => mirrorActive ? buildLensMap(mirrorGeometry, cssMirror ? 'rim' : 'displacement') : undefined,
-    [mirrorActive, mirrorGeometry, cssMirror]);
-  const mirrorFilterId = `liquid-glass-mirror-${uniqueFilterId}`;
-  const mirrorReady = mirrorActive && !!mirrorMap;
-
   const diagnostics: RenderingDiagnostics = (() => {
     let strategy: RenderingDiagnostics['strategy'];
     let reason: RenderingDiagnostics['reason'];
@@ -493,15 +469,10 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     else if (!mounted || !uniqueId) { strategy = 'pending'; reason = 'initializing'; }
     else if (!isVisible) { strategy = 'paused'; reason = 'offscreen'; }
     else if (effectMode === 'blur') { strategy = 'blur'; reason = 'blur-requested'; }
-    else if (webglReady) { strategy = 'webgl'; reason = isIOS ? 'ios-webgl' : 'webgl-requested'; }
+    else if (webglReady) { strategy = 'webgl'; reason = supportsSvgBackdropFilter ? 'webgl-requested' : isIOS ? 'ios-webgl' : 'svg-unsupported'; }
     else if (webglRequested) { strategy = webgl.status === 'pending' ? 'pending' : 'blur'; reason = webgl.status === 'pending' || webgl.status === 'active' ? 'initializing' : webgl.status; }
-    else if (mirrorReady) { strategy = cssMirror ? 'css-rim' : 'svg-mirror'; reason = 'backdrop-mirror'; }
     else if (useSvgFilter) { strategy = 'svg'; reason = 'native-svg'; }
-    else {
-      strategy = 'blur';
-      reason = !mirror ? 'mirror-disabled' : mirrorStatus === 'active' ? 'mirror-unavailable'
-        : mirrorStatus === 'pending' ? 'initializing' : mirrorStatus;
-    }
+    else { strategy = 'blur'; reason = 'webgl-unavailable'; }
     return Object.freeze({ strategy, reason, quality: resolvedQuality });
   })();
   const diagnosticsRef = useRef(diagnostics);
@@ -561,7 +532,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     <feDisplacementMap in="lqBase" in2="lqNoise" scale={liquidCfg.scale} xChannelSelector="R" yChannelSelector="G" />
   </> : null;
   const feBlurForNative = resolvedQuality === 'low' ? Math.min(cssBlur, 2) : cssBlur;
-  const backdropFilterValue = effectMode === 'off' || !isVisible || mirrorReady || webglReady
+  const backdropFilterValue = effectMode === 'off' || !isVisible || webglReady
     ? 'none'
     : useSvgFilter
     ? `saturate(${config.saturation}%) ${refraction === 'lens' && feBlurForNative > 0 ? `blur(${feBlurForNative}px) ` : ''}url(#${filterId})`
@@ -619,6 +590,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     border: `1px solid transparent`
   };
 
+  // Opacity, not visibility, so live regions still announce the content. It is harmless here:
+  // the WebGL canvas never samples the backdrop, and SVG glass is ready by its first effect.
+  const awaitingRenderer = reveal === 'ready' && spawned && !revealExpired && effectMode !== 'off'
+    && (!mounted || diagnostics.reason === 'initializing');
+
   const containerStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
@@ -626,7 +602,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     borderRadius: effectiveRadiusPx,
     background: processBackground(background),
     ...style,
-    isolation: webglRequested ? 'isolate' : style.isolation
+    isolation: webglRequested ? 'isolate' : style.isolation,
+    ...(awaitingRenderer ? { opacity: 0 } : null)
   };
 
   return (
@@ -647,65 +624,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
           liquidStage={liquidStage} resolvedQuality={resolvedQuality} feBlurStdDev={feBlurStdDev} config={filterConfig} specular={nativeOptions.specular} neutralMap={refraction === 'lens'} width={dimensions.width} height={dimensions.height} />
         )}
       </div>
-
-      {/* Safari uses a masked CSS magnification rim; other mirrors use SVG displacement.
-          The source stays explicit and the decorative copy remains clipped to the lens. */}
-      {uniqueId && isFallback && mirror && !webglRequested && effectMode !== 'blur' && (
-        <>
-          <div
-            aria-hidden="true"
-            data-liquid-glass-mirror={cssMirror ? 'css' : 'svg'}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 1,
-              borderRadius: effectiveRadiusPx,
-              overflow: 'hidden',
-              filter: cssMirror ? undefined : `url(#${mirrorFilterId})`,
-              WebkitFilter: cssMirror ? undefined : `url(#${mirrorFilterId})`,
-              maskImage: cssMirror && mirrorMap ? `url("${mirrorMap}")` : undefined,
-              WebkitMaskImage: cssMirror && mirrorMap ? `url("${mirrorMap}")` : undefined,
-              maskSize: '100% 100%',
-              WebkitMaskSize: '100% 100%',
-              pointerEvents: 'none',
-              visibility: mirrorReady ? 'visible' : 'hidden'
-            }}
-          >
-            {/* Clip before filtering: WebKit otherwise includes the translated source in the filter bounds. */}
-            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', contain: 'paint', transform: cssMirror ? `scale(${mirrorZoom})` : undefined, transformOrigin: 'center' }}>
-              <div ref={mirrorHolderRef} style={{ position: 'absolute', top: 0, left: 0 }} />
-            </div>
-          </div>
-          {mirrorReady && (
-            <div
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 1,
-                borderRadius: effectiveRadiusPx,
-                pointerEvents: 'none',
-                background:
-                  'linear-gradient(168deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 100%)',
-                mixBlendMode: 'screen'
-              }}
-            />
-          )}
-          {mirrorMap && !cssMirror && <svg key={mirrorFilterId} width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-            <filter id={mirrorFilterId} filterUnits="objectBoundingBox" primitiveUnits="objectBoundingBox" x="0" y="0"
-              width="1" height="1" colorInterpolationFilters="sRGB">
-              <feImage href={mirrorMap} x="0" y="0" width="1" height="1"
-                preserveAspectRatio="none" result="lens" />
-              <feComponentTransfer in="lens" result="map">
-                <feFuncR type="linear" slope={255 / 256} />
-                <feFuncG type="linear" slope={255 / 256} />
-              </feComponentTransfer>
-              <feDisplacementMap in="SourceGraphic" in2="map" scale={mirrorGeometry.scale / Math.min(mirrorGeometry.width, mirrorGeometry.height)}
-                xChannelSelector="R" yChannelSelector="G" />
-            </filter>
-          </svg>}
-        </>
-      )}
 
       <div
         className="liquid-glass-border"

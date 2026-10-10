@@ -38,7 +38,10 @@ It shares the package's lens maps and controls. Direct video/canvas sources are 
 cached and automatically refreshed for DOM mutations. Use `backdropVersion` or the imperative
 `refreshBackdrop(): Promise<void>` for external stylesheet changes. Nested media in HTML is not
 live. CORS restrictions apply. Capture/context failures use blur with diagnostic reasons.
-Desktop Safari/Firefox still support explicit mirrors when WebGL is not selected.
+iOS, desktop Safari and Firefox always use WebGL (they can't run SVG backdrop filters); Chromium
+opts in with `renderer="webgl"`. Client-mounted glass stays transparent until its renderer is
+ready (max 400ms); `reveal="immediate"` opts out. Animate `transform`, not `opacity`, on glass
+ancestors: an opacity ancestor blanks Chromium's backdrop-filter until the fade ends.
 
 ## `<LiquidGlass>` props (React core)
 

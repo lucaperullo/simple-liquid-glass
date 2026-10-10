@@ -1,1 +1,1 @@
-c3b874dcb9a26464bf2f41e17abdbe0855b69b91c935b0766304c813d534212a  simple-liquid-glass-launcher-0.8.0.apk
+5fee6da5c7d98130c89c6b513e38b434da3ea80da61b48f058d456a84b7516f9  simple-liquid-glass-launcher-0.9.0.apk

@@ -7,7 +7,7 @@ Official public showcase for the Android launcher, in its own folder. Uses the s
 - Run `npm ci`, then `npm run dev` (port 4192). `npm run build` checks TypeScript and produces `dist`.
 - Deploy with `vercel --prod` from this directory after linking the `simple-liquid-launcher` project.
 
-The download is the original supplied 0.8.0 APK, unchanged, with SHA-256 `c3b874dcb9a26464bf2f41e17abdbe0855b69b91c935b0766304c813d534212a`. Release metadata is defined in `src/main.tsx`; public installation instructions use the actual Android label, Liquid Glass. This is a development-signed preview for Android 13+, not a store release.
+The download is the original supplied 0.9.0 APK (versionCode 11, Android 13+), unchanged; its SHA-256 is in `public/releases/SHA256SUMS.txt`. 0.9.0 adds the SET_WALLPAPER permission and still requests no internet access. Release metadata is defined in `src/main.tsx`; public installation instructions use the actual Android label, Liquid Glass. This is a development-signed preview for Android 13+, not a store release.
 
 Actual 0.8.0 emulator screenshots, the launcher icon and the three bundled wallpapers come from the Android app project. Feature copy is grounded in its README, manifest and validation notes. No claims of physical-device performance are made. Media credits are in `public/media/credits.txt`.
 

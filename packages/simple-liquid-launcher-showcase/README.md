@@ -7,7 +7,7 @@ Official public showcase for the Android launcher, in its own folder. Uses the s
 - Run `npm ci`, then `npm run dev` (port 4192). `npm run build` checks TypeScript and produces `dist`.
 - Deploy with `vercel --prod` from this directory after linking the `simple-liquid-launcher` project.
 
-The download is the original supplied 0.9.0 APK (versionCode 11, Android 13+), unchanged; its SHA-256 is in `public/releases/SHA256SUMS.txt`. 0.9.0 adds the SET_WALLPAPER permission and still requests no internet access. Release metadata is defined in `src/main.tsx`; public installation instructions use the actual Android label, Liquid Glass. This is a development-signed preview for Android 13+, not a store release.
+The download is the native 0.10.1 APK (versionCode 13, Android 13+); its SHA-256 is in `public/releases/SHA256SUMS.txt`. 0.10.1 fixes inset-aware edit controls and adds opt-in camera notifications using Android notification-listener and overlay access. It still requests no internet access. Android keeps its system notification shade; the launcher adds a transient camera overlay. Release metadata is defined in `src/main.tsx`; public installation instructions use the actual Android label, Liquid Glass. This is a development-signed preview for Android 13+, not a store release.
 
 Actual 0.8.0 emulator screenshots, the launcher icon and the three bundled wallpapers come from the Android app project. Feature copy is grounded in its README, manifest and validation notes. No claims of physical-device performance are made. Media credits are in `public/media/credits.txt`.
 
@@ -18,3 +18,5 @@ The page hero CTA and launcher search use the same real Glass component as the l
 September imagery/editorial update: the previous 647px-wide portrait web crops have been replaced in the hero, live web demo and artwork panels with native 1672×941 landscape studies. The APK and its original wallpapers are unchanged. An accordion shows actual app screenshots; the download instructions sit in a real LiquidGlass panel.
 
 All live glass panels explicitly bind to sibling background layers: the opening artwork, each phone’s own wallpaper, the interactive launcher wallpaper, and the family preview images. Wallpaper changes refresh the cached source. The installation panel uses a separate matching paper background. The web preview supports real-time iOS WebGL; HTML/image backgrounds use automatically refreshed snapshots, while direct video/canvas sources update live. CSS3D phone transforms and physical iOS devices still require visual verification. This web support does not change the native Android APK.
+
+The native Android implementation is a separate local project. This package hosts its versioned APK; native source archives remain with the Android project. 0.9.0 stays available at its original URL. Each APK response supplies its own filename and binary attachment headers.

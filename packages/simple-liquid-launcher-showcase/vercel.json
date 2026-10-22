@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/releases/(.*).apk",
+      "source": "/releases/simple-liquid-glass-launcher-0.9.0.apk",
       "headers": [
         {
           "key": "Content-Type",
@@ -10,6 +10,23 @@
         {
           "key": "Content-Disposition",
           "value": "attachment; filename=\"simple-liquid-glass-launcher-0.9.0.apk\""
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
+      "source": "/releases/simple-liquid-glass-launcher-0.10.1.apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"simple-liquid-glass-launcher-0.10.1.apk\""
         },
         {
           "key": "X-Content-Type-Options",

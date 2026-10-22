@@ -15,9 +15,9 @@ import ProductDetails from './ProductDetails';
 import './editorial.css';
 import PhoneHero from './PhoneHero';
 
-const release={version:'0.9.0',apk:'/releases/simple-liquid-glass-launcher-0.9.0.apk',size:'8.3 MB'};
+const release={version:'0.9.0',filename:'simple-liquid-glass-launcher-0.9.0.apk',apk:'/releases/simple-liquid-glass-launcher-0.9.0.apk?download=1',size:'8.3 MB'};
 const whatsNew=['Customize sheet: Default, Dark, Clear and Tinted icon styles.','A Liquid Glass switch with adjustable glass intensity.','Wallpaper editor with presets, colour, gradient, photo and blur.','Long-press Home to add widgets, customize, edit the wallpaper or edit pages.'];
-function DownloadLink({className='button'}:{className?:string}){return <a className={className} href={release.apk} download><Download size={18}/><span>Download for Android</span><ArrowUpRight size={18}/></a>}
+function DownloadLink({className='button'}:{className?:string}){return <a className={className} href={release.apk} download={release.filename}><Download size={18}/><span>Download for Android</span><ArrowUpRight size={18}/></a>}
 function App(){
  useCapsuleMotion();
  const [menu,setMenu]=useState(false);
@@ -29,7 +29,7 @@ function App(){
    <div className="cinema-intro"><span>THE OFFICIAL ANDROID LAUNCHER</span><span>{release.version} / PUBLIC PREVIEW</span></div>
    <h1 className="cinema-heading"><span className="line"><span>Your world.</span></span><span className="line"><span>In a new light<span className="hero-period">.</span></span></span></h1>
    <PhoneHero/>
-   <div className="cinema-bottom"><p>A native Android home screen.<br/>Shaped by light. Arranged by you.</p><Glass backdropSelector=".cinema-art" className="hero-glass-cta" radius={60}><a href="#live-experience" className="cinema-explore"><span>Step inside</span><ArrowDown size={24}/></a></Glass><a href={release.apk} download className="cinema-download">Download for Android <ArrowUpRight size={18}/></a></div>
+   <div className="cinema-bottom"><p>A native Android home screen.<br/>Shaped by light. Arranged by you.</p><Glass backdropSelector=".cinema-art" className="hero-glass-cta" radius={60}><a href="#live-experience" className="cinema-explore"><span>Step inside</span><ArrowDown size={24}/></a></Glass><a href={release.apk} download={release.filename} className="cinema-download">Download for Android <ArrowUpRight size={18}/></a></div>
   </section>
   <section className="glass-journey" id="live-experience" aria-label="A closer look at liquid glass">
    <div className="glass-journey-sticky"><div className="journey-kicker"><span>FAMILIAR. UNTIL THE LIGHT MOVES.</span><span>SCROLL TO EXPLORE ↓</span></div><div className="journey-word" aria-hidden="true">Fluid.</div><div className="journey-copy journey-copy-intro"><h2>A different<br/>kind of home.</h2><p>A little depth. A little light.<br/>Everything you reach for, reimagined.</p></div><PhoneHero variant="journey"/><div className="journey-copy journey-copy-outro"><span>THE MATERIAL IS ALIVE</span><h2>Watch the light<br/><em>change its mind.</em></h2><p>Apps glide across the wallpaper.<br/>Glass bends the view as they move.</p><a href="#experience">Make it your own <ArrowDown size={17}/></a></div><div className="journey-footnote"><span>REAL REFRACTION · iOS WEBGL SUPPORT</span><span>BUILT WITH SIMPLE LIQUID GLASS</span></div></div>

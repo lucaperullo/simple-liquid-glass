@@ -5,11 +5,15 @@
       "headers": [
         {
           "key": "Content-Type",
-          "value": "application/vnd.android.package-archive"
+          "value": "application/octet-stream"
         },
         {
           "key": "Content-Disposition",
-          "value": "attachment"
+          "value": "attachment; filename=\"simple-liquid-glass-launcher-0.9.0.apk\""
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     }

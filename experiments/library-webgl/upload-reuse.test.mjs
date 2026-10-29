@@ -8,10 +8,16 @@ try{for(const [name,type] of Object.entries({chromium,webkit})){
  const result=await page.evaluate(async()=>{
   const {GlassRenderer}=await import('/src/vendor/ybouane/GlassRenderer.ts');
   const {DEFAULTS}=await import('/src/vendor/ybouane/defaults.ts');
+  const {installPackageOptics}=await import('/src/core/webgl/optics.ts');
   const renderer=new GlassRenderer(),source=document.createElement('canvas');source.width=160;source.height=100;
   const ctx=source.getContext('2d');ctx.fillStyle='red';ctx.fillRect(0,0,160,100);ctx.fillStyle='blue';ctx.fillRect(15,12,65,40);
   const render=(input,x=0,y=0)=>{renderer.uploadAndBlur(input,x,y,160,100,1);renderer.clear();renderer.renderGlassPanel(DEFAULTS,120,60,1);const gl=renderer.gl,pixels=new Uint8Array(renderer.canvas.width*renderer.canvas.height*4);gl.readPixels(0,0,renderer.canvas.width,renderer.canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels};
-  const expected=render(source);let resizes=0,copies=0;
+  const map=document.createElement('canvas');map.width=map.height=2;const mapCtx=map.getContext('2d');mapCtx.fillStyle='rgb(128,128,128)';mapCtx.fillRect(0,0,2,2);
+  const engine={renderer,capture:{cache:new Map()},markChanged(){},destroy:()=>renderer.destroy()};
+  const optics=installPackageOptics(engine,()=>({map:map.toDataURL(),scale:0,dispersion:0,specular:0,classic:false,radius:0,blur:0,saturation:100}));
+  render(source);for(let i=0;i<100&&!optics.ready;i++)await new Promise(r=>setTimeout(r,10));
+  if(!optics.ready)throw Error('Package optics did not initialize');
+  const expected=render(source);if(!expected.some((v,i)=>i%4===0&&v>100))throw Error('Empty reference frame');let resizes=0,copies=0;
   const descriptors=['width','height'].map(key=>[key,Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,key)]);
   for(const [key,d] of descriptors)Object.defineProperty(HTMLCanvasElement.prototype,key,{...d,set(value){if(this===renderer.cropCanvas)resizes++;d.set.call(this,value)}});
   const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(...args){if(this===renderer.cropCtx)copies++;return draw.apply(this,args)};
@@ -26,7 +32,7 @@ try{for(const [name,type] of Object.entries({chromium,webkit})){
    const cleared=render(small);const blank=document.createElement('canvas');blank.width=160;blank.height=100;
    const blankPixels=render(blank);const clears=cleared.every((v,i)=>v===blankPixels[i]);
    return {direct,equal,clears};
-  }finally{CanvasRenderingContext2D.prototype.drawImage=draw;for(const [key,d] of descriptors)Object.defineProperty(HTMLCanvasElement.prototype,key,d);renderer.destroy()}
+  }finally{CanvasRenderingContext2D.prototype.drawImage=draw;for(const [key,d] of descriptors)Object.defineProperty(HTMLCanvasElement.prototype,key,d);engine.destroy()}
  });
  assert.deepEqual(result.direct,{resizes:0,copies:0},'Already cropped frames must upload without another canvas reset or copy');
  assert.ok(result.equal,'Direct and cropped uploads must render identical pixels');assert.ok(result.clears,'Reused crop buffer must not retain stale pixels');console.log(name,result);

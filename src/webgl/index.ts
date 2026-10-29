@@ -1,3 +1,4 @@
+import { installLiquidGLOptics } from '../core/webgl/liquidGLOptics';
 /** Framework-independent backdrop renderer, also used by simple-liquid-text. */
 import { createWebGLEngine } from '../core/webgl/runtime';
 import type { WebGLOptions, WebGLStatus, WebGLEngine } from '../core/webgl/types';
@@ -13,5 +14,5 @@ export function createWebGLSurface(element: HTMLElement, output: HTMLElement, ba
   if (backdrop.contains(element) || element.contains(backdrop) || backdrop.contains(output)) {
     throw new Error('WebGL backdrop must be a sibling/background, not an ancestor of the surface.');
   }
-  return createWebGLEngine(element, output, backdrop, options, onStatus);
+  return createWebGLEngine(element, output, backdrop, options, onStatus, installLiquidGLOptics);
 }

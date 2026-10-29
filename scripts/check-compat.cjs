@@ -14,6 +14,9 @@ const { LiquidGlass } = require('../dist/index.cjs');
 const { LiquidGlassInteractive } = require('../dist/interactive.cjs');
 const { LiquidGlassMirror } = require('../dist/mirror.cjs');
 require('../dist/web-component.cjs');
+// Server-side import must not touch DOM globals.
+const { createExperimentalScene } = require('../dist/experimental.cjs');
+assert.equal(typeof createExperimentalScene, 'function');
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true, url: 'http://localhost' });
 Object.assign(global, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement,

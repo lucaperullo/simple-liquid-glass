@@ -4,7 +4,7 @@ import type { LiquidQuality } from './quality';
 export type RenderingStrategy = 'webgl' | 'pending' | 'off' | 'paused' | 'svg' | 'css-rim' | 'svg-mirror' | 'blur';
 export type RenderingReason = 'initializing' | 'effect-disabled' | 'offscreen' | 'blur-requested'
   | 'ios-webgl' | 'svg-unsupported' | 'webgl-requested' | 'webgl-unavailable' | 'capture-failed'
-  | 'native-svg' | 'backdrop-mirror' | 'mirror-disabled' | 'missing-backdrop'
+  | 'liquidgl-svg' | 'native-svg' | 'backdrop-mirror' | 'mirror-disabled' | 'missing-backdrop'
   | 'invalid-selector' | 'invalid-backdrop' | 'clone-failed' | 'mirror-unavailable';
 
 /** Describes the selected renderer, not a browser capability or performance guarantee. */

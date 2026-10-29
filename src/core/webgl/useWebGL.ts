@@ -1,3 +1,4 @@
+import { installLiquidGLOptics } from './liquidGLOptics';
 import {useSceneBackdrop} from '../useSceneBackdrop';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createWebGLEngine } from './runtime';
@@ -23,7 +24,7 @@ export function useWebGL(enabled: boolean, panel: RefObject<HTMLElement | null>,
     if (binding.current?.element === element && binding.current?.target === target && binding.current?.source === source) return;
     clear(); binding.current = { element, target, source };
     setStatus('pending');
-    try { engine.current = createWebGLEngine(element, target, source, latest.current, setStatus); }
+    try { engine.current = createWebGLEngine(element, target, source, latest.current, setStatus, installLiquidGLOptics); }
     catch { setStatus('webgl-unavailable'); }
   }); // Resolve ref.current again after commits, including route/source replacement.
   useEffect(() => () => { engine.current?.destroy(); engine.current = null; binding.current = null; }, []);

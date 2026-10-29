@@ -1,5 +1,6 @@
 import { BLUR_ITERATIONS } from '../../vendor/ybouane/defaults';
 import { VS_QUAD } from '../../vendor/ybouane/shaders';
+import { acquireTexture } from './textureCache';
 
 import type { EngineContext } from './types';
 
@@ -8,16 +9,17 @@ export function cachedBackground(instance: EngineContext, source: HTMLElement, s
   const renderer = instance.renderer, gl: WebGLRenderingContext = renderer.gl;
   let image: HTMLCanvasElement | undefined;
   let texture: WebGLTexture | null = null;
+  let textureLease: ReturnType<typeof acquireTexture> | undefined;
   let program: WebGLProgram | null = null;
   let uniforms: Record<string, WebGLUniformLocation | null> = {};
   const limit = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const originalUpload = renderer.uploadAndBlur.bind(renderer);
   let region: {x: number; y: number; w: number; h: number} | undefined;
-  const reset = () => { image = undefined; texture = null; program = null; };
+  const reset = () => { image = undefined; texture = null; program = null; textureLease = undefined; };
   renderer.canvas.addEventListener('webglcontextrestored', reset);
   const dispose = () => {
     renderer.canvas.removeEventListener('webglcontextrestored', reset);
-    if (texture) gl.deleteTexture(texture);
+    textureLease?.release(); textureLease = undefined; image = undefined; texture = null;
     if (program) gl.deleteProgram(program);
   };
   const destroy = instance.destroy.bind(instance);
@@ -43,6 +45,9 @@ export function cachedBackground(instance: EngineContext, source: HTMLElement, s
     gl.uniform2f(uniforms.u_scale, region.w, region.h);
     gl.uniform2f(uniforms.u_offset, region.x, region.y);
     renderer._drawQuad(program, renderer.quadBuf);
+
+    renderer.blurActive = blur > 0;
+    if (!renderer.blurActive) return;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.blurA.fbo);
     gl.viewport(0, 0, fbo.blurA.w, fbo.blurA.h);
@@ -76,16 +81,9 @@ export function cachedBackground(instance: EngineContext, source: HTMLElement, s
     if (!snapshot || snapshot.width > limit || snapshot.height > limit || snapshot.width * snapshot.height * 4 > 64 * 1024 * 1024) return false;
     if (renderer.contextLost) return false;
     if (snapshot !== image) {
-      texture ||= gl.createTexture();
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snapshot);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const next = acquireTexture(gl, snapshot, true);
+      textureLease?.release(); textureLease = next; texture = next.texture;
       image = snapshot;
     }
     const bounds = sourceBounds();

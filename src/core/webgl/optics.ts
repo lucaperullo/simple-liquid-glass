@@ -1,19 +1,19 @@
 import { DISPERSION_SPREAD } from '../../vendor/samasante/displacement';
 import { VS_GLASS } from '../../vendor/ybouane/shaders';
+import { acquireTexture } from './textureCache';
+import { acquireMapImage } from './mapImage';
 
 import type { EngineContext, WebGLOptions } from './types';
-import type { GlassConfig } from '../../vendor/ybouane/defaults';
+import type { SurfaceConfig } from '../../vendor/ybouane/GlassRenderer';
 const fragment = `precision highp float;
-uniform sampler2D u_bgTex, u_blurTex, u_lensMap;
+uniform sampler2D u_blurTex, u_lensMap;
 uniform vec2 u_size, u_res;
 uniform float u_radius, u_alpha, u_mapScale, u_mapDispersion, u_mapSpecular, u_classic, u_saturation, u_additive, u_neutral;
-uniform float u_shadowAlpha, u_shadowSpread, u_shadowOffY;
 varying vec2 v_localPx, v_screenUV;
 float sdf(vec2 p, vec2 b, float r) {vec2 q=abs(p)-b+vec2(r);return min(max(q.x,q.y),0.0)+length(max(q,0.0))-r;}
 void main(){
  float d=sdf(v_localPx,u_size*.5,min(u_radius,min(u_size.x,u_size.y)*.5));
- if(d>0.0){float s=max(sdf(v_localPx-vec2(0.0,u_shadowOffY),u_size*.5,u_radius)-1.0,0.0);
- gl_FragColor=vec4(0.0,0.0,0.0,exp(-s*s/max(1.0,u_shadowSpread*u_shadowSpread))*u_shadowAlpha);return;}
+ if(d>0.0){gl_FragColor=vec4(0.0);return;}
  vec2 mapUV=v_localPx/u_size+.5;
  vec3 m=texture2D(u_lensMap,mapUV).rgb;
  vec2 delta=(mix(m.rg,m.rb,u_classic)-u_neutral)*vec2(1.0,-1.0)/u_res;
@@ -37,28 +37,36 @@ export function installPackageOptics(instance: EngineContext, settings: () => We
  const original=renderer.renderGlassPanel.bind(renderer);
  let program: WebGLProgram|null=null, texture: WebGLTexture|null=null;
  let wanted='', generation=0;
+ let textureLease:ReturnType<typeof acquireTexture>|undefined;
+ let imageLease:ReturnType<typeof acquireMapImage>|undefined;
+ let detachImage:()=>void=()=>{};
+ const clearImage=()=>{detachImage();imageLease?.release();imageLease=undefined;detachImage=()=>{}};
  let locations: Record<string,WebGLUniformLocation|null>={};
  const state={ready:false,failed:false,mapUploads:0,mapUrl:'',scale:0};
- const reset=()=>{program=null;texture=null;wanted='';generation++;state.ready=false;};
+ const reset=()=>{clearImage();textureLease?.release();textureLease=undefined;program=null;texture=null;wanted='';generation++;state.ready=false;};
  renderer.canvas.addEventListener('webglcontextrestored',reset);
  const destroy=instance.destroy.bind(instance);
- instance.destroy=()=>{generation++;renderer.canvas.removeEventListener('webglcontextrestored',reset);if(texture)gl.deleteTexture(texture);destroy();};
- renderer.renderGlassPanel=(config:GlassConfig,width:number,height:number,dpr:number)=>{
+ instance.destroy=()=>{generation++;renderer.canvas.removeEventListener('webglcontextrestored',reset);clearImage();textureLease?.release();textureLease=undefined;texture=null;destroy();};
+ renderer.renderGlassPanel=(config:SurfaceConfig,width:number,height:number,dpr:number)=>{
   const controls=settings();
   const uri=controls.map;
   if(uri!==wanted){
-   wanted=uri;state.failed=false;const version=++generation;const image=new Image();
-   image.onload=()=>{if(version!==generation||renderer.contextLost)return;
-    texture ||= gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,0);gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-    state.ready=true;state.mapUploads++;state.mapUrl=uri;instance.markChanged();
-   };image.onerror=()=>{if(version===generation){state.failed=true;instance.markChanged();}};image.src=uri;
+   wanted=uri;state.failed=false;const version=++generation;clearImage();imageLease=acquireMapImage(uri);const image=imageLease.image;
+   let settled=false;
+   const failed=()=>{if(settled||version!==generation)return;settled=true;state.failed=true;instance.markChanged()};
+   const loaded=()=>{if(settled||version!==generation||renderer.contextLost)return;
+    try{
+     gl.activeTexture(gl.TEXTURE2);gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
+     const next=acquireTexture(gl,image,false);textureLease?.release();textureLease=next;texture=next.texture;
+     settled=true;state.ready=true;state.mapUploads++;state.mapUrl=uri;instance.markChanged();
+    }catch{failed()}
+   };
+   image.addEventListener('load',loaded,{once:true});image.addEventListener('error',failed,{once:true});
+   detachImage=()=>{image.removeEventListener('load',loaded);image.removeEventListener('error',failed)};
+   if(image.complete)Promise.resolve().then(()=>image.naturalWidth?loaded():failed());
   }
   if(!texture)return;
-  if(!program){program=renderer._link(VS_GLASS,fragment);gl.deleteProgram(renderer.glassP);renderer.glassP=program;
+  if(!program){program=renderer._link(VS_GLASS,fragment);if(renderer.glassP)gl.deleteProgram(renderer.glassP);renderer.glassP=program;
    renderer.glassU=renderer._uloc(program,Object.keys(renderer.glassU));
    locations=renderer._uloc(program,['u_lensMap','u_mapScale','u_mapDispersion','u_mapSpecular','u_classic','u_saturation','u_additive','u_neutral']);}
   state.scale=controls.scale;

@@ -1,5 +1,6 @@
 import { createLensMapGenerator } from '../vendor/samasante/displacement';
 import { cacheGet, cacheSet } from '../displacementCache';
+import { NATIVE_MAP_SIZE, nativeMapSurround } from './nativeMapGeometry';
 export const NATIVE_PROFILES = {
   material: { strength: .05, specular: 1, depth: .5, curvature: .3, bend: .45, bendWidth: .16,
     sheen: .32, sheenWidth: 3, sheenFalloff: 1.5, sheenAngle: 45, glowFalloff: .5, glow: .1 },
@@ -59,15 +60,15 @@ export function resolveLensOptions(profile: LensProfile = 'player', options: Len
   return result;
 }
 /** Only map-generating values invalidate the shared geometry cache. */
-export function buildNativeMap(width: number, height: number, radius: number, profile: LensProfile = 'material', options?: LensOptions) {
+export function buildNativeMap(width: number, height: number, radius: number, profile: LensProfile = 'material', options?: LensOptions, surround = false) {
   const {strength: _strength, specular: _specular, brightness: _brightness, ...geometry} = resolveLensOptions(profile, options);
-  const key = `material-v2:${width}:${height}:${radius}:${JSON.stringify(geometry)}`;
+  const key = `material-v2:${width}:${height}:${radius}:${JSON.stringify(geometry)}:${surround}`;
   const cached = cacheGet(key); if (cached) return cached;
   if (typeof document === 'undefined') return '';
-  const generator = createLensMapGenerator(512);
+  const generator = createLensMapGenerator(NATIVE_MAP_SIZE);
   try {
-    const uri = generator.generate({ lensHalfWidth: width / 2, lensHalfHeight: height / 2,
-      borderRadius: radius, ...geometry, clipToShape: true, softEdge: true });
+    const shape = { lensHalfWidth: width / 2, lensHalfHeight: height / 2, borderRadius: radius, ...geometry, clipToShape: true, softEdge: true };
+    const uri = surround ? generator.generate(shape, nativeMapSurround(width,height)) : generator.generate(shape);
     cacheSet(key, uri); return uri;
   } finally { generator.dispose(); }
 }

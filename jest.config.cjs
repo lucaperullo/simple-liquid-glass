@@ -1,5 +1,6 @@
 module.exports = {
   testEnvironment: 'node',
+  transformIgnorePatterns: ['/node_modules/(?!html-to-image/)'],
   roots: ['<rootDir>/src'],
   transform: {
     '^.+\\.(t|j)sx?$': [

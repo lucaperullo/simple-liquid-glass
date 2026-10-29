@@ -1,3 +1,6 @@
+import { LiquidGLSvgFilter } from './core/LiquidGLSvgFilter';
+import type { LiquidGLOptions } from './core/webgl/types';
+export type { LiquidGLOptions } from './core/webgl/types';
 import { useWebGL } from './core/webgl/useWebGL';
 import { isIOSDevice, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
 export type { GlassRenderer } from './core/renderer';
@@ -18,6 +21,7 @@ const useClientMount = React.useSyncExternalStore
   ? () => React.useSyncExternalStore(subscribeNothing, () => true, () => false)
   : () => false;
 import { buildNativeMap, resolveLensOptions } from './core/nativeOptics';
+import { canPadNativeMap } from './core/nativeMapGeometry';
 import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from './core/liquid';
 import type { LiquidPreset } from './core/liquid';
 export type { LiquidPreset } from './core/liquid';
@@ -90,6 +94,12 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   lensProfile?: LensProfile;
   /** Individual rounded-lens overrides. Inherit unset values from lensProfile. Only applies to refraction="lens". */
   lensOptions?: LensOptions;
+  /** Legacy WebGL-only selector. Use optics to select the model for both renderers. */
+  webglOptics?: 'native' | 'liquidgl';
+  /** Optical model for both SVG and WebGL; overrides the WebGL-only legacy selector. */
+  optics?: 'native' | 'liquidgl';
+  /** Controls for optics="liquidgl" or webglOptics="liquidgl"; native lensOptions remain independent. */
+  liquidGLOptions?: LiquidGLOptions;
   /** Explicit lens displacement in CSS pixels; overrides scale for refraction="lens". */
   displacementScale?: number;
   
@@ -276,7 +286,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   refraction: requestedRefraction,
   angle, shapeAdapt, lens, lensStrength, lensCenter,
   liquid = false, liquidSpeed = 1, liquidScale,
-  lensProfile = 'player', lensOptions,
+  lensProfile = 'player', lensOptions, webglOptics: legacyWebglOptics = 'native', optics, liquidGLOptions,
   displacementScale,
   radius = 50,
   border = 0.05,
@@ -313,6 +323,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   track: _track,
   ...props
 } = resolveMaterialProps(incomingProps);
+  const webglOptics=optics??legacyWebglOptics;
+  const analyticalSvg=optics==='liquidgl';
+  const [svgReady,setSvgReady]=useState(false),[svgFailed,setSvgFailed]=useState(false);
   const legacyOptics = angle !== undefined || shapeAdapt !== undefined || lens !== undefined || lensStrength !== undefined || lensCenter !== undefined;
   const refraction = requestedRefraction ?? (legacyOptics ? 'classic' : 'lens');
   const config = {
@@ -346,7 +359,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
-    if (effectMode === 'off' || effectMode === 'blur') return '';
+    if (effectMode === 'off' || effectMode === 'blur' || analyticalSvg || (webglOptics === 'liquidgl' && renderer === 'webgl')) return '';
     const { width, height } = dimensions;
     if (refraction === 'lens' && mounted) {
       return width > 0 && height > 0 ? buildNativeMap(width, height, config.radius, lensProfile, nativeOptions) : '';
@@ -375,7 +388,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     });
     cacheSet(cacheKey, uri);
     return uri;
-  }, [angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality]);
+  }, [analyticalSvg, webglOptics, renderer, angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality]);
 
   // Keep the player preset at the demonstrated ~80px strength even on small controls.
   const norm = lensProfile === 'player' ? 500 : Math.hypot(dimensions.width, dimensions.height) / Math.SQRT2;
@@ -425,8 +438,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const webglOptions = useMemo(() => ({
     map: displacementDataUri, scale: filterScale, dispersion: resolvedQuality === 'low' ? 0 : filterConfig.dispersion * aberrationIntensity,
     specular: refraction === 'lens' ? nativeOptions.specular : 0, classic: refraction !== 'lens',
-    radius: effectiveRadiusPx, blur, saturation
-  }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation]);
+    radius: effectiveRadiusPx, blur, saturation, optics: webglOptics, liquidGL: liquidGLOptions
+  }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation, webglOptics, liquidGLOptions]);
   const webgl = useWebGL(webglRequested && visibilityReady && isVisible, containerRef, webglHolderRef,
     webglOptions, backdropRef, backdropSelector, backdropVersion);
   const webglReady = webglRequested && webgl.status === 'active';
@@ -457,7 +470,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // filters in backdrop-filter), so the surface must instead read as real frosted glass.
   // Give it a blur floor + extra saturation/brightness. The SVG path is untouched — its
   // displacement already provides the glassy look.
-  const isFallback = !useSvgFilter && effectMode !== 'off';
+  const isFallback = (!useSvgFilter || (analyticalSvg&&svgFailed)) && effectMode !== 'off';
   const fallbackFrostPx = isFallback
     ? Math.max(cssOnlyBlurPx, resolvedQuality === 'low' || isMobile ? 8 : 11)
     : 0;
@@ -471,7 +484,9 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     else if (effectMode === 'blur') { strategy = 'blur'; reason = 'blur-requested'; }
     else if (webglReady) { strategy = 'webgl'; reason = supportsSvgBackdropFilter ? 'webgl-requested' : isIOS ? 'ios-webgl' : 'svg-unsupported'; }
     else if (webglRequested) { strategy = webgl.status === 'pending' ? 'pending' : 'blur'; reason = webgl.status === 'pending' || webgl.status === 'active' ? 'initializing' : webgl.status; }
-    else if (useSvgFilter) { strategy = 'svg'; reason = 'native-svg'; }
+    else if(useSvgFilter&&analyticalSvg&&svgFailed){strategy='blur';reason='capture-failed';}
+    else if(useSvgFilter&&analyticalSvg&&!svgReady){strategy='pending';reason='initializing';}
+    else if (useSvgFilter) { strategy = 'svg'; reason = analyticalSvg?'liquidgl-svg':'native-svg'; }
     else { strategy = 'blur'; reason = 'webgl-unavailable'; }
     return Object.freeze({ strategy, reason, quality: resolvedQuality });
   })();
@@ -527,6 +542,11 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     return () => cancelAnimationFrame(raf);
   }, [liquidActive, liquidPreset, liquidSpeed]);
 
+  const paddedSvgMap = !analyticalSvg && useSvgFilter && refraction === 'lens' && !liquidActive && nativeOptions.specular === 0 && webglOptions.dispersion === 0 && canPadNativeMap(dimensions.width,dimensions.height);
+  const svgMap = useMemo(() => paddedSvgMap
+    ? buildNativeMap(dimensions.width,dimensions.height,config.radius,lensProfile,nativeOptions,true)
+    : displacementDataUri,
+    [paddedSvgMap,dimensions.width,dimensions.height,config.radius,lensProfile,nativeOptions,displacementDataUri]);
   const liquidStage = liquidActive && liquidCfg ? <>
     <feTurbulence ref={turbRef} type="fractalNoise" baseFrequency={`${liquidCfg.baseFrequencyX} ${liquidCfg.baseFrequencyY}`} numOctaves={liquidCfg.numOctaves} seed={liquidCfg.seed} result="lqNoise" />
     <feDisplacementMap in="lqBase" in2="lqNoise" scale={liquidCfg.scale} xChannelSelector="R" yChannelSelector="G" />
@@ -534,8 +554,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const feBlurForNative = resolvedQuality === 'low' ? Math.min(cssBlur, 2) : cssBlur;
   const backdropFilterValue = effectMode === 'off' || !isVisible || webglReady
     ? 'none'
-    : useSvgFilter
-    ? `saturate(${config.saturation}%) ${refraction === 'lens' && feBlurForNative > 0 ? `blur(${feBlurForNative}px) ` : ''}url(#${filterId})`
+    : useSvgFilter && !(analyticalSvg&&svgFailed)
+    ? `saturate(${config.saturation}%) ${!analyticalSvg && refraction === 'lens' && feBlurForNative > 0 ? `blur(${feBlurForNative}px) ` : ''}url(#${filterId})`
     : isFallback
       ? `blur(${fallbackFrostPx}px) saturate(${Math.max(config.saturation, 180)}%)`
       : (cssOnlyBlurPx > 0
@@ -620,7 +640,10 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
         zIndex: 0, pointerEvents: 'none', borderRadius: effectiveRadiusPx, overflow: 'hidden', visibility: webglReady ? 'visible' : 'hidden' }} />}
       <div style={glassMorphismStyle}>
         {useSvgFilter && effectMode !== 'off' && isVisible && (
-        <DisplacementFilter filterId={filterId} displacementDataUri={displacementDataUri}
+        analyticalSvg ? <LiquidGLSvgFilter filterId={filterId} panel={containerRef} backdrop={backdropRef} selector={backdropSelector}
+          width={dimensions.width} height={dimensions.height} radius={effectiveRadiusPx} blur={blur} options={liquidGLOptions}
+          enabled={mounted&&visibilityReady&&isVisible&&effectMode!=='blur'} onReady={setSvgReady} onError={setSvgFailed}/>
+        : <DisplacementFilter filterId={filterId} displacementDataUri={svgMap} paddedMap={paddedSvgMap}
           liquidStage={liquidStage} resolvedQuality={resolvedQuality} feBlurStdDev={feBlurStdDev} config={filterConfig} specular={nativeOptions.specular} neutralMap={refraction === 'lens'} width={dimensions.width} height={dimensions.height} />
         )}
       </div>

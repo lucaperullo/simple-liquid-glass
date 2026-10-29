@@ -272,7 +272,7 @@ export interface LensMapShape {
 }
 
 export interface LensMapGenerator {
-  generate(shape: LensMapShape): string;
+  generate(shape: LensMapShape, padding?: {x:number;y:number}): string;
   dispose(): void;
 }
 
@@ -300,7 +300,7 @@ export const createLensMapGenerator = (size: number): LensMapGenerator => {
   let dome: DomeConstants | null = null;
 
   return {
-    generate(shape) {
+    generate(shape, padding) {
       if (!canvas) {
         canvas = document.createElement("canvas");
         canvas.width = size;
@@ -577,6 +577,17 @@ export const createLensMapGenerator = (size: number): LensMapGenerator => {
         }
       }
       ctx!.putImageData(image!, 0, 0);
+      if (padding && (padding.x || padding.y)) {
+        if(!Number.isSafeInteger(padding.x)||!Number.isSafeInteger(padding.y)||padding.x<0||padding.y<0)throw new RangeError('LiquidGlass: invalid map padding');
+        const paddedWidth=size+padding.x*2,paddedHeight=size+padding.y*2;
+        if(paddedWidth*paddedHeight>4*1024*1024)throw new RangeError('LiquidGlass: padded map exceeds its pixel budget');
+        const extended = document.createElement('canvas');
+        extended.width = size + padding.x * 2; extended.height = size + padding.y * 2;
+        const paint = extended.getContext('2d')!;
+        paint.fillStyle = 'rgb(128,128,128)'; paint.fillRect(0,0,extended.width,extended.height);
+        paint.drawImage(canvas,padding.x,padding.y);
+        const uri = extended.toDataURL(); extended.width = extended.height = 0; return uri;
+      }
       return canvas.toDataURL();
     },
     dispose() {

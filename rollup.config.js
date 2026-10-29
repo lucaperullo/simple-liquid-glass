@@ -20,7 +20,7 @@ const jsPlugins = () => [
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
     exclude: 'node_modules/**'
   }),
-  terser()
+  terser({compress:{passes:2}})
 ];
 
 export default [
@@ -31,6 +31,14 @@ export default [
       {file:'dist/backdrop.cjs',format:'cjs',sourcemap:true,exports:'named',banner:'"use client";'}
     ],
     plugins:jsPlugins(),external:['react','react-dom']
+  },
+  {
+    input: 'src/experimental/index.ts',
+    output: [
+      { file: 'dist/experimental.esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { file: 'dist/experimental.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: jsPlugins()
   },
   {
     input: 'src/webgl/index.ts',

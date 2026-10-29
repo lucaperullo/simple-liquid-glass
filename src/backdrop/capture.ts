@@ -1,4 +1,6 @@
-import {getFontEmbedCSS,toSvg} from 'html-to-image'
+import {getFontEmbedCSS} from 'html-to-image'
+import {toSvg} from '../vendor/html-to-image/toCanvas'
+import {markCanvasFrame} from '../core/webgl/canvasFrames'
 
 type Media = HTMLVideoElement | HTMLCanvasElement
 type LiveLayer = {element:Media; mask:HTMLCanvasElement}
@@ -11,11 +13,11 @@ export interface SceneCaptureOptions {
  onCaptureError?:(error:unknown,section:HTMLElement)=>void;
 }
 const ignored=(element:Element)=>!!element.closest('[data-liquid-glass-scene-surface],[data-liquid-glass-ignore]');
-type Tile = {element:HTMLElement; snapshot?:Snapshot; dirty:boolean; pending:boolean; top:number; used:number; revision:number; failed:boolean; evicted:boolean; changed:number; shell:boolean}
+type Tile = {element:HTMLElement; snapshot?:Snapshot; dirty:boolean; pending:boolean; top:number; used:number; revision:number; failed:boolean; evicted:boolean; changed:number; shell:boolean; version:number}
 const captureMarker=()=>`--liquid-glass-capture-${Math.random().toString(36).slice(2)}`
 const intersects=(a:DOMRect,b:DOMRect)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top
 const makeCanvas=(w:number,h:number)=>{const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c}
-const load=(src:string)=>new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>{void img.decode().then(()=>resolve(img),()=>resolve(img))};img.onerror=()=>reject(new Error('Backdrop image could not be decoded'));img.src=src})
+const load=(src:string)=>new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.crossOrigin='anonymous';img.decoding='sync';img.onload=()=>{void img.decode().then(()=>resolve(img),()=>resolve(img))};img.onerror=()=>reject(new Error('Backdrop image could not be decoded'));img.src=src})
 
 async function raster(svg:Document,width:number,height:number){
  const image=await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`)
@@ -33,7 +35,7 @@ function colorMedia(element:Media,color:string,opaque=false){
 }
 
 /** Capture HTML once; derive the transmission of each live media layer through its foreground. */
-export async function capturePageTile(element:HTMLElement,fontEmbedCSS:string,shell=false):Promise<Snapshot>{
+export async function capturePageTile(element:HTMLElement,fontEmbedCSS:string,shell=false,maxPixels=2*1024*1024):Promise<Snapshot>{
  const width=element.offsetWidth,height=element.offsetHeight
  if(!width||!height)throw new Error('Empty backdrop section')
  const marker=captureMarker();
@@ -42,7 +44,7 @@ export async function capturePageTile(element:HTMLElement,fontEmbedCSS:string,sh
  media.forEach((el,index)=>el.style.setProperty(marker,String(index)))
  let url:string
  try{
-  url=await toSvg(element,{width,height,fontEmbedCSS,filter:node=>!(node instanceof HTMLVideoElement&&node.readyState<2),style:{transform:'none',translate:'none',position:'relative',top:'auto',left:'auto',margin:'0'}})
+  url=await toSvg(element,{width,height,fontEmbedCSS,filter:node=>!(node instanceof HTMLVideoElement&&node.readyState<2),style:{transform:'none',translate:'none',position:'relative',top:'auto',left:'auto',right:'auto',bottom:'auto',margin:'0'}})
  }finally{
   media.forEach((el,index)=>previous[index]?el.style.setProperty(marker,previous[index]):el.style.removeProperty(marker))
  }
@@ -55,7 +57,7 @@ export async function capturePageTile(element:HTMLElement,fontEmbedCSS:string,sh
  const colors=media.map(element=>({black:colorMedia(element,'black'),opaqueBlack:colorMedia(element,'black',true),white:colorMedia(element,'white',true)}))
  nodes.forEach((node,index)=>node?.setAttribute('src',colors[index].black))
  // One CSS pixel per captured pixel keeps a full phone page and live masks within a bounded budget.
- const ratio=Math.min(1,Math.sqrt(2*1024*1024/((1+media.length)*width*height)))
+ const ratio=Math.min(1,Math.sqrt(maxPixels/((1+media.length)*width*height)))
  const rasterWidth=Math.max(1,Math.round(width*ratio)),rasterHeight=Math.max(1,Math.round(height*ratio))
  const base=await raster(svg,rasterWidth,rasterHeight)
  const layers:LiveLayer[]=[]
@@ -98,7 +100,7 @@ function paintMedia(ctx:CanvasRenderingContext2D,element:Media,rect:DOMRect,left
 }
 
 
-type Target={previous:string|null;released:boolean;panel:HTMLElement;canvas:HTMLCanvasElement;ctx:CanvasRenderingContext2D;work:HTMLCanvasElement;workCtx:CanvasRenderingContext2D;guard:number;lastReady?:boolean;onReady:(ready:boolean)=>void};
+type Target={previous:string|null;released:boolean;panel:HTMLElement;canvas:HTMLCanvasElement;ctx:CanvasRenderingContext2D;work:HTMLCanvasElement;workCtx:CanvasRenderingContext2D;guard:number;lastReady?:boolean;lastPaint?:string;onReady:(ready:boolean)=>void};
 const fixed=(element:HTMLElement)=>{let found=false;for(let el:HTMLElement|null=element;el;el=el.parentElement){const style=getComputedStyle(el);if(found&&(style.transform!=='none'||style.perspective!=='none'||style.filter!=='none'))return false;if(style.position==='fixed')found=true}return found};
 /** One section cache and capture queue, with a small moving canvas for each registered lens. */
 export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions={}){
@@ -111,8 +113,16 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
  function syncTiles(){
   const style=getComputedStyle(root);
   const shell=style.backgroundImage!=='none'||!['transparent','rgba(0, 0, 0, 0)'].includes(style.backgroundColor)||style.boxShadow!=='none'||parseFloat(style.borderTopWidth)>0||[...root.childNodes].some(node=>node.nodeType===Node.TEXT_NODE&&node.textContent?.trim());
-  const elements=[...(shell?[root]:[]),...root.children].filter((el):el is HTMLElement=>el instanceof HTMLElement&&!ignored(el)&&el.tagName!=='STYLE'&&el.tagName!=='SCRIPT');
-  for(const element of elements)if(!tiles.some(t=>t.element===element)){tiles.push({element,dirty:true,pending:false,top:element.getBoundingClientRect().top+scrollY,used:0,revision:0,failed:false,evicted:false,changed:performance.now(),shell:element===root});resize.observe(element)}
+  const children=[...root.children].filter((el):el is HTMLElement=>el instanceof HTMLElement&&!ignored(el)&&!['STYLE','SCRIPT'].includes(el.tagName));
+  const boxes=children.map(el=>el.getBoundingClientRect());
+  // Isolated tiles cannot reproduce cross-section stacking or group opacity. Capture that root together.
+  const merged=parseFloat(style.opacity)!==1||style.filter!=='none'||style.mixBlendMode!=='normal'||[...root.childNodes].some(n=>n.nodeType===Node.TEXT_NODE&&n.textContent?.trim())||children.some((el,i)=>{
+   const s=getComputedStyle(el);return(el.childElementCount>0&&(!['hidden','clip'].includes(s.overflowX)||!['hidden','clip'].includes(s.overflowY)))||boxes.some((b,j)=>j<i&&intersects(boxes[i],b));
+  });
+  const elements=merged?[root]:[...(shell?[root]:[]),...children];
+  for(const tile of tiles){const nextShell=tile.element===root&&!merged;if(tile.shell!==nextShell){tile.shell=nextShell;tile.dirty=true;tile.revision++}}
+
+  for(const element of elements)if(!tiles.some(t=>t.element===element)){tiles.push({element,dirty:true,pending:false,top:element.getBoundingClientRect().top+scrollY,used:0,revision:0,failed:false,evicted:false,changed:performance.now(),shell:element===root&&!merged,version:0});resize.observe(element)}
   for(let i=tiles.length-1;i>=0;i--)if(!elements.includes(tiles[i].element)){const tile=tiles[i];resize.unobserve(tile.element);if(tile.snapshot)release(tile.snapshot);tiles.splice(i,1)}
   const order=new Map(elements.map((element,index)=>[element,index]));tiles.sort((a,b)=>order.get(a.element)!-order.get(b.element)!);
  }
@@ -120,6 +130,7 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
   for(const tile of tiles)if((!tile.shell||element===root)&&(tile.element.contains(element)||element.contains(tile.element))){tile.dirty=true;tile.failed=false;tile.revision++;tile.changed=performance.now()}
  };
  const mutations=new MutationObserver(records=>{
+  let changed=false;
   for(const record of records){
    if(record.attributeName==='data-liquid-glass-captures')continue;
    const element=record.target instanceof Element?record.target:record.target.parentElement;
@@ -128,9 +139,9 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
     const clean=(style:string|null)=>(style??'').replace(/--liquid-glass-capture-[a-z0-9]+:\s*[^;]*;?/g,'').trim();
     if(clean(record.oldValue)===clean(element.getAttribute('style')))continue;
    }
-   invalidate(element);
+   invalidate(element);changed=true;
   }
-  syncTiles();
+  if(changed)syncTiles();
  });
  const resize=new ResizeObserver(entries=>entries.forEach(entry=>invalidate(entry.target)));
  const changed=(event:Event)=>{if(event.target instanceof Element&&!ignored(event.target))invalidate(event.target)};
@@ -139,15 +150,18 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
  async function capture(tile:Tile){
   busy=true;tile.pending=true;const revision=tile.revision;lastCapture=performance.now();
   try{
-   const snapshot=await capturePageTile(tile.element,fonts,tile.shell);
+   const snapshot=await capturePageTile(tile.element,fonts,tile.shell,tile.element===root&&!tile.shell?budget/4:2*1024*1024);
    if(disposed||!tiles.includes(tile)){release(snapshot);return}
    if(tile.snapshot)release(tile.snapshot);
-   tile.snapshot=snapshot;tile.dirty=tile.revision!==revision;tile.failed=false;tile.evicted=false;
+   tile.snapshot=snapshot;tile.version++;tile.dirty=tile.revision!==revision;tile.failed=false;tile.evicted=false;
    root.dataset.liquidGlassCaptures=String(Number(root.dataset.liquidGlassCaptures??0)+1);
    let bytes=tiles.reduce((sum,t)=>sum+(t.snapshot?t.snapshot.base.width*t.snapshot.base.height*4*(1+t.snapshot.layers.length):0),0);
    for(const older of [...tiles].sort((a,b)=>a.used-b.used)){
     if(bytes<=budget)break;
     if(older===tile||!older.snapshot||older.used===clock)continue;
+    // Idle targets may reuse their paint, but their visible tiles are still in use.
+    const bounds=older.element.getBoundingClientRect();
+    if([...targets].some(target=>{const panel=target.panel.getBoundingClientRect();return panel.bottom>0&&panel.top<innerHeight&&intersects(bounds,target.canvas.getBoundingClientRect())}))continue;
     bytes-=older.snapshot.base.width*older.snapshot.base.height*4*(1+older.snapshot.layers.length);
     release(older.snapshot);older.snapshot=undefined;older.dirty=true;older.evicted=true;
    }
@@ -164,16 +178,20 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
    return {tile,measuredTop:measured.top,rect:new DOMRect(measured.left,elastic?tile.top-scrollY:measured.top,measured.width,measured.height)};
   });
   const neededAreas:DOMRect[]=[];
+  const bodyColor=getComputedStyle(document.body).backgroundColor;
   for(const target of targets){
    const {panel,canvas,ctx,work,workCtx}=target,lens=panel.getBoundingClientRect();
    if(!lens.width||!lens.height||lens.bottom<0||lens.top>innerHeight)continue;
    const correction=elastic&&offset&&fixed(panel)?offset:0;
    target.guard=Math.max(target.guard,Math.ceil((160+Math.abs(correction))/128)*128);
    const width=innerWidth,height=Math.ceil(lens.height+target.guard*2),top=lens.top-correction-target.guard;
-   if(canvas.width!==width||canvas.height!==height){canvas.width=work.width=width;canvas.height=work.height=height;canvas.style.width=`${width}px`;canvas.style.height=`${height}px`}
+   if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;canvas.style.width=`${width}px`;canvas.style.height=`${height}px`}
    canvas.style.top=`${top}px`;
    const area=canvas.getBoundingClientRect(),needed=new DOMRect(0,lens.top-correction-160,innerWidth,lens.height+320);neededAreas.push(needed);
-   ctx.clearRect(0,0,width,height);ctx.fillStyle=getComputedStyle(document.body).backgroundColor;ctx.fillRect(0,0,width,height);
+   const signature=JSON.stringify([width,height,top,area.left,area.top,bodyColor,...candidates.filter(c=>intersects(area,c.rect)).flatMap(({tile,rect})=>[tile.version,!!tile.snapshot,rect.left,rect.top,rect.width,rect.height,...(tile.snapshot?.layers??[]).flatMap(({element})=>{const r=element.getBoundingClientRect();return[r.left,r.top,r.width,r.height,element instanceof HTMLVideoElement?element.currentTime:clock]})])]);
+   if(signature===target.lastPaint)continue;
+   target.lastPaint=signature;
+   ctx.globalAlpha=1;ctx.clearRect(0,0,width,height);ctx.fillStyle=bodyColor;ctx.fillRect(0,0,width,height);
    let complete=true;
    for(const {tile,rect,measuredTop} of candidates){
     if(!intersects(area,rect))continue;tile.used=clock;
@@ -184,12 +202,15 @@ export function createSceneCapture(root:HTMLElement,options:SceneCaptureOptions=
      if(!element.isConnected)continue;
      const measured=element.getBoundingClientRect(),mediaRect=new DOMRect(measured.left,measured.top+rect.top-measuredTop,measured.width,measured.height);
      if(!intersects(area,mediaRect))continue;
+     if(work.width!==width||work.height!==height){work.width=width;work.height=height}
      workCtx.clearRect(0,0,width,height);workCtx.globalCompositeOperation='source-over';
      workCtx.drawImage(mask,rect.left-area.left,rect.top-area.top,rect.width,rect.height);workCtx.globalCompositeOperation='source-in';
      paintMedia(workCtx,element,mediaRect,area.left,area.top);
      ctx.globalCompositeOperation='lighter';ctx.drawImage(work,0,0);ctx.globalCompositeOperation='source-over';
     }
+    ctx.globalAlpha=1;
    }
+   markCanvasFrame(canvas);
    if(complete!==target.lastReady){target.lastReady=complete;target.onReady(complete)}
   }
   const now=performance.now(),scrolling=now-lastScroll<180;

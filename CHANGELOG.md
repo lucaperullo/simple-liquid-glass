@@ -1,3 +1,14 @@
+## 5.5.0 — analytical optics, shared rendering, experimental scene
+
+- New `optics="liquidgl"` (SVG and WebGL) and WebGL-only `webglOptics="liquidgl"` select an analytical rounded-box refraction model adapted from naughtyduk/liquidGL (MIT, see `THIRD_PARTY_NOTICES.md`), configured with `liquidGLOptions`. Native optics remain the default.
+- Visible WebGL panels share one offscreen context and identical source/map uploads instead of one context per panel; frames are presented on each panel's 2D canvas.
+- HTML capture shares identical computed declarations inside a snapshot, patches changed opaque sections and uploads them as GPU sub-rectangles. Unsupported trees, relational selectors, masks, filters, overflow and uncertain styles keep the full capture.
+- A changing plain-text leaf (any sibling position, optionally with a single RGB(A) `text-shadow`) can be redrawn with canvas text between cached static layers. This is enabled only after exact pixel calibration against the SVG rasterizer (four backgrounds plus ASCII probes); otherwise the SVG path remains. In WebKit and Firefox the calibration currently rejects it.
+- New unstable entry `simple-liquid-glass/experimental` with `createExperimentalScene`: one shared canvas and instanced atlas for a fixed set of flat panels. For long changing HTML it may raise the capture scale by at most 1% to align section updates with device pixels; failed CPU/GPU allocations recover by recapturing at the original scale.
+- `<liquid-glass>`: `lens-profile` and `strength` select the same native lens on Chromium and WebGL.
+- **Bundle size grows**: Brotli budgets are core 47.3 KB (5.4.0: 30 KB), interactive 49.3 KB (33), mirror 47.3 KB (31), web component 35.7 KB (23); `experimental` 31 KB. The largest additions are the forked HTML capture pipeline (shared declarations, section patches, raster cache, native text: ~30 KB minified before compression) and the analytical liquidGL optics (~16 KB minified).
+- Known limits: aligned captures change raster resampling/antialiasing compared with 5.4 (optical mapping unchanged); calibration adds a one-time main-thread cost (about 0.35 s for a 1200×4000 Retina source in Chrome); not every workload is faster than 5.4.
+
 ## 5.4.0 — WebGL on every non-Chromium engine
 
 - Desktop Safari and Firefox now refract through WebGL, like iOS, instead of the DOM mirror. Engine detection lives in one place (`supportsSvgBackdrop`) for the component and the custom element. New diagnostics reason: `svg-unsupported`. `supportsSvgBackdrop` is exported from `simple-liquid-glass/webgl`.

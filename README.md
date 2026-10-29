@@ -184,8 +184,11 @@ frames. Cross-origin media requires CORS permission; protected video and unsuppo
 content use the CSS fallback. CSS-only background animations require explicit refreshes; the
 SVG `liquid` turbulence animation is not implemented in WebGL. Axis-aligned translation and scale
 are supported; rotated/perspective source geometry and glass-through-glass compositing are not.
-Long HTML sources use a bounded-resolution snapshot (up to 64 MiB). Keep backdrop regions focused
-and panel counts modest: each visible panel owns a WebGL context.
+HTML captures share identical computed CSS declarations within each detached snapshot, then discard that table. Background/mask resource URLs stay inline for embedding. Trees with internal styles, SVG, custom elements, shadow composition or special media retain the upstream cloning path. The same serializer is used by explicit HTML backdrops and Scene tiles. No stylesheet or DOM-style cache survives between captures.
+
+Shared explicit HTML sources also version their immutable snapshots. When safe section updates are available, an existing GPU texture receives only those regions. Full captures, changed dimensions, missed generations, context restoration or out-of-bounds patches use a full upload. The CPU snapshot remains complete; this does not remove its composition cost. Shader output, capture resolution, scheduling and public options are unchanged.
+
+Long HTML sources use a bounded-resolution snapshot (up to 64 MiB). Keep backdrop regions focused. Visible panels share one offscreen WebGL context; each panel keeps its own composited canvas and local framebuffers. Identical backdrop and lens-map textures share GPU uploads. Avoid unnecessarily large panels because their framebuffers still consume memory.
 
 Without a valid source, WebGL support, or a successful initial capture, the glass remains usable
 with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl` with `ios-webgl`,
@@ -522,7 +525,7 @@ npm run test:scene
 
 Public TypeScript declarations are generated from source during the build. Bundle budgets use **Brotli**, not gzip. CI also checks React 16.8.6, 17.0.2, 18.3.1, and 19 in isolated installations.
 
-The 5.4.0 Brotli budgets are 30 KB for core, 33 KB for interactive, 31 KB for the deprecated mirror alias, and 23 KB for the web component. The optional shared-scene entry is separate. Run `npm run size` to measure the current builds.
+The 5.5.0 Brotli budgets are 47.3 KB for core, 49.3 KB for interactive, 47.3 KB for the deprecated mirror alias, and 35.7 KB for the web component (5.4.0: 30 / 33 / 31 / 23 KB). Most of the increase is the forked HTML capture pipeline and the analytical optics. The optional `backdrop` and `experimental` (31 KB) entries are separate. Run `npm run size` to measure the current builds.
 
 ### Rounded native refraction (Chromium)
 
@@ -695,10 +698,10 @@ Omit `renderer` for automatic iOS selection. WebGL attributes include `lens-prof
 `dispersion`, `radius`, `scale`, `blur`, `saturation`, `backdrop-selector`, and `backdrop-version`.
 `effect-mode="blur"` or `"off"` explicitly disables refraction. Call
 `element.refreshBackdrop()` for a manual capture refresh. Disconnecting the element releases
-its context and source subscription.
+its framebuffers and source subscription; the shared context is released when the last surface disconnects. Geometry and optical attribute updates reuse the existing engine. `lens-profile` and `strength` now select the same native lens on Chromium and WebGL; explicit legacy directional/lens attributes keep the classic gradient path.
 
-The bundled renderer increases the React core to approximately **29 KB Brotli**, including HTML
-capture (React excluded); the web component is approximately **22 KB Brotli**. No separate
+The bundled renderer increases the React core to approximately **47 KB Brotli**, including HTML
+capture (React excluded); the web component is approximately **35 KB Brotli**. No separate
 runtime dependency installation is required. See `THIRD_PARTY_NOTICES.md` for bundled licenses.
 Run `npm run test:webgl` for the library integration/overscroll tests in Chromium and WebKit.
 
@@ -710,3 +713,77 @@ map URI, scale, dispersion, radius, blur and saturation; the output holder can b
 `additiveDispersion` and `neutralPoint` support glyph maps. The returned surface exposes
 `update(options)`, `refresh()` and `destroy()`. This is the canonical engine used by
 `simple-liquid-text`, including overscroll tracking and background capture lifecycle.
+
+### Capture and rendering optimizations (5.5)
+
+HTML snapshots patch only changed opaque, clipped, non-overlapping sections. Relational selectors, masks, rounded roots, filters, overflowing/fixed content and uncertain styles fall back to a complete capture. Manual refresh consumes pending mutation notifications to avoid duplicate captures. Scene captures overlapping sections as one root to preserve section stacking.
+
+The native SVG fast path precomposes a neutral border once into the map PNG when specular and dispersion are disabled. The original 512×512 map body is retained exactly. Highlighted, chromatic, liquid and very small controls retain the general filter graph. A zero WebGL blur no longer downscales the source; nonzero blur retains its existing kernel.
+
+The public entry points and controls are unchanged. The internal canvas marked `data-liquid-glass-webgl` is now a 2D presentation canvas backed by the shared GPU renderer; internal tests read its visible pixels and trigger context-loss tests on the shared offscreen canvas.
+
+Brotli budgets rise in 5.5 to include the analytical optics, shared capture and rendering implementation (see *Compatibility and validation*). Run `npm run size` for measured values.
+
+
+### Analytical WebGL optics (5.5)
+
+`<LiquidGlass renderer="webgl" webglOptics="liquidgl" />` selects an analytical shader adapted from liquidGL (MIT, see THIRD_PARTY_NOTICES.md). The existing map-based optics remain the default. Source capture, observer/texture sharing, context pooling, presentation canvases, error fallback and cleanup remain managed by this package.
+
+```tsx
+<LiquidGlass
+  className="liquidgl-match"
+  renderer="webgl" webglOptics="liquidgl" backdropRef={backdropRef}
+  radius={24} blur={0} saturation={100} frost={0} glassColor=""
+  borderColor="rgba(0,0,0,0)"
+  liquidGLOptions={{ refraction: .006, bevelDepth: .015, bevelWidth: .15,
+    frost: 0, aberration: 0, specular: false }}
+><div className="content">Content</div></LiquidGlass>
+```
+
+The coefficients use liquidGL's units, independently of `lensOptions` / `displacementScale`. `liquidGLOptions.frost` defaults to `blur / 8` for this mode; it uses the source-sampling frost kernel, not the native separable blur. The model includes rounded-box refraction, corner normals, a five-tap sharp sampler, 16-tap frost, chromatic aberration and moving specular highlights. It samples the complete backdrop rather than a local crop; sources larger than the GPU texture limit use the existing CSS fallback. DPR is capped at 2, as in the reference. The WebGL-only selector leaves SVG unchanged; use the generic optics prop described below to opt SVG into the analytical model. The custom element retains native optics.
+
+This does not import liquidGL's DOM capture, stacking, fluid interaction, tilt, magnification, shadow or content-layer engine. Those capabilities are not enabled by this option. Pixel equality depends on capture and compositing too: translucent input retains this package's straight-alpha correctness; independently composited moving canvases and different DOM/video capture can differ from liquidGL. Fidelity is measured per workload; it is not a guarantee of bit-identical output.
+
+To reproduce a liquidGL comparison panel rather than this component’s native decorative shadows, use:
+
+```css
+.liquidgl-match[data-liquid-glass] > div { box-shadow: none !important; }
+.liquidgl-match .content { padding: 12px; font: 14px Arial; color: #15263a; }
+```
+
+Set the same panel size/position and backdrop as the reference. The demonstrated coefficients (.006 / .015 / .15) match the comparison panel; they do not automatically inherit liquidGL’s upstream defaults. Run the analytical WebGL acceptance suite with `LIQUID_GLASS_TEST_OPTICS=liquidgl node experiments/library-webgl/test.mjs`.
+
+
+### CPU presentation optimization (5.5)
+
+The analytical mode can render through one shared OffscreenCanvas WebGL context and transfer each completed frame as an ImageBitmap to its existing 2D presentation canvas. A small, cached capability probe checks mixed-color alpha before this path is enabled; unsupported or incorrect implementations use the original canvas-copy path. ImageBitmaps are closed after drawing. Native/legacy and analytical transfer paths can use two shared contexts when combined; neither allocates a WebGL context per panel. The public component and 2D output canvas APIs remain available.
+
+Geometry reads are grouped before presentation writes, vertex attribute locations are cached, and unchanged program uniforms/texture leases are reused. All cached GL state is reset on context restoration. The actual GLSL fragment string, refraction model, 16 frost samples, resolution and DPR are unchanged. Improvements vary by workload; some scenes are not faster than 5.4.
+
+### Analytical optics in the native SVG path (5.5)
+
+Use `<LiquidGlass renderer="svg" optics="liquidgl" backdropRef={backdropRef} liquidGLOptions={{refraction:.006,bevelDepth:.015,bevelWidth:.15,frost:0}} />`. The generic `optics` prop also selects the model for WebGL, and overrides the existing WebGL-only `webglOptics` prop. Existing defaults and the legacy selector are unchanged. This extension is available in the React component and its wrappers; the custom element retains its existing optics.
+
+Chromium implements this with SVG backdrop filters: cached analytical displacement maps, a five-tap cross kernel at frost zero, sixteen displaced samples for frost, optional RGB separation and moving highlights. The SVG path does not create a WebGL context or capture HTML to a bitmap. The SVG backdrop samples the composed DOM behind the panel; backdropRef supplies its coordinate system, not an isolated bitmap or a content boundary. Overlapping foreground elements can therefore differ from an explicit WebGL capture. Equal interior panes share maps; source-edge movement and changes to source size, pane size, scale, DPR or optics invalidate them. Generation and cache retention are bounded (64 MiB decoded map estimate per asset/cache, 32 cached groups, 4096-pixel maximum map dimension); mounted filter images and browser intermediate surfaces are additional memory. Over-budget maps use the CSS blur fallback. Invisible/off panes unsubscribe from the shared frame loop.
+
+The analytical field is translated from the WebGL model, but this is an approximation of its rendered pixels: SVG maps are 8-bit, frost random functions and premultiplied-alpha filtering differ, and browsers choose their own intermediate surface precision. Do not claim pixel identity. Frost and aberration add many SVG primitives and can be slower than WebGL. Specular highlights are raster approximations of the same moving discs. Firefox and WebKit cannot use SVG filters in backdrop-filter: the existing WebGL fallback is selected, now with the same analytical model. `getDiagnostics()` reports `strategy: 'svg', reason: 'liquidgl-svg'` only for the actual SVG path.
+
+### Experimental shared scene — `simple-liquid-glass/experimental`
+
+`createExperimentalScene(overlay, panels, source, options?)` renders analytical liquidGL refraction for a fixed list of flat panels through **one** shared WebGL canvas, instead of one presentation canvas per panel. It is not used by the ordinary entry points, and its API may change in a minor release.
+
+```ts
+import { createExperimentalScene } from 'simple-liquid-glass/experimental';
+
+const scene = createExperimentalScene(overlay, [...overlay.querySelectorAll('.panel')], background, {
+  radius: 24, blur: 0,
+  liquidGL: { refraction: .006, bevelDepth: .015, bevelWidth: .15 },
+});
+scene.status(); // [{ strategy: 'active', backend: 'shared-webgl', submission: 'instanced' }, …]
+await scene.refresh(); // after source changes a MutationObserver cannot see
+scene.destroy();
+```
+
+The overlay must be positioned and must not contain, or be contained by, the source. The glass is composited below all overlay content, so nested clips, interleaved z-order, rotated panels and glass-through-glass are not supported. Recreate the scene when the panel list changes. Panels are drawn into one instanced atlas (limited to 2 Mpixel); video, fractional DPR and large surfaces use a per-panel path in the same context.
+
+For long, changing HTML sources the capture scale can be raised by at most 1% above the 16-Mpixel budget so that section updates land on whole device pixels and can be uploaded as GPU patches. This changes resampling and antialiasing of the captured raster compared with 5.4 (the optical mapping is unchanged); it does not produce pixel-identical output. If the larger allocation fails on the CPU or GPU, the scene skips frames, recaptures at the original scale and keeps that scale for the source. Calibrated native canvas text is used only after exact equality checks against the SVG rasterizer; otherwise the SVG path remains. Calibration is a one-time cost, measured at roughly 0.35 s of main-thread work for a 1200×4000 Retina source in Chrome.

@@ -36,3 +36,21 @@ void createWebGLSurface; void surfaceOptions;
 import {LiquidGlassScene,useLiquidGlassBackdrop,createLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
 const scene = <LiquidGlassScene maxCacheBytes={64*1024*1024} onCaptureError={(error,section)=>{void error;void section}}><LiquidGlass /></LiquidGlassScene>;
 void scene;void useLiquidGlassBackdrop;void createLiquidGlassBackdrop;
+
+const analytical = <LiquidGlass renderer="webgl" webglOptics="liquidgl" liquidGLOptions={{refraction:.006,bevelDepth:.015,bevelWidth:.15,frost:1,aberration:0,specular:false}} />;
+// @ts-expect-error shader model names must be validated
+const invalidModel = <LiquidGlass webglOptics="unknown" />;
+// @ts-expect-error optical coefficients must be numbers
+const invalidCoefficient = <LiquidGlass webglOptics="liquidgl" liquidGLOptions={{refraction:"strong"}} />;
+void analytical; void invalidModel; void invalidCoefficient;
+
+const analyticalSvg = <LiquidGlass renderer="svg" optics="liquidgl" liquidGLOptions={{frost:0}} />;
+// @ts-expect-error unsupported optical model
+const invalidSharedModel = <LiquidGlass optics="unknown" />;
+
+import {createExperimentalScene} from 'simple-liquid-glass/experimental';
+declare const host:HTMLElement;
+const experimental=createExperimentalScene(host,[host],host,{radius:24,liquidGL:{refraction:.006,frost:0}});
+const submission:'instanced'|'per-panel'=experimental.status()[0].submission;void submission;
+// @ts-expect-error optical coefficients must be numbers
+createExperimentalScene(host,[host],host,{liquidGL:{refraction:'strong'}});

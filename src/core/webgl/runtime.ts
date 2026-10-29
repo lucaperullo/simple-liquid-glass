@@ -1,8 +1,12 @@
 import { GlassRenderer } from '../../vendor/ybouane/GlassRenderer';
 import { DEFAULTS, SHADOW_PAD } from '../../vendor/ybouane/defaults';
 import { cachedBackground } from './background';
+import type { installLiquidGLOptics } from './liquidGLOptics';
 import { installPackageOptics } from './optics';
 import { acquireSource } from './source';
+import { acquireContextCanvas, subscribeFrame } from './contextPool';
+import { invalidateTextures } from './textureCache';
+import { canvasFrame } from './canvasFrames';
 import type { EngineContext, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
 function fixedToViewport(element: HTMLElement): boolean {
@@ -15,21 +19,40 @@ function fixedToViewport(element: HTMLElement): boolean {
   return fixed;
 }
 
-/** One direct GPU output per visible panel, shared HTML capture per source. */
+/** Shared GPU context, private framebuffer state, and one composited canvas per surface. */
 export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, source: HTMLElement,
-  initial: WebGLOptions, status: (status: WebGLStatus) => void): WebGLEngine {
-  const renderer = new GlassRenderer();
-  let options = initial, dirty = true, disposed = false, raf = 0;
+  initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false): WebGLEngine {
+  const canvas = document.createElement('canvas'), scene = document.createElement('canvas');
+  canvas.width = canvas.height = scene.width = scene.height = 1;
+  const transfer=initial.optics==='liquidgl'&&!forceLegacy&&!!analytical?.supportsBitmap();
+  const output=canvas.getContext('2d'),ctx=scene.getContext('2d');
+  if(!output||!ctx)throw new Error('LiquidGlass: canvas unavailable');
+  const lease=acquireContextCanvas(transfer);
+  let renderer:GlassRenderer;
+  try{renderer=new GlassRenderer(lease.canvas)}catch(error){
+    lease.release();canvas.width=canvas.height=scene.width=scene.height=0;
+    if(transfer)return createWebGLEngine(panel,holder,source,initial,status,analytical,true);
+    throw error;
+  }
+  canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
+  const present=(w:number,h:number)=>{
+    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+    output.globalCompositeOperation='copy';
+    if(transfer){const image=(renderer.canvas as OffscreenCanvas).transferToImageBitmap();try{output.drawImage(image,0,0,w,h)}finally{image.close()}}
+    else output.drawImage(renderer.canvas,0,0,w,h);
+  };
+  let options = initial, dirty = true, disposed = false;
+  const changed=()=>{dirty=true;};
   const video = source instanceof HTMLVideoElement ? source : undefined;
   const media = video ?? (source instanceof HTMLCanvasElement ? source : undefined);
   let ready = false, faulted = false;
   const setStatus = (next: WebGLStatus) => { if (!disposed) status(next); };
   const shared = media ? undefined : acquireSource(source, error => {
-    dirty = true;
+    changed();
     if (error && !shared?.capture.cache.has(source)) setStatus('capture-failed');
   });
   const context: EngineContext = { renderer, capture: shared?.capture ?? { cache: new Map() },
-    markChanged: () => { dirty = true; }, destroy: () => renderer.destroy() };
+    markChanged: changed, destroy: () => renderer.destroy() };
   let sourceRect = source.getBoundingClientRect();
   let documentTop = sourceRect.top + scrollY;
   const fixedSource = fixedToViewport(source);
@@ -39,56 +62,76 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   origin.setAttribute('aria-hidden', 'true'); document.body.append(origin);
   const prepare = media ? undefined : cachedBackground(context, source, () => sourceRect);
   const optics = installPackageOptics(context, () => options);
-  const canvas = renderer.canvas;
+  const liquidOptics = analytical?.(context);
   canvas.setAttribute('aria-hidden', 'true');
   canvas.dataset.liquidGlassWebgl = '';
   canvas.style.cssText = `display:block;position:absolute;left:-${SHADOW_PAD}px;top:-${SHADOW_PAD}px;pointer-events:none`;
   holder.append(canvas);
-  const scene = document.createElement('canvas'), ctx = scene.getContext('2d')!;
   let lastGeometry = '', lastTime = -1;
-  const lose = () => { ready = false; setStatus('webgl-unavailable'); };
-  const restore = () => { dirty = true; setStatus('pending'); };
-  canvas.addEventListener('webglcontextlost', lose);
-  canvas.addEventListener('webglcontextrestored', restore);
-  const mediaChanged = () => { dirty = true; };
+  const lose = () => { invalidateTextures(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
+  const restore = () => { changed(); setStatus('pending'); };
+  renderer.canvas.addEventListener('webglcontextlost', lose);
+  renderer.canvas.addEventListener('webglcontextrestored', restore);
+  const mediaChanged = changed;
   video?.addEventListener('seeked', mediaChanged);
   video?.addEventListener('loadeddata', mediaChanged);
 
   // Playback time advances between decoded frames too. Only upload a new frame,
   // while geometry/optics changes remain free to render at the display cadence.
   let videoFrame = 0, videoCallback: number | undefined;
-  const trackVideoFrame = () => {
-    videoFrame++;
+  const trackVideoFrame: VideoFrameRequestCallback = (_now,metadata) => {
+    videoFrame=metadata.presentedFrames;
     if (!disposed) videoCallback = video!.requestVideoFrameCallback(trackVideoFrame);
   };
   if (video?.requestVideoFrameCallback) videoCallback = video.requestVideoFrameCallback(trackVideoFrame);
 
+  let measurement: ReturnType<typeof measure> | undefined;
+  function measure(){
+    if(disposed||document.hidden||renderer.contextLost||(faulted&&!dirty))return;
+    try {
+      const measured=source.getBoundingClientRect(),lens=panel.getBoundingClientRect();
+      const y=scrollY,max=Math.max(0,document.documentElement.scrollHeight-innerHeight);
+      const fixedOffset=(y<0||y>max)&&fixedPanel?origin.getBoundingClientRect().top:0;
+      return {measured,lens,y,max,fixedOffset,width:panel.offsetWidth,height:panel.offsetHeight};
+    }catch{return;}
+  }
   const frame = () => {
-    if (disposed) return;
-    raf = requestAnimationFrame(frame);
-    if (document.hidden || renderer.contextLost || (faulted && !dirty)) return;
+    const current=measurement;measurement=undefined;
+    if (disposed || document.hidden || renderer.contextLost || (faulted && !dirty)) return;
     faulted = false;
     try {
-      const measured = source.getBoundingClientRect(), lens = panel.getBoundingClientRect();
-      const y = scrollY, max = Math.max(0, document.documentElement.scrollHeight - innerHeight);
-      const elastic = y < 0 || y > max;
-      if (!elastic) documentTop = measured.top + y;
-      sourceRect = new DOMRect(measured.left, elastic && !fixedSource ? documentTop - y : measured.top, measured.width, measured.height);
-      const fixedOffset = elastic && fixedPanel ? origin.getBoundingClientRect().top : 0;
-      const rect = new DOMRect(lens.left, lens.top - fixedOffset, lens.width, lens.height);
-      const width = panel.offsetWidth, height = panel.offsetHeight;
-      if (!width || !height || !sourceRect.width || !sourceRect.height) return;
-      const dpr = Math.min(devicePixelRatio || 1, 3);
+      // Older independently bundled entries may own the ticker: retain an inline fallback.
+      const geometryRead=current??measure();if(!geometryRead)return;
+      const {measured,lens,y,max,fixedOffset,width,height}=geometryRead;
+      const elastic=y<0||y>max;
+      if(!elastic)documentTop=measured.top+y;
+      sourceRect=new DOMRect(measured.left,elastic&&!fixedSource?documentTop-y:measured.top,measured.width,measured.height);
+      const rect=new DOMRect(lens.left,lens.top-fixedOffset,lens.width,lens.height);
+      if(!width||!height||!sourceRect.width||!sourceRect.height)return;
+      const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3);
       const geometry = [rect.left - sourceRect.left, rect.top - sourceRect.top, sourceRect.width, sourceRect.height, width, height, rect.width, rect.height, dpr].join(':');
-      const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? 0;
-      if (!dirty && geometry === lastGeometry && time === lastTime && !(media instanceof HTMLCanvasElement)) return;
+      const version = media instanceof HTMLCanvasElement ? canvasFrame(media) : undefined;
+      const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? version ?? 0;
+      if (!options.liquidGL?.specular && !dirty && geometry === lastGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
       if (video && video.readyState < 2) return;
       const snapshot = media ?? shared?.capture.cache.get(source)?.canvas;
       if (!snapshot) return; // Keep the previous complete output during captures.
       const w = Math.round((width + SHADOW_PAD * 2) * dpr), h = Math.round((height + SHADOW_PAD * 2) * dpr);
-      canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
       // CSS transforms scale the canvas too. Sample the same visual extent.
       const scaleX = rect.width / width, scaleY = rect.height / height;
+      if(options.optics==='liquidgl' && liquidOptics){
+        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined);
+        if(!rendered)return;
+        canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
+        canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
+        present(rendered.w,rendered.h);
+        dirty=false;lastGeometry=geometry;lastTime=time;
+        if(!ready){ready=true;setStatus('active');}
+        return;
+      }
+      canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
+      canvas.style.transform='';
+      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;
       const sampleRect = new DOMRect(rect.left, rect.top, rect.width, rect.height);
       const useCache = scaleX === 1 && scaleY === 1 && prepare?.(sampleRect, SHADOW_PAD);
       // Reset cached crop when switching to a transformed output.
@@ -124,7 +167,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       }
       renderer.uploadAndBlur(scene, 0, 0, w, h, Math.max(0, options.blur) / 5);
       renderer.clear();
-      renderer.renderGlassPanel({ ...DEFAULTS, cornerRadius: options.radius, shadowOpacity: 0 }, width, height, dpr);
+      renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
+      present(w,h);
       dirty = false; lastGeometry = geometry; lastTime = time;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }
@@ -135,16 +179,18 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
     }
   };
   if (shared && !shared.capture.cache.has(source)) void shared.refresh().catch(() => {});
-  raf = requestAnimationFrame(frame);
+  const stopFrame = subscribeFrame(frame,()=>{measurement=measure();});
   return {
-    update(next) { options = next; dirty = true; },
-    async refresh() { await shared?.refresh(); dirty = true; },
+    update(next) { options = next; changed(); },
+    async refresh() { await shared?.refresh(); changed(); },
     destroy() {
-      disposed = true; cancelAnimationFrame(raf);
-      canvas.removeEventListener('webglcontextlost', lose);canvas.removeEventListener('webglcontextrestored', restore);
+      if (disposed) return;
+      disposed = true; stopFrame();
+      renderer.canvas.removeEventListener('webglcontextlost', lose);renderer.canvas.removeEventListener('webglcontextrestored', restore);
       video?.removeEventListener('seeked', mediaChanged);video?.removeEventListener('loadeddata', mediaChanged);
       if (videoCallback !== undefined) video?.cancelVideoFrameCallback(videoCallback);
-      origin.remove(); shared?.release(); context.destroy();
+      origin.remove(); shared?.release(); context.destroy(); lease.release();
+      canvas.remove(); canvas.width = canvas.height = 0;
       scene.width = 0; scene.height = 0;
     }
   };

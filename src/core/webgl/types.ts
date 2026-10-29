@@ -1,7 +1,20 @@
+/** Optical controls from liquidGL's MIT-licensed WebGL shader. */
+export interface LiquidGLOptions {
+  refraction?: number;
+  bevelDepth?: number;
+  bevelWidth?: number;
+  /** Pixel-sampling radius multiplier; defaults to blur / 8. */
+  frost?: number;
+  aberration?: number;
+  specular?: boolean;
+}
 import type { GlassRenderer } from '../../vendor/ybouane/GlassRenderer';
 import type { HtmlCapture } from '../../vendor/ybouane/HtmlCapture';
 
 export interface WebGLOptions {
+  /** Defaults to the existing package map-based shader. */
+  optics?: 'native' | 'liquidgl';
+  liquidGL?: LiquidGLOptions;
   map: string;
   scale: number;
   dispersion: number;

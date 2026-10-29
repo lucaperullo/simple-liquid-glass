@@ -10,9 +10,13 @@
  * Static elements are captured once and cached.  Elements with the
  * `data-dynamic` attribute are re-captured every frame.
  */
-import { toCanvas } from 'html-to-image';
+import {SvgRasterCache} from '../html-to-image/SvgRasterCache';
+import { StyledCloneCache } from '../html-to-image/cloneCache';
+import type {PreviousPaint} from '../html-to-image/toCanvas';
+import { toCanvas } from '../html-to-image/toCanvas';
 
 interface CacheEntry {
+ paint?:PreviousPaint;
 	canvas: HTMLCanvasElement;
 	w: number;
 	h: number;
@@ -340,256 +344,35 @@ async function buildFontBlocks(): Promise<EmbeddedFontBlock[]> {
 	return embedded;
 }
 
+/** Source owns scheduling, deduplication and invalidation; this class only rasterizes. */
 export class HtmlCapture {
-	private disposed = false;
-	readonly root: HTMLElement;
-	readonly cache: Map<HTMLElement, CacheEntry>;
-	dpr: number;
-	/** Elements with an in-flight html-to-image re-capture (dedupe). */
-	private readonly _capturing = new Set<HTMLElement>();
-	/**
-	 * Optional callback fired when an async re-capture finishes and
-	 * the cache changes. Receives the element whose cache entry was
-	 * just (re)written so the consumer can scope its dirty marking
-	 * to glasses that actually intersect that element.
-	 */
-	onCacheUpdate: ((element: HTMLElement) => void) | null = null;
-	/**
-	 * Prefetched + embedded @font-face blocks. Computed once at init
-	 * via prefetchFontEmbedCSS. At capture time, filtered per-element
-	 * to include only the blocks whose family/weight/style/unicode-range
-	 * match the element's actual text content and computed styles.
-	 */
-	private _fontBlocks: EmbeddedFontBlock[] = [];
-
-	constructor(root: HTMLElement) {
-		this.root = root;
-		this.cache = new Map();
-		this.dpr = 1;
-	}
-
-	// ────────────────────────────────────────────
-	// Public API
-	// ────────────────────────────────────────────
-
-	/**
-	 * Resolve the page's @font-face rules into a single CSS string with
-	 * every `url(...)` source already inlined as a base64 data URL. The
-	 * result is reused on every subsequent toCanvas call so the captured
-	 * raster renders text with the page's actual webfonts (e.g. Inter)
-	 * instead of system fallbacks. Matching glyph metrics is what makes
-	 * the refracted text line up with the live DOM under the glass.
-	 *
-	 * The build is shared at module scope across every LiquidGlass
-	 * instance — the first init() pays the fetch + base64 cost, every
-	 * subsequent init() awaits the same Promise.
-	 *
-	 * Implemented manually rather than via html-to-image's getFontEmbedCSS
-	 * because that path walks document.styleSheets via CSSOM, which throws
-	 * SecurityError on every cross-origin stylesheet and has a brittle
-	 * recovery flow. We just fetch each <link rel="stylesheet"> directly
-	 * (CORS-friendly for the typical Google Fonts / CDN cases), regex out
-	 * the @font-face blocks, and inline each url(...) ourselves.
-	 */
-	async prefetchFontEmbedCSS(): Promise<void> {
-		if (!_sharedFontBlocks) {
-			_sharedFontBlocks = buildFontBlocks();
-		}
-		this._fontBlocks = await _sharedFontBlocks;
-	}
-
-	/**
-	 * Return the @font-face CSS string for a specific element,
-	 * filtered to only the blocks whose family + weight + style
-	 * match computed styles on the element's text nodes, AND whose
-	 * unicode-range covers at least one codepoint in the element's
-	 * text content.
-	 */
-	fontEmbedCSSForElement(element: HTMLElement): string {
-		if (this._fontBlocks.length === 0) return '';
-		const relevant = filterFontBlocksForElement(this._fontBlocks, element);
-		return relevant.map((b) => b.css).join('\n');
-	}
-
-	/**
-	 * Update the device pixel ratio used for future captures.
-	 */
-	resize(dpr = 1): void {
-		this.dpr = dpr;
-		// Invalidate all caches on resize since element sizes change.
-		this.cache.clear();
-	}
-
-	/**
-	 * Ensure an element's cached canvas is fresh enough for the current DPR.
-	 *
-	 * Cache semantics:
-	 *   - Fresh hit (size matches within 0.5 px) → return immediately.
-	 *   - Stale hit (size differs) → keep the stale entry so callers can
-	 *     stretch-blit it, and kick off an async re-capture.
-	 *   - Cache miss → kick off an async capture.
-	 *
-	 * Concurrent re-captures for the same element are deduplicated
-	 * via the `_capturing` set, so calling this every frame is cheap.
-	 */
-	async captureElement(element: HTMLElement, force = false): Promise<void> {
-		const cssW = element.offsetWidth;
-		const cssH = element.offsetHeight;
-		const w = Math.round(cssW * this.dpr);
-		const h = Math.round(cssH * this.dpr);
-
-		// Hidden / collapsed element — nothing to capture.
-		if (w <= 0 || h <= 0) {
-			this.cache.delete(element);
-			return;
-		}
-
-		const cached = this.cache.get(element);
-		const cacheIsFresh = !!cached
-			&& cached.canvas.width > 0
-			&& cached.canvas.height > 0
-			&& Math.abs(cached.w - w) < 0.5
-			&& Math.abs(cached.h - h) < 0.5;
-
-		if (!force && cacheIsFresh) return;
-
-		// Dedupe concurrent re-captures for the same element. The
-		// previous in-flight call will overwrite the cache when done.
-		if (this._capturing.has(element)) return;
-
-		// Canvas elements are drawn directly via the fast path.
-		if (element.tagName === 'CANVAS') {
-			return;
-		}
-
-		this._capturing.add(element);
-		try {
-			await this._captureWithHtmlToImage(element, w, h, cssW, cssH);
-		} finally {
-			this._capturing.delete(element);
-		}
-	}
-
-	/**
-	 * Draw the current cached capture for an element into an arbitrary
-	 * 2D canvas. Returns true when a cached snapshot was available.
-	 */
-	drawCachedElement(
-		element: HTMLElement,
-		targetCtx: CanvasRenderingContext2D,
-		x: number,
-		y: number,
-		w: number,
-		h: number,
-	): boolean {
-		const cached = this.cache.get(element);
-		if (!cached) return false;
-		if (cached.canvas.width <= 0 || cached.canvas.height <= 0) {
-			this.cache.delete(element);
-			return false;
-		}
-		targetCtx.drawImage(cached.canvas, x, y, w, h);
-		return true;
-	}
-
-	/**
-	 * Capture an element's DOM content as a standalone canvas, optionally
-	 * excluding specified child nodes from the capture.
-	 *
-	 * The hideNodes are pruned from the cloned tree via html-to-image's
-	 * filter callback, so the live DOM is never mutated and there is no
-	 * visible flicker on the page even when this runs inside the render
-	 * loop (e.g. on a re-capture triggered by a content change).
-	 */
-	async captureToCanvas(
-		element: HTMLElement,
-		cssW: number,
-		cssH: number,
-		hideNodes: HTMLElement[] | null = null,
-	): Promise<HTMLCanvasElement | null> {
-		if (cssW <= 0 || cssH <= 0) return null;
-		const hideSet: Set<HTMLElement> | null = hideNodes && hideNodes.length
-			? new Set(hideNodes)
-			: null;
-
-		try {
-			const rendered = await toCanvas(element, {
-				width: cssW,
-				height: cssH,
-				pixelRatio: this.dpr,
-				backgroundColor: undefined,
-				// Reuse the prefetched font embed CSS so the per-glass
-				// content image (used for compositing labels on top of
-				// the shader output) uses the same Inter face the live
-				// page does. Skips html-to-image's noisy CSSOM walk.
-				fontEmbedCSS: this.fontEmbedCSSForElement(element),
-				filter: hideSet
-					? (node: HTMLElement) => !hideSet.has(node)
-					: undefined,
-				style: {
-					position: 'static',
-					top: 'auto',
-					left: 'auto',
-					right: 'auto',
-					bottom: 'auto',
-					transform: 'none',
-					margin: '0',
-				},
-			});
-			return rendered;
-		} catch (err) {
-			console.warn('LiquidGlass: captureToCanvas failed for element:', element, err);
-			return null;
-		}
-	}
-
-	/**
-	 * Remove an element's entry from the capture cache.
-	 */
-	invalidateCache(element: HTMLElement): void {
-		this.cache.delete(element);
-	}
-
-	/** Destroy the capture system and free resources. */
-	destroy(): void {
-		this.disposed = true;
-		this.onCacheUpdate = null;
-		this.cache.clear();
-	}
-
-	// ────────────────────────────────────────────
-	// html-to-image back-end
-	// ────────────────────────────────────────────
-
-	private async _captureWithHtmlToImage(
-		element: HTMLElement,
-		w: number,
-		h: number,
-		cssW: number,
-		cssH: number,
-	): Promise<void> {
-		// Defensive: skip zero-sized captures. captureElement() already
-		// guards this but the html-to-image path is reachable from
-		// elsewhere, and a 0×0 toCanvas call returns a 0×0 canvas that
-		// will throw on every subsequent drawImage.
-		if (cssW <= 0 || cssH <= 0 || w <= 0 || h <= 0) return;
-		try {
-			const rendered = await toCanvas(element, {
-				width: cssW,
-				height: cssH,
-				pixelRatio: this.dpr,
-                style: { transform: 'none', translate: 'none', position: 'static', margin: '0' },
-				// Per-element font embed CSS so the captured raster
-				// uses the page's actual webfont at the correct weight
-				// and unicode subset for this element's text content.
-				fontEmbedCSS: this.fontEmbedCSSForElement(element),
-			});
-
-			if (this.disposed) return;
-			this.cache.set(element, { canvas: rendered, w, h });
-			this.onCacheUpdate?.(element);
-		} catch (err) {
-			throw err;
-		}
-	}
+ private disposed=false;
+ readonly stats={unchanged:0};
+ readonly cache=new Map<HTMLElement,CacheEntry>();
+ dpr=1;
+ private _fontBlocks:EmbeddedFontBlock[]=[];
+ readonly clones:StyledCloneCache;
+ readonly raster=new SvgRasterCache();
+ constructor(readonly root:HTMLElement){this.clones=new StyledCloneCache(root)}
+ async prefetchFontEmbedCSS():Promise<void>{
+  _sharedFontBlocks??=buildFontBlocks();
+  this._fontBlocks=await _sharedFontBlocks;
+ }
+ fontEmbedCSSForElement(element:HTMLElement):string{
+  if(!this._fontBlocks.length)return '';
+  return filterFontBlocksForElement(this._fontBlocks,element).map(b=>b.css).join('\n');
+ }
+ async captureElement(element:HTMLElement,force=false,reuse=false,retain=false):Promise<void>{
+  if(this.disposed)return;
+  const cssW=element.offsetWidth,cssH=element.offsetHeight,w=Math.round(cssW*this.dpr),h=Math.round(cssH*this.dpr);
+  if(w<=0||h<=0){this.cache.delete(element);this.raster.invalidate(element);return}
+  const previous=this.cache.get(element);
+  if(!force&&previous?.w===w&&previous.h===h&&previous.canvas.width>0&&previous.canvas.height>0)return;
+  if(element.tagName==='CANVAS')return;
+  const paint=retain?{...(reuse?previous?.paint:undefined)}:undefined;
+  const rendered=await toCanvas(element,{width:cssW,height:cssH,pixelRatio:this.dpr,
+   style:{transform:'none',translate:'none',position:'static',margin:'0'},fontEmbedCSS:this.fontEmbedCSSForElement(element)},this.clones,reuse,this.raster,paint);
+  if(!this.disposed){if(paint?.unchanged)this.stats.unchanged++;this.cache.set(element,{canvas:rendered,w,h,paint});}
+ }
+ destroy(){this.disposed=true;this.clones.destroy();this.raster.destroy();this.cache.clear();this._fontBlocks=[]}
 }

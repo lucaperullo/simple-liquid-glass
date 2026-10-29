@@ -5,7 +5,7 @@ test('native lens map is stable during scrolling and strength changes', async ({
   const lens = page.getByTestId('lens');
   const classic = page.getByTestId('classic');
   await expect.poll(async () => Number(await classic.locator('feDisplacementMap').first().getAttribute('scale'))).toBeLessThan(20);
-  await expect.poll(() => lens.locator('feImage').getAttribute('href')).toContain('data:image/png');
+  await expect.poll(() => lens.locator('feImage').getAttribute('href').then(uri=>decodeURIComponent(uri??''))).toContain('data:image/png');
   const map = await lens.locator('feImage').getAttribute('href');
   const image = await lens.screenshot();
   await page.getByLabel('Lens strength').fill('0');

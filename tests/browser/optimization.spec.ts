@@ -34,6 +34,9 @@ run('alpha and 24 simultaneous surfaces, isolation, shared context, recovery',as
 run('partial HTML capture matches a fresh full capture',async page=>{
  const result=await page.evaluate(async()=>{
   const root=document.createElement('div');root.style.cssText='position:absolute;left:0;top:0;width:400px;height:400px;overflow:hidden';root.innerHTML='<section style="position:relative;height:200px;overflow:hidden;background:rgb(200,100,50)"><b style="position:absolute;left:23px;top:31px">first</b></section><section style="position:relative;height:200px;overflow:hidden;background:rgb(30,160,200)"><b style="position:absolute;left:23px;top:31px">second</b></section>';document.body.append(root);
+  // The root is inserted under the pointer. Let :hover settle first: a hover change
+  // legitimately invalidates the style context and forces a complete capture.
+  for(let i=0;i<2;i++)await new Promise(requestAnimationFrame);
   const shared=lab.acquireSource(root,()=>{});await shared.refresh();let sizes=[];const cap=shared.capture.captureElement.bind(shared.capture);shared.capture.captureElement=async(el,...args)=>{sizes.push(el.tagName);return cap(el,...args)};
   const key=()=>shared.capture.clones?.contextKey(root)??null,sectionInfo=()=>lab.captureSections(root)?.map((x:any)=>[x.element.tagName,x.x,x.y,x.width,x.height,x.replaceable])??null;const diagnostics:any={keyBefore:key(),sectionsBefore:sectionInfo(),fonts:document.fonts.status};
   root.querySelector('b').textContent='Changed text';root.firstElementChild.style.background='rgb(120,210,80)';const src:any=(document as any)[Symbol.for('simple-liquid-glass.sources.v1')]?.get(root);const records=src.observer.takeRecords();src.note(records);

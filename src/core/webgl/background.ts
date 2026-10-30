@@ -1,5 +1,6 @@
 import { BLUR_ITERATIONS } from '../../vendor/ybouane/defaults';
 import { VS_QUAD } from '../../vendor/ybouane/shaders';
+import { releaseProgram } from '../../vendor/ybouane/GlassRenderer';
 import { acquireTexture } from './textureCache';
 
 import type { EngineContext } from './types';
@@ -20,14 +21,17 @@ export function cachedBackground(instance: EngineContext, source: HTMLElement, s
   const dispose = () => {
     renderer.canvas.removeEventListener('webglcontextrestored', reset);
     textureLease?.release(); textureLease = undefined; image = undefined; texture = null;
-    if (program) gl.deleteProgram(program);
+    releaseProgram(gl, program);
   };
   const destroy = instance.destroy.bind(instance);
   instance.destroy = () => { dispose(); destroy(); };
 
   renderer.uploadAndBlur = (canvas: HTMLCanvasElement, sx: number, sy: number, w: number, h: number, blur: number) => {
     if (!region) return originalUpload(canvas, sx, sy, w, h, blur);
+    renderer.direct = null;
     if (renderer.contextLost || !renderer._setActiveSize(w, h)) return;
+    // Unblurred: the glass samples the snapshot texture in place, saving a full-panel copy per frame.
+    if (blur <= 0 && texture) { renderer.direct = { texture, region: [region.x, region.y, region.w, region.h] }; renderer.blurActive = false; return; }
     const fbo = renderer.activeFBOs!;
     if (!program) {
       program = renderer._link(VS_QUAD, `precision highp float;

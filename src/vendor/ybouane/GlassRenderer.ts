@@ -28,6 +28,22 @@ interface FBOSet {
 
 type UniformMap = Record<string, WebGLUniformLocation | null>;
 
+// Panels on one context (a shared scene, the shared offscreen canvas) link identical shaders: share one program
+// per context so many panels neither compile hundreds of copies nor switch programs between draws.
+const programs = new WeakMap<WebGLRenderingContext, Map<string, { program: WebGLProgram; users: number }>>();
+const programKeys = new WeakMap<WebGLProgram, string>();
+// Last values per shared program: panels drawing in turn skip uniforms that did not change between them.
+const uniformValues = new WeakMap<WebGLProgram, Map<string, number[]>>();
+
+/** Release a program obtained from GlassRenderer._link; it is deleted when its last user releases it. */
+export function releaseProgram(gl: WebGLRenderingContext, program: WebGLProgram | null): void {
+	const key = program && programKeys.get(program), cache = programs.get(gl), entry = key ? cache?.get(key) : undefined;
+	if (!entry || entry.program !== program) { if (program && !key && !gl.isContextLost()) gl.deleteProgram(program); return; }
+	if (--entry.users) return;
+	cache!.delete(key!);
+	if (!gl.isContextLost()) gl.deleteProgram(program!);
+}
+
 export class GlassRenderer {
 	readonly canvas: HTMLCanvasElement | OffscreenCanvas;
 	readonly gl: WebGLRenderingContext;
@@ -54,13 +70,21 @@ export class GlassRenderer {
 
 	contextLost = false;
 	blurActive = false;
+	/** Shared scenes draw each panel into a framebuffer of their context instead of the canvas. */
+	target: WebGLFramebuffer | null = null;
+	/** Unblurred cached backgrounds are sampled in place from the shared snapshot (region: x, y, w, h in its UV
+	 *  space) instead of being copied into the panel's background framebuffer first. */
+	direct: { texture: WebGLTexture; region: [number, number, number, number] } | null = null;
 
 	_onContextLost: (e: Event) => void;
 	_onContextRestored: () => void;
 
+	readonly sharedCanvas: boolean;
+
 	constructor(sharedCanvas?: HTMLCanvasElement | OffscreenCanvas) {
+		this.sharedCanvas = !!sharedCanvas;
 		this.canvas = sharedCanvas ?? document.createElement('canvas');
-		if('style' in this.canvas)this.canvas.style.display = 'none';
+		if(!sharedCanvas&&'style' in this.canvas)this.canvas.style.display = 'none';
 
 		this.cropCanvas = document.createElement('canvas');
 		this.cropCtx = this.cropCanvas.getContext('2d')!;
@@ -80,6 +104,7 @@ export class GlassRenderer {
 		this._onContextLost = (e: Event) => {
 			e.preventDefault();
 			this.contextLost = true;
+			programs.delete(gl);
 			console.warn('LiquidGlass: WebGL context lost.');
 		};
 		this._onContextRestored = () => {
@@ -111,7 +136,7 @@ export class GlassRenderer {
 		this.blurU = this._uloc(this.blurP, ['u_tex', 'u_dir']);
 
 		this.glassP = null;
-		const names = ['u_blurTex','u_center','u_size','u_res','u_pad','u_radius','u_alpha'];
+		const names = ['u_blurTex','u_center','u_size','u_res','u_pad','u_radius','u_alpha','u_region'];
 		this.glassU = names.reduce((locations,name)=>{locations[name]=null;return locations;},{} as UniformMap);
 	}
 
@@ -145,6 +170,7 @@ export class GlassRenderer {
 		blurAmount: number,
 	): void {
 		if (this.contextLost) return;
+		this.direct = null;
 		const gl = this.gl;
 		if (!this._setActiveSize(width, height)) return;
 		const W = this.width;
@@ -241,20 +267,20 @@ export class GlassRenderer {
 		gl.useProgram(this.glassP);
 
 		gl.activeTexture(gl.TEXTURE1);
-		gl.bindTexture(gl.TEXTURE_2D, this.blurActive ? fboSet.blurA.tex : fboSet.bg.tex);
-		gl.uniform1i(this.glassU.u_blurTex, 1);
+		gl.bindTexture(gl.TEXTURE_2D, this.direct ? this.direct.texture : this.blurActive ? fboSet.blurA.tex : fboSet.bg.tex);
+		const p = this.glassP, u = this.glassU;
+		this._uniform(p, 'u_blurTex', u.u_blurTex, [1], true);
+		this._uniform(p, 'u_region', u.u_region, this.direct?.region ?? [0, 0, 1, 1]);
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.viewport(0, this.canvas.height - H, W, H);
-		gl.uniform2f(this.glassU.u_res, W, H);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.target);
+		gl.viewport(0, this.target ? 0 : this.canvas.height - H, W, H);
+		this._uniform(p, 'u_res', u.u_res, [W, H]);
 
-		gl.uniform2f(this.glassU.u_center, W * 0.5, H * 0.5);
-		gl.uniform2f(this.glassU.u_size, width * dpr, height * dpr);
-
-		gl.uniform1f(this.glassU.u_radius, config.cornerRadius * dpr);
-		gl.uniform1f(this.glassU.u_pad, SHADOW_PAD * dpr);
-
-		gl.uniform1f(this.glassU.u_alpha, config.opacity);
+		this._uniform(p, 'u_center', u.u_center, [W * 0.5, H * 0.5]);
+		this._uniform(p, 'u_size', u.u_size, [width * dpr, height * dpr]);
+		this._uniform(p, 'u_radius', u.u_radius, [config.cornerRadius * dpr]);
+		this._uniform(p, 'u_pad', u.u_pad, [SHADOW_PAD * dpr]);
+		this._uniform(p, 'u_alpha', u.u_alpha, [config.opacity]);
 
 
 		this._drawQuad(this.glassP, this.panelBuf);
@@ -262,11 +288,11 @@ export class GlassRenderer {
 	}
 
 	clear(): void {
-		const gl = this.gl;
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.viewport(0, this.canvas.height - this.height, this.width, this.height);
+		const gl = this.gl, y = this.target ? 0 : this.canvas.height - this.height;
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.target);
+		gl.viewport(0, y, this.width, this.height);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(0, this.canvas.height - this.height, this.width, this.height);
+		gl.scissor(0, y, this.width, this.height);
 		gl.clearColor(0, 0, 0, 0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
@@ -284,11 +310,12 @@ export class GlassRenderer {
 			if (this.bgTex) gl.deleteTexture(this.bgTex);
 			if(this.quadBuf)gl.deleteBuffer(this.quadBuf);
 			if(this.panelBuf)gl.deleteBuffer(this.panelBuf);
-			if(this.blitP)gl.deleteProgram(this.blitP);
-			if(this.blurP)gl.deleteProgram(this.blurP);
-			if (this.glassP) gl.deleteProgram(this.glassP);
+			releaseProgram(gl, this.blitP);
+			releaseProgram(gl, this.blurP);
+			releaseProgram(gl, this.glassP);
 		}
-		if('remove' in this.canvas)this.canvas.remove();
+		// A shared canvas belongs to its pool or scene.
+		if(!this.sharedCanvas&&'remove' in this.canvas)this.canvas.remove();
 	}
 
 	// ────────────────────────────────────────────
@@ -301,7 +328,7 @@ export class GlassRenderer {
 		this.width = w;
 		this.height = h;
 
-		if (this.canvas.width !== w || this.canvas.height !== h) {
+		if (!this.target && (this.canvas.width !== w || this.canvas.height !== h)) {
 			this.canvas.width = w;
 			this.canvas.height = h;
 		}
@@ -372,6 +399,15 @@ export class GlassRenderer {
 	}
 
 	_link(vsSrc: string, fsSrc: string): WebGLProgram {
+		const gl=this.gl,key=`${vsSrc}\0${fsSrc}`;
+		let cache=programs.get(gl);if(!cache){cache=new Map();programs.set(gl,cache);}
+		const hit=cache.get(key);if(hit){hit.users++;return hit.program;}
+		const p=this._compileProgram(vsSrc,fsSrc);
+		cache.set(key,{program:p,users:1});programKeys.set(p,key);
+		return p;
+	}
+
+	_compileProgram(vsSrc: string, fsSrc: string): WebGLProgram {
 		const gl=this.gl,p=gl.createProgram();
 		if(!p)throw new Error('LiquidGlass: program allocation failed');
 		let vs:WebGLShader|null=null,fs:WebGLShader|null=null;
@@ -382,6 +418,21 @@ export class GlassRenderer {
 			return p;
 		}catch(error){gl.deleteProgram(p);throw error}
 		finally{if(vs)gl.deleteShader(vs);if(fs)gl.deleteShader(fs)}
+	}
+
+	/** Set a uniform of a shared program unless it already holds these values (floats, or ints for samplers). */
+	_uniform(prog: WebGLProgram, name: string, location: WebGLUniformLocation | null, values: number[], int = false): void {
+		if (!location) return;
+		let last = uniformValues.get(prog);
+		if (!last) { last = new Map(); uniformValues.set(prog, last); }
+		const previous = last.get(name);
+		if (previous && previous.length === values.length && previous.every((v, i) => v === values[i])) return;
+		last.set(name, values);
+		const gl = this.gl;
+		if (int) gl.uniform1i(location, values[0]);
+		else if (values.length === 1) gl.uniform1f(location, values[0]);
+		else if (values.length === 2) gl.uniform2f(location, values[0], values[1]);
+		else gl.uniform4f(location, values[0], values[1], values[2], values[3]);
 	}
 
 	_uloc(prog: WebGLProgram, names: string[]): UniformMap {

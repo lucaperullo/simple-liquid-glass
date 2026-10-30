@@ -22,6 +22,45 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 - React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
 - A separate web component for other frameworks, with the same iOS WebGL engine.
 - Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
+- 60 fps with 104 scrolling panes in Chrome: sibling panes share one WebGL canvas, using less CPU than liquidGL WebGPU (see [Performance](#performance)).
+
+## Performance
+
+5.6 renders a page full of glass at display rate. With the library's default look, 104 scrolling panes hold 60 fps in Chrome while using less CPU than liquidGL's WebGPU renderer. In 5.5.1 they ran at 35 fps through SVG and 12 fps through WebGL.
+
+Chrome 156, MacBook Pro M5, Retina (DPR 2), 60 Hz display. Each library uses its own default look. Panes scroll over an image backdrop. Values are frame rate and CPU of the whole Chrome process tree (ms per second), median of four Latin-rotated runs in fresh browsers (two for 5.5.1 WebGL and for 5.6 at 24 panes):
+
+| Panes | **5.6** `renderer="auto"` | 5.5.1 SVG | 5.5.1 WebGL | liquidGL WebGL | liquidGL WebGPU |
+|---|---|---|---|---|---|
+| 24 | **60 fps · 369** | 60 fps · 841 | 36 fps · 648 | 60 fps · 567 | 60 fps · 393 |
+| 48 | **60 fps · 404** | 60 fps · 1495 | 21 fps · 1230 | 39 fps · 713 | 60 fps · 462 |
+| 64 | **60 fps · 444** | 60 fps · 1935 | 17 fps · 1369 | 30 fps · 578 | 60 fps · 484 |
+| 88 | **60 fps · 531** | 41 fps · 1803 | 12 fps · 1358 | 22 fps · 504 | 60 fps · 547 |
+| 104 | **60 fps · 531** | 35 fps · 1858 | 12 fps · 1400 | 18 fps · 428 | 60 fps · 587 |
+
+liquidGL WebGL uses less CPU at 88 and 104 panes only because it draws a third of the frames. Renderer main-thread time stays close to liquidGL WebGPU (22–61 against 37–57 ms/s). It is 4 ms/s higher at 88 and 104 panes.
+
+Each run sees only one renderer on the page, so one slow implementation cannot drag down another. With six panes all of them hold 60 fps. Below 16 panes, `renderer="auto"` keeps the SVG filter, which samples the live page with no capture. The numbers above vary with backdrop, pane size and GPU. Reproduce them with your own content before relying on them.
+
+### How it got faster
+
+Profiling Chrome showed two costs that grow with every pane. First, a backdrop filter's map images are resent to the GPU process every frame the glass or its backdrop moves. Second, every SVG pane is its own GPU render pass. 5.5.1 shrank the first; 5.6 removes the second by drawing every pane into one canvas.
+
+**SVG (5.5.1)**
+- **Maps sized to the pane.** Native maps were a fixed 512 px body (604×650 for a 180×120 pane). They now use 0.75 map pixels per CSS pixel (64–512), so far fewer bytes are resent per frame.
+- **One map for frost.** Frosted analytical glass uses one map and a matched `feGaussianBlur` instead of sixteen maps.
+- **A shorter filter graph.** Out-of-backdrop samples are filled with one composite instead of a mask and three composites (pixel-identical).
+- **No rebuild storms.** Panes moving near the backdrop edge reuse a cached per-shape field and rebuild their map at most every 160 ms.
+
+**WebGL (5.5.1 → 5.6)**
+- **Bitmap transfer.** A shared offscreen context renders each pane and hands the frame to a `bitmaprenderer` canvas instead of copying it into a 2D canvas.
+- **One canvas for a crowd.** Sibling panes over the same backdrop each render into their own framebuffer in one context. They are then composited into a single canvas placed before the first pane. The browser composites one layer instead of one per pane.
+- **No per-frame crops.** Fractional pane sizes used to look like a scale change and re-crop and re-upload the backdrop every frame. Exact layout sizes now keep the cached backdrop on the GPU.
+- **Sample in place.** Panes without blur read the cached backdrop texture directly through a region uniform instead of copying their crop into a private texture.
+- **Shared GPU state.** Shader programs are compiled once per context and reference-counted. Unchanged uniforms are not resent.
+- **One layout read per frame.** `getBoundingClientRect` and scroll offsets are memoised for the frame, so a hundred panes do not each force their own measurement.
+
+**Choosing a renderer.** On desktop Chrome, `renderer="auto"` moves 16 or more scene-eligible sibling panes over one backdrop to the shared WebGL scene. It switches back to SVG below 12. Backdrops containing video or iframes stay on SVG, which shows them live. Every other engine already uses WebGL and groups siblings the same way. Set `webglScene="off"` to keep one canvas per pane.
 
 ## Automatic page backgrounds with `LiquidGlassScene`
 
@@ -307,7 +346,8 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `style` | `CSSProperties` | - | Additional inline styles |
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
-| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS; opt in elsewhere with webgl |
+| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS, Safari and Firefox; on desktop Chromium SVG, or the shared WebGL scene for 16+ sibling panels; force either with svg/webgl |
+| `webglScene` | `'auto' \| 'off'` | `'auto'` | Sibling WebGL panels over one backdrop share one canvas. `'off'` keeps one canvas per panel (and SVG on Chromium) |
 | `backdropVersion` | `string \| number` | — | Change to refresh cached HTML |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
@@ -366,7 +406,7 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 
 | Engine | `effectMode="auto"` |
 |--------|--------------------|
-| Chromium desktop | SVG displacement (full effect) |
+| Chromium desktop | SVG displacement (full effect); 16 or more sibling panels over one backdrop render through the shared WebGL scene |
 | Chromium Android | Layered CSS — opt into WebGL with `renderer="webgl"` or SVG with `renderer="svg"` |
 | iOS / iPadOS browsers | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
 | Desktop Safari | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
@@ -378,7 +418,7 @@ The current WebGL renderer integrates the optimized direct-output pipeline teste
 
 ## Performance and Fallbacks
 
-- **Default behavior**: on mobile devices the component uses a CSS-only effect to avoid jank; on desktop it uses the SVG filter.
+- **Default behavior**: on mobile devices the component uses a CSS-only effect to avoid jank; on desktop Chromium it uses the SVG filter, and moves 16 or more sibling panels over one backdrop to the shared WebGL scene (see *Performance*).
 - **Quality presets**: `'low'` is the default and optimized for many instances; `'extreme'` matches previous visuals.
 - **Autodetection**: set `autodetectquality` to let the component choose a preset based on device performance.
 - **Effect Mode**: use `effectMode` to force the strategy.
@@ -700,8 +740,8 @@ Omit `renderer` for automatic iOS selection. WebGL attributes include `lens-prof
 `element.refreshBackdrop()` for a manual capture refresh. Disconnecting the element releases
 its framebuffers and source subscription; the shared context is released when the last surface disconnects. Geometry and optical attribute updates reuse the existing engine. `lens-profile` and `strength` now select the same native lens on Chromium and WebGL; explicit legacy directional/lens attributes keep the classic gradient path.
 
-The bundled renderer increases the React core to approximately **47 KB Brotli**, including HTML
-capture (React excluded); the web component is approximately **35 KB Brotli**. No separate
+The bundled renderer increases the React core to approximately **50 KB Brotli**, including HTML
+capture and the shared scene (React excluded); the web component is approximately **36 KB Brotli**. No separate
 runtime dependency installation is required. See `THIRD_PARTY_NOTICES.md` for bundled licenses.
 Run `npm run test:webgl` for the library integration/overscroll tests in Chromium and WebKit.
 
@@ -718,9 +758,9 @@ map URI, scale, dispersion, radius, blur and saturation; the output holder can b
 
 HTML snapshots patch only changed opaque, clipped, non-overlapping sections. Relational selectors, masks, rounded roots, filters, overflowing/fixed content and uncertain styles fall back to a complete capture. Manual refresh consumes pending mutation notifications to avoid duplicate captures. Scene captures overlapping sections as one root to preserve section stacking.
 
-The native SVG fast path precomposes a neutral border once into the map PNG when specular and dispersion are disabled. The original 512×512 map body is retained exactly. Highlighted, chromatic, liquid and very small controls retain the general filter graph. A zero WebGL blur no longer downscales the source; nonzero blur retains its existing kernel.
+The native SVG fast path precomposes a neutral border once into the map PNG when specular and dispersion are disabled. Since 5.5.1 SVG maps are sized to the pane (0.75 map pixels per CSS pixel, 64–512); WebGL keeps 512. Highlighted, chromatic, liquid and very small controls retain the general filter graph. A zero WebGL blur no longer downscales the source; nonzero blur retains its existing kernel.
 
-The public entry points and controls are unchanged. The internal canvas marked `data-liquid-glass-webgl` is now a 2D presentation canvas backed by the shared GPU renderer; internal tests read its visible pixels and trigger context-loss tests on the shared offscreen canvas.
+The public entry points and controls are unchanged. A panel with its own canvas presents through `canvas[data-liquid-glass-webgl]` (a `bitmaprenderer` canvas when bitmap transfer is supported, otherwise 2D); panels in a shared scene draw into `canvas[data-liquid-glass-scene]` placed in their parent and carry `data-glass-composition="scene"`.
 
 Brotli budgets rise in 5.5 to include the analytical optics, shared capture and rendering implementation (see *Compatibility and validation*). Run `npm run size` for measured values.
 

@@ -1,3 +1,4 @@
+import {releaseProgram} from '../../vendor/ybouane/GlassRenderer';
 import type {GlassRenderer} from '../../vendor/ybouane/GlassRenderer';
 import type {WebGLOptions} from './types';
 import {liquidGLFragment} from './liquidGLOptics';
@@ -114,5 +115,5 @@ export class AtlasScene {
   if(geometryChanged)this.layout=new Float64Array(next);this.image=image;this.version=version;return true;
  }
  reset(){this.attributes=[];this.opticsVao=this.copyVao=null;this.cachedUniforms=[];this.targetSize=[0,0];this.vaoExt=this.renderer.gl.isContextLost()?null:this.renderer.gl.getExtension('OES_vertex_array_object');this.program=this.blit=null;this.geometry=this.copies=null;this.texture=null;this.fbo=null;this.lease=undefined;this.w=this.h=0;this.layout=this.scratch=undefined;this.image=undefined;this.version=undefined;this.ext=this.renderer.gl.isContextLost()?null:this.renderer.gl.getExtension('ANGLE_instanced_arrays');}
- destroy(){const gl=this.renderer.gl;if(!this.renderer.contextLost)this.unbind();this.lease?.release();if(!this.renderer.contextLost){if(this.opticsVao)this.vaoExt?.deleteVertexArrayOES(this.opticsVao);if(this.copyVao)this.vaoExt?.deleteVertexArrayOES(this.copyVao);if(this.texture)gl.deleteTexture(this.texture);if(this.fbo)gl.deleteFramebuffer(this.fbo);if(this.geometry)gl.deleteBuffer(this.geometry);if(this.copies)gl.deleteBuffer(this.copies);if(this.program)gl.deleteProgram(this.program);if(this.blit)gl.deleteProgram(this.blit)}this.reset();}
+ destroy(){const gl=this.renderer.gl;if(!this.renderer.contextLost)this.unbind();this.lease?.release();if(!this.renderer.contextLost){if(this.opticsVao)this.vaoExt?.deleteVertexArrayOES(this.opticsVao);if(this.copyVao)this.vaoExt?.deleteVertexArrayOES(this.copyVao);if(this.texture)gl.deleteTexture(this.texture);if(this.fbo)gl.deleteFramebuffer(this.fbo);if(this.geometry)gl.deleteBuffer(this.geometry);if(this.copies)gl.deleteBuffer(this.copies);if(this.program)releaseProgram(gl,this.program);if(this.blit)releaseProgram(gl,this.blit)}this.reset();}
 }

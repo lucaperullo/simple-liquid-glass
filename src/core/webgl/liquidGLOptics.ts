@@ -1,3 +1,4 @@
+import {releaseProgram} from '../../vendor/ybouane/GlassRenderer';
 import { sharedValue } from '../shared';
 // Adapted from naughtyduk/liquidGL, commit 88f681a (MIT, Copyright (c) NaughtyDuk).
 // See THIRD_PARTY_NOTICES.md. This module ports optics, not liquidGL's DOM capture/renderer.
@@ -161,7 +162,7 @@ function acquireProgram(renderer:EngineContext['renderer']){
  const invalidate=()=>{owned.invalid=true;if(group.get(programKey)===owned)group.delete(programKey);if(!group.size&&programs.get(gl)===group)programs.delete(gl)};
  // Each owner removes its listener when released, including after context loss.
  canvas.addEventListener('webglcontextlost',invalidate,{once:true});
- return{...owned,release(){if(released)return;released=true;canvas.removeEventListener('webglcontextlost',invalidate);if(--owned.users)return;if(!owned.invalid&&!gl.isContextLost())gl.deleteProgram(owned.program);if(group.get(programKey)===owned)group.delete(programKey);if(!group.size&&programs.get(gl)===group)programs.delete(gl)}};
+ return{...owned,release(){if(released)return;released=true;canvas.removeEventListener('webglcontextlost',invalidate);if(--owned.users)return;if(!owned.invalid&&!gl.isContextLost())releaseProgram(gl,owned.program);if(group.get(programKey)===owned)group.delete(programKey);if(!group.size&&programs.get(gl)===group)programs.delete(gl)}};
 }
 
 /** Direct full-source sampling retains shared uploads and avoids clipping large refractions. */

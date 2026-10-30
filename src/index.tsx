@@ -3,6 +3,7 @@ import type { LiquidGLOptions } from './core/webgl/types';
 export type { LiquidGLOptions } from './core/webgl/types';
 import { useWebGL } from './core/webgl/useWebGL';
 import { isIOSDevice, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
+import { useGlassCrowd } from './core/useGlassCrowd';
 export type { GlassRenderer } from './core/renderer';
 import type { RenderingDiagnostics } from './diagnostics';
 export type { RenderingDiagnostics, RenderingStrategy, RenderingReason } from './diagnostics';
@@ -10,7 +11,7 @@ import { resolveMaterialProps } from './materials';
 export { MATERIAL_PRESETS } from './materials';
 export type { MaterialPreset } from './materials';
 import type { MaterialPreset } from './materials';
-import React, { useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 
 /** Longest a client-mounted instance stays transparent while its renderer starts. */
 const REVEAL_TIMEOUT_MS = 400;
@@ -61,6 +62,13 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   /** iOS always uses WebGL for refraction. Select webgl to enable it on Android/desktop too. */
   renderer?: GlassRenderer;
+  /**
+   * WebGL glass of sibling panels over the same backdrop is composited in one shared canvas (`'auto'`, default)
+   * when a panel's own box paints nothing under its glass: no background, opacity 1, no filter/mask/clip-path,
+   * no rotation or scale, z-index not negative. Other panels keep their own canvas. `'off'` always uses one
+   * canvas per panel, e.g. when an unrelated element sits between grouped panels in the DOM and overlaps one.
+   */
+  webglScene?: 'auto' | 'off';
   /** Change this value to refresh a WebGL HTML snapshot after external visual changes. */
   backdropVersion?: string | number;
   /** Coordinated material defaults; explicit props override individual settings. */
@@ -313,7 +321,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   iosBlurMode = 'auto',
   mobileFallback,
   effectMode = 'auto',
-  renderer = 'auto',
+  renderer: requestedRenderer = 'auto',
+  webglScene = 'auto',
   reveal = 'ready',
   backdropVersion,
   mirror: _mirror,
@@ -357,8 +366,27 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   const nativeOptions = useMemo(() => resolveLensOptions(lensProfile, lensOptions), [lensProfile, lensOptions]);
 
+  const isIOS = (() => {
+    if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+    return isIOSDevice(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+  })();
+
+  // detect generic mobile (Android/iOS phones/tablets)
+  const isMobile = (() => {
+    if (!mounted || typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  })();
+
   const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
     && supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+  // Desktop Chromium: a crowd of sibling panels renders through one shared WebGL scene (see useGlassCrowd).
+  const crowdBackdrop = useCallback(() => {
+    try { return backdropRef?.current ?? (backdropSelector ? document.querySelector<HTMLElement>(backdropSelector) : null); } catch { return null; }
+  }, [backdropRef, backdropSelector]);
+  const crowded = useGlassCrowd(containerRef, requestedRenderer === 'auto' && effectMode === 'auto' && webglScene !== 'off'
+    && supportsSvgBackdropFilter && !isMobile, crowdBackdrop);
+  const renderer: GlassRenderer = crowded ? 'webgl' : requestedRenderer;
   const svgMaps = !wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
 
   // Generate displacement map SVG as data URI
@@ -422,18 +450,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   }
 
   // detect iOS (WebKit on iPhone/iPad or Mac with touch)
-  const isIOS = (() => {
-    if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
-    return isIOSDevice(navigator.userAgent || '', navigator.maxTouchPoints || 0);
-  })();
-
-  // detect generic mobile (Android/iOS phones/tablets)
-  const isMobile = (() => {
-    if (!mounted || typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-  })();
-
   // Safari, iOS and Firefox can't run SVG filters in backdrop-filter, so they refract through WebGL.
   const webglRequested = mounted && wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
   const webglOptions = useMemo(() => ({
@@ -442,7 +458,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     radius: effectiveRadiusPx, blur, saturation, optics: webglOptics, liquidGL: liquidGLOptions
   }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation, webglOptics, liquidGLOptions]);
   const webgl = useWebGL(webglRequested && visibilityReady && isVisible, containerRef, webglHolderRef,
-    webglOptions, backdropRef, backdropSelector, backdropVersion);
+    webglOptions, backdropRef, backdropSelector, backdropVersion, webglScene !== 'off');
   const webglReady = webglRequested && webgl.status === 'active';
 
   // Build backdrop-filter string with effectMode and mobile/iOS fallbacks

@@ -4,10 +4,10 @@ import { cachedBackground } from './background';
 import type { installLiquidGLOptics } from './liquidGLOptics';
 import { installPackageOptics } from './optics';
 import { acquireSource } from './source';
-import { acquireContextCanvas, subscribeFrame } from './contextPool';
+import { acquireContextCanvas, frameRect, frameScroll, subscribeFrame } from './contextPool';
 import { invalidateTextures } from './textureCache';
 import { canvasFrame } from './canvasFrames';
-import type { EngineContext, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
+import type { EngineContext, SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
 function fixedToViewport(element: HTMLElement): boolean {
   let fixed = false;
@@ -19,24 +19,26 @@ function fixedToViewport(element: HTMLElement): boolean {
   return fixed;
 }
 
-/** Shared GPU context, private framebuffer state, and one composited canvas per surface. */
+/** Shared GPU context, private framebuffer state, and one composited canvas per surface, or a framebuffer
+ * in a shared scene's context when `slot` is given (the scene composites every panel into one canvas). */
 export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, source: HTMLElement,
-  initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false): WebGLEngine {
+  initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false,slot?:SceneSlot): WebGLEngine {
   const canvas = document.createElement('canvas'), scene = document.createElement('canvas');
   canvas.width = canvas.height = scene.width = scene.height = 1;
   // Copying the shared canvas costs every moving frame; transfer its bitmap whenever the probe allows, for both optics.
-  const transfer=!forceLegacy&&!!analytical?.supportsBitmap();
+  const transfer=!slot&&!forceLegacy&&!!analytical?.supportsBitmap();
   // A transferred bitmap is handed to the compositor as is (bitmaprenderer); drawing it into a 2D canvas copies it.
-  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
-  if(!(bitmaps||output)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
-  const lease=acquireContextCanvas(transfer);
+  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps||slot?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
+  if(!(bitmaps||output||slot)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
+  const lease=slot?undefined:acquireContextCanvas(transfer);
   let renderer:GlassRenderer;
-  try{renderer=new GlassRenderer(lease.canvas)}catch(error){
-    lease.release();canvas.width=canvas.height=scene.width=scene.height=0;
+  try{renderer=new GlassRenderer(slot?slot.canvas:lease!.canvas)}catch(error){
+    lease?.release();canvas.width=canvas.height=scene.width=scene.height=0;
     if(transfer)return createWebGLEngine(panel,holder,source,initial,status,analytical,true);
     throw error;
   }
   canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
+  if(slot)panel.dataset.glassComposition='scene';
   const present=(w:number,h:number)=>{
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     if(bitmaps){bitmaps.transferFromImageBitmap((renderer.canvas as OffscreenCanvas).transferToImageBitmap());return}
@@ -68,8 +70,9 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   canvas.setAttribute('aria-hidden', 'true');
   canvas.dataset.liquidGlassWebgl = '';
   canvas.style.cssText = `display:block;position:absolute;left:-${SHADOW_PAD}px;top:-${SHADOW_PAD}px;pointer-events:none`;
-  holder.append(canvas);
-  let lastGeometry = '', lastTime = -1;
+  if(!slot)holder.append(canvas);
+  // Numbers, not a joined string: this runs for every panel on every frame.
+  const lastGeometry = new Float64Array(9).fill(NaN); let lastTime = -1;
   const lose = () => { invalidateTextures(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
   const restore = () => { changed(); setStatus('pending'); };
   renderer.canvas.addEventListener('webglcontextlost', lose);
@@ -91,10 +94,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   function measure(){
     if(disposed||document.hidden||renderer.contextLost||(faulted&&!dirty))return;
     try {
-      const measured=source.getBoundingClientRect(),lens=panel.getBoundingClientRect();
-      const y=scrollY,max=Math.max(0,document.documentElement.scrollHeight-innerHeight);
+      const measured=frameRect(source),lens=frameRect(panel),{y,max}=frameScroll();
       const fixedOffset=(y<0||y>max)&&fixedPanel?origin.getBoundingClientRect().top:0;
-      return {measured,lens,y,max,fixedOffset,width:panel.offsetWidth,height:panel.offsetHeight};
+      // offsetWidth/Height round the layout size; within a pixel of it the box is not transformed, and its exact
+      // size keeps the transform scale at 1 (the cached-background path) instead of a sub-pixel "scale".
+      const exact=(rendered:number,layout:number)=>Math.abs(rendered-layout)<1?rendered:layout;
+      return {measured,lens,y,max,fixedOffset,width:exact(lens.width,panel.offsetWidth),height:exact(lens.height,panel.offsetHeight)};
     }catch{return;}
   }
   const frame = () => {
@@ -111,10 +116,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       const rect=new DOMRect(lens.left,lens.top-fixedOffset,lens.width,lens.height);
       if(!width||!height||!sourceRect.width||!sourceRect.height)return;
       const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3);
-      const geometry = [rect.left - sourceRect.left, rect.top - sourceRect.top, sourceRect.width, sourceRect.height, width, height, rect.width, rect.height, dpr].join(':');
+      const g0=rect.left-sourceRect.left,g1=rect.top-sourceRect.top,g2=sourceRect.width,g3=sourceRect.height,g4=rect.width,g5=rect.height;
+      const sameGeometry=lastGeometry[0]===g0&&lastGeometry[1]===g1&&lastGeometry[2]===g2&&lastGeometry[3]===g3&&lastGeometry[4]===width&&lastGeometry[5]===height&&lastGeometry[6]===g4&&lastGeometry[7]===g5&&lastGeometry[8]===dpr;
+      const keepGeometry=()=>{lastGeometry[0]=g0;lastGeometry[1]=g1;lastGeometry[2]=g2;lastGeometry[3]=g3;lastGeometry[4]=width;lastGeometry[5]=height;lastGeometry[6]=g4;lastGeometry[7]=g5;lastGeometry[8]=dpr;};
       const version = media instanceof HTMLCanvasElement ? canvasFrame(media) : undefined;
       const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? version ?? 0;
-      if (!options.liquidGL?.specular && !dirty && geometry === lastGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
+      if (!options.liquidGL?.specular && !dirty && sameGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
       if (video && video.readyState < 2) return;
       const snapshot = media ?? shared?.capture.cache.get(source)?.canvas;
       if (!snapshot) return; // Keep the previous complete output during captures.
@@ -122,20 +129,21 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       // CSS transforms scale the canvas too. Sample the same visual extent.
       const scaleX = rect.width / width, scaleY = rect.height / height;
       if(options.optics==='liquidgl' && liquidOptics){
-        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined);
+        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
         if(!rendered)return;
-        canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
+        if(slot)slot.present(rendered.left*dpr,rendered.top*dpr,rendered.w,rendered.h,dpr);
+        else{canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
         canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
-        present(rendered.w,rendered.h);
-        dirty=false;lastGeometry=geometry;lastTime=time;
+        present(rendered.w,rendered.h);}
+        dirty=false;keepGeometry();lastTime=time;
         if(!ready){ready=true;setStatus('active');}
         return;
       }
-      canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
+      if(slot)renderer.target=slot.prepare(w,h);
+      else{canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
       canvas.style.transform='';
-      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;
-      const sampleRect = new DOMRect(rect.left, rect.top, rect.width, rect.height);
-      const useCache = scaleX === 1 && scaleY === 1 && prepare?.(sampleRect, SHADOW_PAD);
+      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;}
+      const useCache = scaleX === 1 && scaleY === 1 && prepare?.(rect, SHADOW_PAD);
       // Reset cached crop when switching to a transformed output.
       if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, SHADOW_PAD);
       if (!useCache) {
@@ -168,10 +176,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
         }
       }
       renderer.uploadAndBlur(scene, 0, 0, w, h, Math.max(0, options.blur) / 5);
-      renderer.clear();
+      if(!slot)renderer.clear(); // a scene slot's target is cleared by prepare()
       renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
-      present(w,h);
-      dirty = false; lastGeometry = geometry; lastTime = time;
+      if(slot)slot.present(-SHADOW_PAD*dpr,-SHADOW_PAD*dpr,w,h,dpr);else present(w,h);
+      dirty = false; keepGeometry(); lastTime = time;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }
     } catch {
@@ -191,7 +199,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       renderer.canvas.removeEventListener('webglcontextlost', lose);renderer.canvas.removeEventListener('webglcontextrestored', restore);
       video?.removeEventListener('seeked', mediaChanged);video?.removeEventListener('loadeddata', mediaChanged);
       if (videoCallback !== undefined) video?.cancelVideoFrameCallback(videoCallback);
-      origin.remove(); shared?.release(); context.destroy(); lease.release();
+      origin.remove(); shared?.release(); context.destroy(); lease?.release(); slot?.release();
+      if(slot)delete panel.dataset.glassComposition;
       canvas.remove(); canvas.width = canvas.height = 0;
       scene.width = 0; scene.height = 0;
     }

@@ -1,3 +1,4 @@
+import {releaseProgram} from '../../vendor/ybouane/GlassRenderer';
 import {AtlasScene} from './atlasScene';
 import {GlassRenderer} from '../../vendor/ybouane/GlassRenderer';
 import {installLiquidGLOptics} from './liquidGLOptics';
@@ -75,5 +76,5 @@ export function createDirectScene(overlay:HTMLElement,panels:HTMLElement[],sourc
   }catch(error){if(isRecoverableTextureError(error))return;failed=true;ready=false;console.error(error)}
  },()=>{measured=measure()});
  if(shared)void shared.refresh().catch(()=>{failed=true});
- return{canvas,refresh:async()=>{await shared?.refresh();dirty=true},status:()=>slots.map(s=>({strategy:renderer.contextLost?'webgl-unavailable':failed?'capture-failed':ready&&s.visible?'active':'pending',backend:'shared-webgl',submission:atlasActive?'instanced':'per-panel'})),destroy(){if(disposed)return;disposed=true;stop();if(videoCallback!==undefined)video?.cancelVideoFrameCallback(videoCallback);video?.removeEventListener('seeked',changed);video?.removeEventListener('loadeddata',changed);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);for(const slot of slots){slot.context.destroy();releaseBuffer(slot)}if(blit&&!renderer.contextLost)gl!.deleteProgram(blit);atlas.destroy();shared?.release();renderer.destroy();gl!.getExtension('WEBGL_lose_context')?.loseContext();canvas.width=canvas.height=0;canvas.remove();}};
+ return{canvas,refresh:async()=>{await shared?.refresh();dirty=true},status:()=>slots.map(s=>({strategy:renderer.contextLost?'webgl-unavailable':failed?'capture-failed':ready&&s.visible?'active':'pending',backend:'shared-webgl',submission:atlasActive?'instanced':'per-panel'})),destroy(){if(disposed)return;disposed=true;stop();if(videoCallback!==undefined)video?.cancelVideoFrameCallback(videoCallback);video?.removeEventListener('seeked',changed);video?.removeEventListener('loadeddata',changed);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);for(const slot of slots){slot.context.destroy();releaseBuffer(slot)}if(blit&&!renderer.contextLost)releaseProgram(gl!,blit);atlas.destroy();shared?.release();renderer.destroy();gl!.getExtension('WEBGL_lose_context')?.loseContext();canvas.width=canvas.height=0;canvas.remove();}};
 }

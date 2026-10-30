@@ -10,7 +10,12 @@ const props = { backdropSelector: '#backdrop', autoTextColor: true, forceTextCol
 const Component = params.has('interactive') ? LiquidGlassInteractive : LiquidGlass;
 const single = <Component {...props}><button id="content">Glass content</button></Component>;
 const count = Math.min(6, Math.max(1, Number(params.get('panels')) || 1));
-const app = count === 1 ? single : <>{Array.from({ length: count }, (_, i) =>
+// ?siblings=N: N panels as direct children of #root (one shared WebGL scene); ?scene=off opts out.
+const siblings = Math.min(64, Number(params.get('siblings')) || 0);
+const sceneProp = params.get('scene') === 'off' ? { webglScene: 'off' as const } : {};
+const app = siblings ? <>{Array.from({ length: siblings }, (_, i) =>
+  <Component key={i} {...props} {...sceneProp} radius={12} style={{ position: 'absolute', left: (i % 8) * 36, top: Math.floor(i / 8) * 22, width: 32, height: 18 }}><span>{i + 1}</span></Component>)}</>
+  : count === 1 ? single : <>{Array.from({ length: count }, (_, i) =>
   <div key={i} style={{ position: 'absolute', left: (i % 3) * 240, top: Math.floor(i / 3) * 170, width: 220, height: 140 }}>
     <Component {...props} radius={i * 12}><span>Panel {i + 1}</span></Component>
   </div>)}</>;

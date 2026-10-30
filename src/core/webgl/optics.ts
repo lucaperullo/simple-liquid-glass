@@ -1,5 +1,6 @@
 import { DISPERSION_SPREAD } from '../../vendor/samasante/displacement';
 import { VS_GLASS } from '../../vendor/ybouane/shaders';
+import { releaseProgram } from '../../vendor/ybouane/GlassRenderer';
 import { acquireTexture } from './textureCache';
 import { acquireMapImage } from './mapImage';
 
@@ -8,8 +9,11 @@ import type { SurfaceConfig } from '../../vendor/ybouane/GlassRenderer';
 const fragment = `precision highp float;
 uniform sampler2D u_blurTex, u_lensMap;
 uniform vec2 u_size, u_res;
+uniform vec4 u_region;
 uniform float u_radius, u_alpha, u_mapScale, u_mapDispersion, u_mapSpecular, u_classic, u_saturation, u_additive, u_neutral;
 varying vec2 v_localPx, v_screenUV;
+// u_region maps the panel's background UV into a shared snapshot sampled in place ((0,0,1,1) for its own copy).
+vec2 backdrop(vec2 uv){return clamp(u_region.xy+clamp(uv,0.0,1.0)*u_region.zw,0.0,1.0);}
 float sdf(vec2 p, vec2 b, float r) {vec2 q=abs(p)-b+vec2(r);return min(max(q.x,q.y),0.0)+length(max(q,0.0))-r;}
 void main(){
  float d=sdf(v_localPx,u_size*.5,min(u_radius,min(u_size.x,u_size.y)*.5));
@@ -21,9 +25,9 @@ void main(){
  float green=mix(u_mapScale*(1.0+u_mapDispersion*.5),u_mapScale,u_additive);
  float blue=mix(u_mapScale,u_mapScale-u_mapDispersion,u_additive);
  if(u_additive>.5 && u_classic<.5) blue=max(0.0,blue);
- vec4 rSample=texture2D(u_blurTex,v_screenUV+delta*red);
- vec4 gSample=texture2D(u_blurTex,v_screenUV+delta*green);
- vec4 bSample=texture2D(u_blurTex,v_screenUV+delta*blue);
+ vec4 rSample=texture2D(u_blurTex,backdrop(v_screenUV+delta*red));
+ vec4 gSample=texture2D(u_blurTex,backdrop(v_screenUV+delta*green));
+ vec4 bSample=texture2D(u_blurTex,backdrop(v_screenUV+delta*blue));
  vec3 col=vec3(rSample.r,gSample.g,bSample.b);
  float sourceAlpha=max(rSample.a,max(gSample.a,bSample.a));
  col=mix(vec3(dot(col,vec3(.2126,.7152,.0722))),col,u_saturation);
@@ -66,15 +70,17 @@ export function installPackageOptics(instance: EngineContext, settings: () => We
    if(image.complete)Promise.resolve().then(()=>image.naturalWidth?loaded():failed());
   }
   if(!texture)return;
-  if(!program){program=renderer._link(VS_GLASS,fragment);if(renderer.glassP)gl.deleteProgram(renderer.glassP);renderer.glassP=program;
+  if(!program){program=renderer._link(VS_GLASS,fragment);releaseProgram(gl,renderer.glassP);renderer.glassP=program;
    renderer.glassU=renderer._uloc(program,Object.keys(renderer.glassU));
    locations=renderer._uloc(program,['u_lensMap','u_mapScale','u_mapDispersion','u_mapSpecular','u_classic','u_saturation','u_additive','u_neutral']);}
   state.scale=controls.scale;
   gl.useProgram(program);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,texture);
-  gl.uniform1i(locations.u_lensMap,2);gl.uniform1f(locations.u_mapScale,state.scale*dpr);
-  gl.uniform1f(locations.u_mapDispersion,((controls.additiveDispersion??controls.classic)?dpr:DISPERSION_SPREAD)*controls.dispersion);gl.uniform1f(locations.u_mapSpecular,controls.specular);
-  gl.uniform1f(locations.u_classic,controls.classic?1:0);gl.uniform1f(locations.u_saturation,controls.saturation/100);
-  gl.uniform1f(locations.u_additive,(controls.additiveDispersion??controls.classic)?1:0);gl.uniform1f(locations.u_neutral,controls.neutralPoint??.5);
+  // The program is shared by every panel of the context: only changed values reach the GPU.
+  const set=(name:string,value:number,int=false)=>renderer._uniform(program!,name,locations[name],[value],int);
+  set('u_lensMap',2,true);set('u_mapScale',state.scale*dpr);
+  set('u_mapDispersion',((controls.additiveDispersion??controls.classic)?dpr:DISPERSION_SPREAD)*controls.dispersion);set('u_mapSpecular',controls.specular);
+  set('u_classic',controls.classic?1:0);set('u_saturation',controls.saturation/100);
+  set('u_additive',(controls.additiveDispersion??controls.classic)?1:0);set('u_neutral',controls.neutralPoint??.5);
   original(config,width,height,dpr);
  };
  return state;

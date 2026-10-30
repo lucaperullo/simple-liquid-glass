@@ -1,6 +1,6 @@
 import { createLensMapGenerator } from '../vendor/samasante/displacement';
 import { cacheGet, cacheSet } from '../displacementCache';
-import { NATIVE_MAP_SIZE, nativeMapSurround } from './nativeMapGeometry';
+import { NATIVE_MAP_SIZE, nativeMapSurround, svgNativeMapSize } from './nativeMapGeometry';
 export const NATIVE_PROFILES = {
   material: { strength: .05, specular: 1, depth: .5, curvature: .3, bend: .45, bendWidth: .16,
     sheen: .32, sheenWidth: 3, sheenFalloff: 1.5, sheenAngle: 45, glowFalloff: .5, glow: .1 },
@@ -60,12 +60,14 @@ export function resolveLensOptions(profile: LensProfile = 'player', options: Len
   return result;
 }
 /** Only map-generating values invalidate the shared geometry cache. */
-export function buildNativeMap(width: number, height: number, radius: number, profile: LensProfile = 'material', options?: LensOptions, surround = false) {
+/** `svg` sizes the map for SVG filters (see svgNativeMapSize); a surround map is SVG-only. */
+export function buildNativeMap(width: number, height: number, radius: number, profile: LensProfile = 'material', options?: LensOptions, surround = false, svg = surround) {
   const {strength: _strength, specular: _specular, brightness: _brightness, ...geometry} = resolveLensOptions(profile, options);
-  const key = `material-v2:${width}:${height}:${radius}:${JSON.stringify(geometry)}:${surround}`;
+  const size = svg ? svgNativeMapSize(width, height) : NATIVE_MAP_SIZE;
+  const key = `material-v2:${width}:${height}:${radius}:${JSON.stringify(geometry)}:${surround}:${size}`;
   const cached = cacheGet(key); if (cached) return cached;
   if (typeof document === 'undefined') return '';
-  const generator = createLensMapGenerator(NATIVE_MAP_SIZE);
+  const generator = createLensMapGenerator(size);
   try {
     const shape = { lensHalfWidth: width / 2, lensHalfHeight: height / 2, borderRadius: radius, ...geometry, clipToShape: true, softEdge: true };
     const uri = surround ? generator.generate(shape, nativeMapSurround(width,height)) : generator.generate(shape);

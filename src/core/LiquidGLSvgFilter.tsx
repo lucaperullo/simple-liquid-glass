@@ -1,19 +1,22 @@
 import React,{useEffect,useRef,useState,type RefObject} from 'react';
 import {subscribeFrame} from './webgl/contextPool';
 import type {LiquidGLOptions} from './webgl/types';
-import {buildSvgLiquidAsset,svgLiquidKey,type SvgLiquidAsset,type SvgLiquidGeometry} from './svgLiquidGL';
+import {buildSvgLiquidAsset,svgLiquidKey,svgLiquidShapeKey,type SvgLiquidAsset,type SvgLiquidGeometry} from './svgLiquidGL';
 import {liquidGLCoefficients} from './liquidGLModel';
 interface Props {filterId:string;panel:RefObject<HTMLDivElement|null>;backdrop?:RefObject<HTMLElement|null>;selector?:string;width:number;height:number;radius:number;blur:number;options?:LiquidGLOptions;enabled:boolean;onReady:(ready:boolean)=>void;onError:(failed:boolean)=>void}
 const spotCache=new Map<number,string>();
 function spot(gain:number){let uri=spotCache.get(gain);if(uri)return uri;const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d')!,image=ctx.createImageData(128,128);for(let y=0;y<128;y++)for(let x=0;x<128;x++){const radius=Math.min(1,Math.hypot((x+.5)/64-1,(y+.5)/64-1)),t=1-radius,v=Math.round(gain*t*t*(3-2*t)*255),at=(y*128+x)*4;image.data[at]=image.data[at+1]=image.data[at+2]=v;image.data[at+3]=255}ctx.putImageData(image,0,0);uri=c.toDataURL();c.width=c.height=0;spotCache.set(gain,uri);return uri}
 const RGB=['1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1','0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1','0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1'];
+// A pane moving near the source edge changes its map every frame; rebuild it at most this often per encoded map
+// (aberration encodes 3), then settle exactly.
+const EDGE_MOVE_MS=160;
 const OPAQUE='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 1';
 export function LiquidGLSvgFilter(props:Props){
  const latest=useRef(props);latest.current=props;
  const [asset,setAsset]=useState<SvgLiquidAsset|null>(null),filter=useRef<SVGFilterElement|null>(null),lights=useRef<Array<SVGFEImageElement|null>>([]),started=useRef(0);
  useEffect(()=>{
   if(!props.enabled){props.onReady(false);return}
-  let measured:SvgLiquidGeometry|undefined,key='',disposed=false,source:HTMLElement|null=null;
+  let measured:SvgLiquidGeometry|undefined,key='',shape='',builtAt=0,disposed=false,source:HTMLElement|null=null;
   const resolve=()=>{const p=latest.current;try{return p.backdrop?p.backdrop.current:p.selector?document.querySelector<HTMLElement>(p.selector):p.panel.current?.closest<HTMLElement>('[data-liquid-glass-scene]')??document.documentElement}catch{return null}};
   const read=()=>{
    const p=latest.current,node=p.panel.current;if(!node||document.hidden)return;
@@ -25,7 +28,13 @@ export function LiquidGLSvgFilter(props:Props){
   const write=()=>{
    const p=latest.current;if(disposed||document.hidden||!measured)return;
    const c=liquidGLCoefficients(p.options,p.blur),next=svgLiquidKey(measured,c);
-   if(next!==key){try{const built=buildSvgLiquidAsset(measured,p.options,p.blur);key=next;setAsset(built);p.onError(false)}catch{key=next;p.onError(true);p.onReady(false);return}}
+   if(next!==key){
+    const nextShape=svgLiquidShapeKey(measured,c),now=performance.now();
+    if(nextShape!==shape||now-builtAt>=EDGE_MOVE_MS*(c.aberration>0?3:1)){
+     shape=nextShape;builtAt=now;
+     try{const built=buildSvgLiquidAsset(measured,p.options,p.blur);key=next;setAsset(built);p.onError(false)}catch{key=next;p.onError(true);p.onReady(false);return}
+    }
+   }
    if(c.specular&&filter.current){
     if(!started.current)started.current=performance.now();
     const override=filter.current.getAttribute('data-optics-time'),time=override===null?(performance.now()-started.current)/1000:Number(override);
@@ -39,7 +48,8 @@ export function LiquidGLSvgFilter(props:Props){
  useEffect(()=>{if(asset&&props.enabled)props.onReady(true)},[asset,props.enabled]);
  if(!asset)return null;
  const nodes:React.ReactNode[]=[],samples:string[]=[];const c=asset.coefficients;
- if(c.frost===0)nodes.push(<feConvolveMatrix key="sharp" in="SourceGraphic" order={3} kernelMatrix="0 1 0 1 1 1 0 1 0" divisor={5} edgeMode="duplicate" preserveAlpha={false} kernelUnitLength={1/asset.dpr} result="sharp"/>);
+ if(c.frost>0)nodes.push(<feGaussianBlur key="frost" in="SourceGraphic" stdDeviation={asset.frostSigma} result="frosted"/>);
+ else nodes.push(<feConvolveMatrix key="sharp" in="SourceGraphic" order={3} kernelMatrix="0 1 0 1 1 1 0 1 0" divisor={5} edgeMode="duplicate" preserveAlpha={false} kernelUnitLength={1/asset.dpr} result="sharp"/>);
  for(let sample=0;sample<asset.maps.length;sample++){
   const colors:string[]=[];
   for(let channel=0;channel<asset.maps[sample].length;channel++){
@@ -47,7 +57,7 @@ export function LiquidGLSvgFilter(props:Props){
    nodes.push(<feImage key={name+'image'} href={asset.maps[sample][channel]} x={0} y={0} width={props.width} height={props.height} preserveAspectRatio="none" result={name+'raw'}/>);
    // A matrix retains the exact 0.5 neutral; a component-transfer LUT quantizes it again in Chromium.
    nodes.push(<feColorMatrix key={name+'neutral'} in={name+'raw'} values="1 0 0 0 -.00196078431372549 0 1 0 0 -.00196078431372549 0 0 1 0 0 0 0 0 0 1" result={name+'map'}/>);
-   nodes.push(<feDisplacementMap key={name+'disp'} in={c.frost===0&&(asset.maps[sample].length===1||channel===1)?'sharp':'SourceGraphic'} in2={name+'map'} scale={asset.scale} xChannelSelector="R" yChannelSelector="G" result={name}/>);
+   nodes.push(<feDisplacementMap key={name+'disp'} in={c.frost>0?'frosted':asset.maps[sample].length===1||channel===1?'sharp':'SourceGraphic'} in2={name+'map'} scale={asset.scale} xChannelSelector="R" yChannelSelector="G" result={name}/>);
    colors.push(name);
   }
   if(colors.length===1)samples.push(colors[0]);
@@ -60,7 +70,9 @@ export function LiquidGLSvgFilter(props:Props){
  let level=samples,depth=0;
  while(level.length>1){const next:string[]=[];for(let i=0;i<level.length;i+=2){const name=`average${depth}x${i}`;nodes.push(<feComposite key={name} in={level[i]} in2={level[i+1]} operator="arithmetic" k2={.5} k3={.5} result={name}/>);next.push(name)}level=next;depth++;}
  const lensed=level[0];
- nodes.push(<feComponentTransfer key="fallback-mask" in={lensed} result="validRefract"><feFuncA type="discrete" tableValues="0 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>,<feComposite key="valid" in={lensed} in2="validRefract" operator="in" result="refracted"/>,<feComposite key="fallback" in="SourceGraphic" in2="validRefract" operator="out" result="fallback"/>,<feComposite key="sampled" in="refracted" in2="fallback" operator="over" result="sampled"/>);
+ // Samples displaced outside the backdrop are transparent; the unrefracted backdrop fills them. One composite
+ // instead of an alpha mask plus three composites: each primitive is a GPU pass on every moving frame.
+ nodes.push(<feComposite key="sampled" in={lensed} in2="SourceGraphic" operator="over" result="sampled"/>);
  let output='sampled';
  if(props.options?.specular){
   nodes.push(<feColorMatrix key="opaque" in={output} type="matrix" values={OPAQUE} result="opaqueLens"/>);

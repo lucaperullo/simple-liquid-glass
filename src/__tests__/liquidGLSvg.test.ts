@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
+import * as model from '../core/liquidGLModel';
 import {liquidGLCoefficients,liquidGLField} from '../core/liquidGLModel';
-import {buildSvgLiquidAsset,svgLiquidKey,svgLiquidCacheInfo} from '../core/svgLiquidGL';
+import {buildSvgLiquidAsset,svgLiquidKey,svgLiquidShapeKey,svgLiquidCacheInfo} from '../core/svgLiquidGL';
 const geometry={width:12,height:8,radius:2,sourceWidth:1200,sourceHeight:2400,x:400,y:400,dpr:1,scaleX:1,scaleY:1};
 const c=liquidGLCoefficients(undefined);
 afterEach(()=>jest.restoreAllMocks());
@@ -23,18 +24,19 @@ test('moving an interior pane reuses its asset; source-edge position, DPR and si
  expect(svgLiquidKey({...geometry,dpr:2},c)).not.toBe(svgLiquidKey(geometry,c));
  expect(svgLiquidKey({...geometry,width:20},c)).not.toBe(svgLiquidKey(geometry,c));
 });
-test('map generation is cached, neutral is encoded as 128, and frost retains sixteen samples',()=>{
+test('map generation is cached, neutral is encoded as 128, and frost blurs one map instead of sixteen',()=>{
  const put=jest.fn();jest.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue({createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:put} as any);
  jest.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('data:image/png;base64,map');
  const options={refraction:0,bevelDepth:0};const first=buildSvgLiquidAsset(geometry,options);
- const pixels=put.mock.calls[0][0].data;expect([...pixels.slice(0,4)]).toEqual([128,128,82,255]);
+ const pixels=put.mock.calls[0][0].data;expect([pixels[0],pixels[1],pixels[3]]).toEqual([128,128,255]);
  expect(buildSvgLiquidAsset({...geometry,x:500},options)).toBe(first);
- expect(buildSvgLiquidAsset(geometry,{frost:1}).maps).toHaveLength(16);
+ const frosted=buildSvgLiquidAsset(geometry,{frost:1});expect(frosted.maps).toHaveLength(1);expect(frosted.frostSigma).toBeCloseTo(2);
+ expect(pixels.length).toBe(Math.round(12*.75)*Math.round(8*.75)*4);
  expect(svgLiquidCacheInfo().decodedBytes).toBeLessThanOrEqual(svgLiquidCacheInfo().budget);
 });
 test('oversized maps fail before allocation instead of exceeding the per-asset budget',()=>{
- expect(()=>buildSvgLiquidAsset({...geometry,width:5000},undefined)).toThrow(RangeError);
- expect(()=>buildSvgLiquidAsset({...geometry,width:1000,height:1000,dpr:2},{frost:1,aberration:1})).toThrow(RangeError);
+ expect(()=>buildSvgLiquidAsset({...geometry,width:6000},undefined)).toThrow(RangeError);
+ expect(()=>buildSvgLiquidAsset({...geometry,width:4000,height:4000,dpr:2},{aberration:1})).toThrow(RangeError);
 });
 
 test('the LRU stays bounded when many distinct geometries are requested',()=>{
@@ -43,4 +45,18 @@ test('the LRU stays bounded when many distinct geometries are requested',()=>{
  for(let i=0;i<40;i++)buildSvgLiquidAsset({...geometry,width:13+i},{refraction:0,bevelDepth:0});
  expect(svgLiquidCacheInfo().entries).toBe(32);
  expect(svgLiquidCacheInfo().decodedBytes).toBeLessThanOrEqual(svgLiquidCacheInfo().budget);
+});
+
+test('edge positions round to whole pixels and share the position-free shape key',()=>{
+ expect(svgLiquidKey({...geometry,x:0},c)).toBe(svgLiquidKey({...geometry,x:.3},c));
+ expect(svgLiquidShapeKey({...geometry,x:0,y:3},c)).toBe(svgLiquidShapeKey({...geometry,x:7,y:900},c));
+ expect(svgLiquidShapeKey({...geometry,width:20},c)).not.toBe(svgLiquidShapeKey(geometry,c));
+});
+test('a pane moving along the source edge reuses its refraction field',()=>{
+ jest.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue({createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:()=>{}} as any);
+ jest.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('data:image/png;base64,map');
+ const edge={...geometry,width:14,x:0,y:0},field=jest.spyOn(model,'liquidGLField');
+ const first=buildSvgLiquidAsset(edge,undefined);const calls=field.mock.calls.length;expect(calls).toBe(Math.round(14*.75)*Math.round(8*.75));
+ const moved=buildSvgLiquidAsset({...edge,x:3},undefined);
+ expect(moved).not.toBe(first);expect(field.mock.calls.length).toBe(calls);
 });

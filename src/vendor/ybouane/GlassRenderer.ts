@@ -393,9 +393,13 @@ export class GlassRenderer {
 		return u;
 	}
 
+	private _quadLocations = new WeakMap<WebGLProgram, number>();
+
 	_drawQuad(prog: WebGLProgram, buf: WebGLBuffer): void {
 		const gl = this.gl;
-		const loc = gl.getAttribLocation(prog, 'a_pos');
+		// Attribute locations are fixed at link time; querying them every draw stalls the shared context.
+		let loc = this._quadLocations.get(prog);
+		if (loc === undefined) { loc = gl.getAttribLocation(prog, 'a_pos'); this._quadLocations.set(prog, loc); }
 		gl.bindBuffer(gl.ARRAY_BUFFER, buf);
 		gl.enableVertexAttribArray(loc);
 		gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);

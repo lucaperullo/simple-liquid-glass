@@ -51,7 +51,7 @@ export class LiquidGlassElement extends ElementBase{
   const filterScale=legacy?scale:scale/160*native.strength*(profile==='player'?500:Math.hypot(width,height)/Math.SQRT2);
   const color=Math.min(1,Math.abs(attrNum(this,'dispersion',50))/50);
   const map=()=>{
-   if(!legacy)return buildNativeMap(width,height,radius,profile,native);
+   if(!legacy)return buildNativeMap(width,height,radius,profile,native,false,!webgl);
    const lens=this.getAttribute('lens'),center=this.getAttribute('lens-center')?.split(/[ ,]+/).map(Number);
    return buildDisplacementDataUri({width,height,divisor:3,quantStep:24,radius,border:.05,lightness:attrNum(this,'lightness',53),alpha:attrNum(this,'alpha',.9),displace:attrNum(this,'displace',5),blend:'difference',angle:normalizeAngle(attrNum(this,'angle',0)),shapeAdapt:this.getAttribute('shape-adapt')!=='false',lens:isLensMode(lens)?lens:'classic',lensStrength:attrNum(this,'lens-strength',1),lensCenter:center?.length===2&&center.every(Number.isFinite)?[center[0],center[1]]:undefined,scale});
   };

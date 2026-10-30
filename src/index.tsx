@@ -357,12 +357,16 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   const nativeOptions = useMemo(() => resolveLensOptions(lensProfile, lensOptions), [lensProfile, lensOptions]);
 
+  const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
+    && supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+  const svgMaps = !wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
+
   // Generate displacement map SVG as data URI
   const displacementDataUri = useMemo(() => {
     if (effectMode === 'off' || effectMode === 'blur' || analyticalSvg || (webglOptics === 'liquidgl' && renderer === 'webgl')) return '';
     const { width, height } = dimensions;
     if (refraction === 'lens' && mounted) {
-      return width > 0 && height > 0 ? buildNativeMap(width, height, config.radius, lensProfile, nativeOptions) : '';
+      return width > 0 && height > 0 ? buildNativeMap(width, height, config.radius, lensProfile, nativeOptions, false, svgMaps) : '';
     }
     const divisor = QUALITY_DIVISORS[resolvedQuality] || 3;
     const quantStep = QUALITY_QUANTIZATION_STEPS[resolvedQuality] || 16;
@@ -388,7 +392,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     });
     cacheSet(cacheKey, uri);
     return uri;
-  }, [analyticalSvg, webglOptics, renderer, angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality]);
+  }, [analyticalSvg, webglOptics, renderer, angle, shapeAdapt, lens, lensStrength, lensCenter, config.scale, config.dispersion, config.aberrationIntensity, dimensions, effectMode, refraction, lensProfile, nativeOptions, mounted, config.radius, config.border, config.lightness, config.alpha, config.displace, config.blend, resolvedQuality, svgMaps]);
 
   // Keep the player preset at the demonstrated ~80px strength even on small controls.
   const norm = lensProfile === 'player' ? 500 : Math.hypot(dimensions.width, dimensions.height) / Math.SQRT2;
@@ -429,9 +433,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     const ua = navigator.userAgent || '';
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
   })();
-
-  const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
-    && supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
 
   // Safari, iOS and Firefox can't run SVG filters in backdrop-filter, so they refract through WebGL.
   const webglRequested = mounted && wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);

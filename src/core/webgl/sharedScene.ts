@@ -14,19 +14,33 @@ import type { SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types'
  * panel's own box paints nothing under its glass and nothing about the panel changes how its glass composites,
  * so those panels keep their own canvas (`sceneIneligibility`). Elements placed between grouped panels in the
  * DOM that overlap a later panel appear above its glass; `webglScene="off"` restores per-panel output.
+ *
+ * A scene can also group panels by a further ancestor (`root`), for example words wrapped in their own element.
+ * Every element between a panel and that root must then composite like a plain box (see `sceneIneligibility`).
+ * An optional alpha mask per panel (glyph outlines) is applied while compositing.
  */
 
 const MAX_DPR = 3, VIEWPORT_MARGIN = 64, SIZE_STEP = 256;
-const BLIT = `precision highp float;varying vec2 v_uv;uniform sampler2D u_lens;void main(){vec4 c=texture2D(u_lens,v_uv);gl_FragColor=vec4(c.rgb*c.a,c.a);}`;
+// u_maskRect maps the slot's top-down uv onto the mask, which covers the panel box: outside it nothing shows.
+const BLIT = `precision highp float;varying vec2 v_uv;uniform sampler2D u_lens;uniform sampler2D u_mask;uniform vec4 u_maskRect;uniform float u_masked;
+void main(){vec4 c=texture2D(u_lens,v_uv);float m=1.0;
+if(u_masked>0.5){vec2 p=u_maskRect.xy+vec2(v_uv.x,1.0-v_uv.y)*u_maskRect.zw;m=p.x<0.0||p.y<0.0||p.x>1.0||p.y>1.0?0.0:texture2D(u_mask,p).a;}
+gl_FragColor=vec4(c.rgb*c.a,c.a)*m;}`;
 
 const transparent = (color: string) => color === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(color);
 const translationOnly = (transform: string) => transform === 'none' || /^matrix\(1, 0, 0, 1, [^,]+, [^,]+\)$/.test(transform);
 
+const plainBox = (style: CSSStyleDeclaration) => Number(style.opacity) === 1 && style.filter === 'none' && style.mixBlendMode === 'normal'
+  && style.clipPath === 'none' && (style.maskImage || 'none') === 'none' && style.transform === 'none'
+  && style.overflowX === 'visible' && style.overflowY === 'visible' && (style.position === 'static' || style.zIndex === 'auto');
+
 /** Why a panel keeps its own canvas instead of joining a shared scene; undefined when it can join. */
-export function sceneIneligibility(panel: HTMLElement, source: HTMLElement): string | undefined {
-  const parent = panel.parentElement;
-  if (!parent) return 'detached';
-  if (source === parent || source.contains(parent)) return 'inside-backdrop';
+export function sceneIneligibility(panel: HTMLElement, source: HTMLElement, root: HTMLElement | null = panel.parentElement): string | undefined {
+  if (!root || root === panel || !root.contains(panel)) return 'detached';
+  if (source === root || source.contains(root)) return 'inside-backdrop';
+  for (let between = panel.parentElement; between && between !== root; between = between.parentElement) {
+    if (!plainBox(getComputedStyle(between))) return 'ancestor';
+  }
   const style = getComputedStyle(panel);
   if (style.position === 'static') return 'static';
   // The component itself hides the panel while its renderer starts (reveal="ready").
@@ -43,6 +57,7 @@ interface Slot extends SceneSlot {
   tex: WebGLTexture | null; fbo: WebGLFramebuffer | null;
   w: number; h: number; x: number; y: number; dpr: number;
   ready: boolean; frames: number; rect?: DOMRect; evict: () => void;
+  maskSource?: TexImageSource; maskTex: WebGLTexture | null; maskDirty: boolean;
 }
 
 class Scene {
@@ -52,7 +67,7 @@ class Scene {
   private program: WebGLProgram | null = null;
   private quad: WebGLBuffer | null = null;
   private position = 0;
-  private texture: WebGLUniformLocation | null = null;
+  private uniforms: Record<'lens' | 'mask' | 'maskRect' | 'masked', WebGLUniformLocation | null> = { lens: null, mask: null, maskRect: null, masked: null };
   private stop: () => void = () => {};
   private canvasRect?: DOMRect;
   private left = 0; private top = 0; private drawn = '';
@@ -72,12 +87,19 @@ class Scene {
   }
 
   private lost = (event: Event) => { event.preventDefault(); };
-  private restored = () => { this.program = null; this.quad = null; for (const slot of this.slots) { slot.tex = slot.fbo = null; slot.ready = false; } this.drawn = ''; };
+  private restored = () => { this.program = null; this.quad = null; for (const slot of this.slots) { slot.tex = slot.fbo = slot.maskTex = null; slot.ready = false; slot.maskDirty = !!slot.maskSource; } this.drawn = ''; };
+
+  /** The root's child that holds the panel: the canvas is placed before the first of these. */
+  private anchor(panel: HTMLElement) {
+    let anchor: HTMLElement | null = panel;
+    while (anchor && anchor.parentElement !== this.parent) anchor = anchor.parentElement;
+    return anchor ?? undefined;
+  }
 
   add(panel: HTMLElement, evict: () => void): Slot {
     const gl = this.gl, scene = this;
     const slot: Slot = {
-      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0,
+      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, maskTex: null, maskDirty: false,
       prepare(w, h) {
         if (!slot.fbo || slot.w !== w || slot.h !== h) {
           scene.free(slot);
@@ -99,6 +121,10 @@ class Scene {
         if (w !== slot.w || h !== slot.h) return;
         slot.x = x; slot.y = y; slot.dpr = dpr; slot.ready = true; slot.frames++;
       },
+      mask(source) {
+        if (source === slot.maskSource) return;
+        slot.maskSource = source; slot.maskDirty = true; scene.drawn = '';
+      },
       release() { scene.remove(slot); }
     };
     this.slots.add(slot);
@@ -113,24 +139,41 @@ class Scene {
     slot.tex = slot.fbo = null; slot.w = slot.h = 0; slot.ready = false;
   }
 
+  /** Uploads a changed mask; called while compositing, which rebinds the units it uses. */
+  private uploadMask(slot: Slot) {
+    const gl = this.gl;
+    slot.maskDirty = false;
+    if (!slot.maskSource) { if (slot.maskTex && !gl.isContextLost()) gl.deleteTexture(slot.maskTex); slot.maskTex = null; return; }
+    slot.maskTex ??= gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, slot.maskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0); gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, slot.maskSource);
+    for (const [name, value] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, name, value);
+  }
+
   private remove(slot: Slot) {
     if (!this.slots.delete(slot)) return;
     this.free(slot); this.drawn = '';
+    if (slot.maskTex && !this.gl.isContextLost()) this.gl.deleteTexture(slot.maskTex);
+    slot.maskTex = null;
     if (!this.slots.size) { this.destroy(); return; }
     this.place();
   }
 
-  /** Paint where the first grouped panel paints: just before it in the parent. */
+  /** Paint where the first grouped panel paints: just before it (or the root's child holding it). */
   private place() {
     let first: HTMLElement | undefined;
-    for (const { panel } of this.slots) if (panel.parentElement === this.parent && (!first || first.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING)) first = panel;
+    for (const { panel } of this.slots) {
+      const anchor = this.anchor(panel);
+      if (anchor && (!first || first.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_PRECEDING)) first = anchor;
+    }
     if (first && this.canvas.nextElementSibling !== first) this.parent.insertBefore(this.canvas, first);
   }
 
   private measure = () => {
     this.canvasRect = this.canvas.isConnected ? this.canvas.getBoundingClientRect() : undefined;
     for (const slot of [...this.slots]) {
-      if (slot.panel.parentElement !== this.parent) { slot.evict(); continue; }
+      if (!this.anchor(slot.panel)) { slot.evict(); continue; }
       const rect = frameRect(slot.panel);
       // Scaled ancestors change the panel's rendered size; its own canvas follows that, a shared one cannot.
       if (Math.abs(rect.width - slot.panel.offsetWidth) >= 1 || Math.abs(rect.height - slot.panel.offsetHeight) >= 1) { slot.evict(); continue; }
@@ -167,24 +210,35 @@ class Scene {
     style.left = `${this.left}px`; style.top = `${this.top}px`;
     if (style.width !== cssWidth) style.width = cssWidth;
     if (style.height !== cssHeight) style.height = cssHeight;
-    const key = `${left}:${top}:${width}:${height}|` + boxes.map(b => `${b.x}:${b.y}:${b.w}:${b.h}:${b.slot.frames}`).join('|');
+    const key = `${left}:${top}:${width}:${height}|` + boxes.map(b => `${b.x}:${b.y}:${b.w}:${b.h}:${b.slot.frames}:${b.slot.rect!.width}:${b.slot.rect!.height}`).join('|');
     if (key === this.drawn) return;
     if (!this.program) {
       const program = gl.createProgram()!, compile = (type: number, text: string) => { const shader = gl.createShader(type)!; gl.shaderSource(shader, text); gl.compileShader(shader); gl.attachShader(program, shader); return shader; };
       const shaders = [compile(gl.VERTEX_SHADER, VS_QUAD), compile(gl.FRAGMENT_SHADER, BLIT)];
       gl.linkProgram(program); shaders.forEach(shader => gl.deleteShader(shader));
-      this.program = program; this.position = gl.getAttribLocation(program, 'a_pos'); this.texture = gl.getUniformLocation(program, 'u_lens');
+      this.program = program; this.position = gl.getAttribLocation(program, 'a_pos');
+      this.uniforms = { lens: gl.getUniformLocation(program, 'u_lens'), mask: gl.getUniformLocation(program, 'u_mask'), maskRect: gl.getUniformLocation(program, 'u_maskRect'), masked: gl.getUniformLocation(program, 'u_masked') };
       this.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, width, height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(this.program); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(this.texture, 0);
+    gl.useProgram(this.program); gl.uniform1i(this.uniforms.lens, 0); gl.uniform1i(this.uniforms.mask, 1);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad); gl.enableVertexAttribArray(this.position); gl.vertexAttribPointer(this.position, 2, gl.FLOAT, false, 0, 0);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     for (const box of boxes) {
+      const slot = box.slot, rect = slot.rect!;
+      gl.activeTexture(gl.TEXTURE1);
+      if (slot.maskDirty) this.uploadMask(slot);
+      gl.uniform1f(this.uniforms.masked, slot.maskTex ? 1 : 0);
+      if (slot.maskTex) {
+        gl.bindTexture(gl.TEXTURE_2D, slot.maskTex);
+        const panelW = rect.width * slot.dpr, panelH = rect.height * slot.dpr;
+        gl.uniform4f(this.uniforms.maskRect, slot.x / panelW, slot.y / panelH, slot.w / panelW, slot.h / panelH);
+      }
+      gl.activeTexture(gl.TEXTURE0);
       gl.viewport(box.x - left, height - (box.y - top) - box.h, box.w, box.h);
-      gl.bindTexture(gl.TEXTURE_2D, box.slot.tex);
+      gl.bindTexture(gl.TEXTURE_2D, slot.tex);
       const filter = box.w === box.slot.w && box.h === box.slot.h ? gl.NEAREST : gl.LINEAR;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -208,9 +262,10 @@ const scenes = new WeakMap<HTMLElement, Scene[]>();
 
 /** A per-panel engine drawing into the shared scene of its parent, or undefined when the panel is not eligible. */
 export function joinSharedScene(panel: HTMLElement, holder: HTMLElement, source: HTMLElement, options: WebGLOptions,
-  status: (status: WebGLStatus) => void, analytical: typeof installLiquidGLOptics, evict: () => void): WebGLEngine | undefined {
-  if (sceneIneligibility(panel, source)) return undefined;
-  const parent = panel.parentElement!, zIndex = getComputedStyle(panel).zIndex;
+  status: (status: WebGLStatus) => void, analytical: typeof installLiquidGLOptics, evict: () => void,
+  root: HTMLElement | null = panel.parentElement): WebGLEngine | undefined {
+  if (!root || sceneIneligibility(panel, source, root)) return undefined;
+  const parent = root, zIndex = getComputedStyle(panel).zIndex;
   const list = scenes.get(parent) ?? [];
   let scene = list.find(s => s.source === source && s.zIndex === zIndex);
   if (!scene) {

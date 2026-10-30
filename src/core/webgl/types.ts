@@ -28,6 +28,9 @@ export interface WebGLOptions {
   radius: number;
   blur: number;
   saturation: number;
+  /** Alpha mask over the panel box (glyph outlines). A shared scene applies it when compositing; a panel with its
+   * own canvas ignores it, so the caller masks that output holder with CSS. */
+  mask?: TexImageSource;
 }
 export type WebGLStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-backdrop'
   | 'invalid-selector' | 'webgl-unavailable' | 'capture-failed';
@@ -49,5 +52,7 @@ export interface SceneSlot {
   prepare(w: number, h: number): WebGLFramebuffer;
   /** The drawn framebuffer is ready; (x, y) offsets it from the panel's top-left in device pixels at `dpr`. */
   present(x: number, y: number, w: number, h: number, dpr: number): void;
+  /** Alpha mask over the panel box, or none. */
+  mask(source?: TexImageSource): void;
   release(): void;
 }

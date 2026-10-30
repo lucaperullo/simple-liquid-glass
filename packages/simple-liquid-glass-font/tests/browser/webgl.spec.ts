@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { PNG } from 'pngjs';
 
+// Words draw into a shared scene canvas by default, or their own canvas with webglScene="off".
+const GLASS = 'canvas[data-liquid-glass-scene], canvas[data-liquid-glass-webgl]';
+
 test('WebGL stays inside glyphs and tracks nested scrolling', async ({ page }) => {
   await page.goto('/?renderer=webgl');
   await page.getByRole('button', { name: 'Scroll content', exact: true }).click();
@@ -24,7 +27,7 @@ test('WebGL stays inside glyphs and tracks nested scrolling', async ({ page }) =
     if(glyph)inside++;else outside++;
   }
   expect(inside).toBeGreaterThan(100);expect(outside).toBeLessThan(8);
-  const hash=()=>page.locator('canvas[data-liquid-glass-webgl]').evaluate(c=>{const canvas=c as HTMLCanvasElement,gl=canvas.getContext('webgl')!,p=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p.reduce((h,v)=>(h*31+v)>>>0,0);});
+  const hash=()=>page.locator(GLASS).first().evaluate(c=>{const canvas=c as HTMLCanvasElement,gl=canvas.getContext('webgl')!,p=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p.reduce((h,v)=>(h*31+v)>>>0,0);});
   const first=await hash();await page.locator('.scene-scroll').evaluate(el=>el.scrollTop=600);await expect.poll(hash).not.toBe(first);
   const selected=await page.locator('.slgf-letters').evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);const s=getSelection()!;s.removeAllRanges();s.addRange(r);return s.toString();});expect(selected).toBe('Liquid.');
 });
@@ -32,7 +35,7 @@ test('WebGL stays inside glyphs and tracks nested scrolling', async ({ page }) =
 test('iPhone auto WebGL video updates', async ({ page }) => {
   await page.addInitScript(()=>Object.defineProperty(navigator,'userAgent',{configurable:true,get:()=> 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'}));
   await page.goto('/');await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
-  const hash=()=>page.locator('canvas[data-liquid-glass-webgl]').evaluate(c=>{const canvas=c as HTMLCanvasElement,gl=canvas.getContext('webgl')!,p=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p.reduce((h,v)=>(h*31+v)>>>0,0);});
+  const hash=()=>page.locator(GLASS).first().evaluate(c=>{const canvas=c as HTMLCanvasElement,gl=canvas.getContext('webgl')!,p=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p.reduce((h,v)=>(h*31+v)>>>0,0);});
   const first=await hash();await expect.poll(hash).not.toBe(first);
 });
 
@@ -41,9 +44,11 @@ test('WebGL tint is above the image and accessibility mode releases the canvas',
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
   const tint=page.locator('.slgf-gpu-tint');
   await expect(tint).toBeVisible();
-  expect(await tint.evaluate(el=>el.previousElementSibling?.querySelector('canvas')!==null)).toBe(true);
+  // The shared canvas paints before the word, so the tint (inside the word) is above it.
+  await expect(page.locator('.slgf-layout')).toHaveAttribute('data-glass-composition','scene');
+  expect(await page.locator('canvas[data-liquid-glass-scene]').evaluate(canvas=>!!(canvas.compareDocumentPosition(document.querySelector('.slgf-layout')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await page.emulateMedia({ forcedColors:'active' });
-  await expect(page.locator('canvas[data-liquid-glass-webgl]')).toHaveCount(0);
+  await expect(page.locator(GLASS)).toHaveCount(0);
   await expect(page.locator('.slgf-backdrop')).toBeHidden();
   await page.emulateMedia({ forcedColors:'none' });
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
@@ -52,4 +57,24 @@ test('WebGL tint is above the image and accessibility mode releases the canvas',
 test('the default renderer is WebGL wherever SVG backdrop filters are unsupported', async ({ page, browserName }) => {
   await page.goto('/');
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer', browserName === 'chromium' ? 'native' : 'webgl');
+});
+
+test('webglScene="off" draws the word into its own canvas, under the tint', async ({ page }) => {
+  await page.goto('/?renderer=webgl&scene=off');
+  await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
+  await expect(page.locator('canvas[data-liquid-glass-scene]')).toHaveCount(0);
+  expect(await page.locator('.slgf-gpu-tint').evaluate(el=>el.previousElementSibling?.querySelector('canvas')!==null)).toBe(true);
+});
+
+test('on Chromium a crowd of words moves from SVG to one shared WebGL canvas', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium');
+  const kinds = () => page.locator('.slgf-layout').evaluateAll(els => [...new Set(els.map(el => (el as HTMLElement).dataset.renderer))]);
+  await page.goto('/tests/browser/crowd.html?words=6');
+  await expect.poll(kinds).toEqual(['native']);
+  await page.goto('/tests/browser/crowd.html?words=20');
+  await expect.poll(kinds).toEqual(['webgl']);
+  await expect(page.locator('canvas[data-liquid-glass-scene]')).toHaveCount(1);
+  await expect(page.locator('canvas[data-liquid-glass-webgl]')).toHaveCount(0);
+  await page.goto('/tests/browser/crowd.html?words=20&scene=off');
+  await expect.poll(kinds).toEqual(['native']);
 });

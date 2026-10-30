@@ -1,5 +1,5 @@
 import {useLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
-import { createWebGLSurface, supportsSvgBackdrop, type GlassRenderer, type WebGLSurface, type WebGLSurfaceStatus } from 'simple-liquid-glass/webgl';
+import { createWebGLSurface, joinGlassCrowd, supportsSvgBackdrop, type GlassRenderer, type WebGLSurface, type WebGLSurfaceStatus } from 'simple-liquid-glass/webgl';
 import React, { useEffect, useId, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import { buildGlyphField } from './optics';
@@ -7,8 +7,11 @@ import { buildGlyphField } from './optics';
 export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
   /** Single-line text. Font styles are inherited from the surrounding element. */
   children: string;
-  /** Automatic WebGL on Safari, iOS and Firefox; select webgl for Chromium too. */
+  /** Automatic WebGL on Safari, iOS and Firefox, and for 16 or more words side by side on desktop Chromium;
+   * select webgl for Chromium always. */
   renderer?: GlassRenderer;
+  /** WebGL words in the same container share one canvas ('auto'); 'off' keeps one canvas per word. */
+  webglScene?: 'auto' | 'off';
   /** Explicit sibling background. Select video/canvas directly for live frames. */
   backdropRef?: React.RefObject<HTMLElement | null>;
   backdropSelector?: string;
@@ -39,9 +42,12 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
 }
 
 const bounded = (value: number, fallback: number, max: number, min = 0) => Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+// Words are grouped by the element holding their wrappers: their glass is composited in one canvas there.
+const groupRoot = (layout: HTMLElement) => layout.parentElement?.parentElement ?? null;
+const isMobile = () => /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 
 export function LiquidGlassText({
-  children, renderer = 'auto', backdropRef, backdropSelector, backdropVersion, blur = .3, saturation = 1.2, tint = 'rgb(255 255 255 / 0.04)',
+  children, renderer = 'auto', webglScene = 'auto', backdropRef, backdropSelector, backdropVersion, blur = .3, saturation = 1.2, tint = 'rgb(255 255 255 / 0.04)',
   refraction = 88, bevel = 8, dispersion = 1.5, specular = .8,
   borderWidth = 1, borderColor = 'rgb(255 255 255 / 0.75)',
   fillColor = 'rgb(255 255 255 / 0.1)', shadow = '0 2px 4px rgb(0 0 0 / 0.25)',
@@ -50,14 +56,15 @@ export function LiquidGlassText({
   const layoutRef = useRef<HTMLSpanElement>(null);
   const gpuHolder = useRef<HTMLSpanElement>(null);
   const gpu = useRef<WebGLSurface | null>(null);
-  const binding = useRef<{ element: HTMLElement; source: HTMLElement } | null>(null);
+  const binding = useRef<{ element: HTMLElement; source: HTMLElement; shared: boolean } | null>(null);
   const [visible, setVisible] = useState(true);
   const [solidText, setSolidText] = useState(false);
   const [gpuStatus, setGpuStatus] = useState<WebGLSurfaceStatus>('pending');
   const textRef = useRef<HTMLSpanElement>(null);
   const baselineRef = useRef<HTMLSpanElement>(null);
   const [mask, setMask] = useState<string>();
-  const [optics, setOptics] = useState<{ map: string; highlight: string; width: number; height: number }>();
+  const [optics, setOptics] = useState<{ map: string; highlight: string; mask: ImageData; width: number; height: number }>();
+  const [crowded, setCrowded] = useState(false);
   const [native, setNative] = useState<boolean>();
   const filterId = `slgf-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const bend = bounded(refraction, 88, 300);
@@ -108,13 +115,15 @@ export function LiquidGlassText({
       context.fillText(content, 0, marker.offsetTop, width);
       setMask(canvas.toDataURL());
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      // A shared WebGL scene cannot apply the CSS mask; it masks with the same glyph raster.
+      const glyphs = new ImageData(new Uint8ClampedArray(pixels.data), canvas.width, canvas.height);
       const field = buildGlyphField(pixels.data, canvas.width, canvas.height, edge * ratio);
       const encode = (data: Uint8ClampedArray) => {
         pixels.data.set(data);
         context.putImageData(pixels, 0, 0);
         return canvas.toDataURL();
       };
-      setOptics({ map: encode(field.displacement), highlight: encode(field.highlight), width, height });
+      setOptics({ map: encode(field.displacement), highlight: encode(field.highlight), mask: glyphs, width, height });
     };
     measure();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
@@ -142,13 +151,23 @@ export function LiquidGlassText({
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  const wantsGPU = !solidText && native !== undefined && (!native || renderer === 'webgl');
+  // Chromium draws every SVG word in its own GPU pass; a crowd of words renders through one WebGL canvas instead.
+  useEffect(() => {
+    const element = layoutRef.current;
+    if (renderer !== 'auto' || webglScene === 'off' || !native || solidText || !element || isMobile()) { setCrowded(false); return; }
+    let source: HTMLElement | null = null;
+    try { source = backdropRef?.current ?? (backdropSelector ? document.querySelector<HTMLElement>(backdropSelector) : null); } catch { /* invalid selector */ }
+    const leave = joinGlassCrowd(element, source, setCrowded, groupRoot(element));
+    if (!leave) setCrowded(false);
+    return leave;
+  }, [renderer, webglScene, native, solidText, backdropRef, backdropSelector]);
+  const wantsGPU = !solidText && native !== undefined && (!native || renderer === 'webgl' || crowded);
   const scene=useLiquidGlassBackdrop(layoutRef,wantsGPU&&visible&&!backdropRef&&!backdropSelector);
   const gpuReady = wantsGPU && gpuStatus === 'active';
   const gpuOptions = useMemo(() => ({ map: optics?.map ?? '', scale: bend, dispersion: spread,
     additiveDispersion: true, neutralPoint: 128/255, specular: 0, classic: false,
-    radius: 0, blur: blurRadius, saturation: saturationValue * 100
-  }), [optics?.map, bend, spread, blurRadius, saturationValue]);
+    radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.mask
+  }), [optics?.map, optics?.mask, bend, spread, blurRadius, saturationValue]);
   useEffect(() => {
     if (!layoutRef.current || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(entries => setVisible(entries[entries.length - 1].isIntersecting), { rootMargin: '150px' });
@@ -165,9 +184,10 @@ export function LiquidGlassText({
     catch { clear(); setGpuStatus('invalid-selector'); return; }
     if (!source) { clear(); setGpuStatus('missing-backdrop'); return; }
     if (source.contains(element) || element.contains(source)) { clear(); setGpuStatus('invalid-backdrop'); return; }
-    if (binding.current?.element === element && binding.current.source === source) return;
-    clear(); binding.current = { element, source }; setGpuStatus('pending');
-    try { gpu.current = createWebGLSurface(element, output, source, gpuOptions, setGpuStatus); }
+    const shared = webglScene !== 'off';
+    if (binding.current?.element === element && binding.current.source === source && binding.current.shared === shared) return;
+    clear(); binding.current = { element, source, shared }; setGpuStatus('pending');
+    try { gpu.current = createWebGLSurface(element, output, source, gpuOptions, setGpuStatus, shared ? { root: groupRoot(element) } : undefined); }
     catch { setGpuStatus('webgl-unavailable'); }
   });
   useEffect(() => () => { gpu.current?.destroy(); gpu.current = null; binding.current = null; }, []);

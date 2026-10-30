@@ -96,7 +96,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       const measured=source.getBoundingClientRect(),lens=panel.getBoundingClientRect();
       const y=scrollY,max=Math.max(0,document.documentElement.scrollHeight-innerHeight);
       const fixedOffset=(y<0||y>max)&&fixedPanel?origin.getBoundingClientRect().top:0;
-      return {measured,lens,y,max,fixedOffset,width:panel.offsetWidth,height:panel.offsetHeight};
+      // offsetWidth/Height round the layout size; within a pixel of it the box is not transformed, and its exact
+      // size keeps the transform scale at 1 (the cached-background path) instead of a sub-pixel "scale".
+      const exact=(rendered:number,layout:number)=>Math.abs(rendered-layout)<1?rendered:layout;
+      return {measured,lens,y,max,fixedOffset,width:exact(lens.width,panel.offsetWidth),height:exact(lens.height,panel.offsetHeight)};
     }catch{return;}
   }
   const frame = () => {

@@ -130,7 +130,7 @@ class Scene {
       if (slot.panel.parentElement !== this.parent) { slot.evict(); continue; }
       const rect = slot.panel.getBoundingClientRect();
       // Scaled ancestors change the panel's rendered size; its own canvas follows that, a shared one cannot.
-      if (Math.abs(rect.width - slot.panel.offsetWidth) > .5 || Math.abs(rect.height - slot.panel.offsetHeight) > .5) { slot.evict(); continue; }
+      if (Math.abs(rect.width - slot.panel.offsetWidth) >= 1 || Math.abs(rect.height - slot.panel.offsetHeight) >= 1) { slot.evict(); continue; }
       slot.rect = rect;
     }
   };

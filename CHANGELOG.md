@@ -3,7 +3,8 @@
 - **SVG displacement maps sized to the pane.** Chromium resends a backdrop filter's images to the GPU process with every frame in which the glass or its backdrop moves, so decoded map bytes were a per-frame cost. Native SVG maps were a fixed 512 px body (604×650 for a 180×120 pane); they now use 0.75 map pixels per CSS pixel of the longer side (64–512). `optics="liquidgl"` SVG maps drop from device resolution to 0.75 per CSS pixel. WebGL keeps 512 (uploaded once) and renders unchanged.
 - **Frosted `optics="liquidgl"` SVG** uses one map and a `feGaussianBlur` matched to liquidGL's 16-sample jitter disk instead of 16 maps. Blur extent is unchanged; the grain of the jittered samples is gone.
 - SVG `optics="liquidgl"`: a panel moving near the edge of its backdrop no longer rebuilds its map every frame. The refraction field is cached per panel shape, edge positions round to whole pixels, and position-only rebuilds run at most every 160 ms per encoded map, then settle on the exact map.
-- WebGL with native optics presents through bitmap transfer, like `optics="liquidgl"`, instead of copying the shared canvas into each panel every frame (pixel output unchanged). Quad draws cache their attribute location.
+- WebGL presents through bitmap transfer for both optics, handing each frame to a `bitmaprenderer` canvas instead of copying the shared canvas into a 2D canvas (pixel output unchanged). Quad draws cache their attribute location.
+- `optics="liquidgl"` SVG fills out-of-backdrop samples with one composite instead of an alpha mask and three composites (pixel-identical); GPU process CPU for 24 moving panels drops from about 1000 to 570 ms/s.
 - Chrome 156, M5 Retina, six panels unless noted (median of 4, frame rate and renderer main-thread ms/s):
 
   | Scene | SVG 5.5.0 | SVG 5.5.1 | SVG liquidgl 5.5.0 | SVG liquidgl 5.5.1 | liquidGL WebGL |

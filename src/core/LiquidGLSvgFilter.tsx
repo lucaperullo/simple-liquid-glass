@@ -7,7 +7,8 @@ interface Props {filterId:string;panel:RefObject<HTMLDivElement|null>;backdrop?:
 const spotCache=new Map<number,string>();
 function spot(gain:number){let uri=spotCache.get(gain);if(uri)return uri;const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d')!,image=ctx.createImageData(128,128);for(let y=0;y<128;y++)for(let x=0;x<128;x++){const radius=Math.min(1,Math.hypot((x+.5)/64-1,(y+.5)/64-1)),t=1-radius,v=Math.round(gain*t*t*(3-2*t)*255),at=(y*128+x)*4;image.data[at]=image.data[at+1]=image.data[at+2]=v;image.data[at+3]=255}ctx.putImageData(image,0,0);uri=c.toDataURL();c.width=c.height=0;spotCache.set(gain,uri);return uri}
 const RGB=['1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1','0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1','0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1'];
-// A pane moving near the source edge changes its map every frame; rebuild it at most this often, then settle exactly.
+// A pane moving near the source edge changes its map every frame; rebuild it at most this often per encoded map
+// (frost encodes 16, aberration 3 per sample), then settle exactly.
 const EDGE_MOVE_MS=160;
 const OPAQUE='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 1';
 export function LiquidGLSvgFilter(props:Props){
@@ -29,7 +30,7 @@ export function LiquidGLSvgFilter(props:Props){
    const c=liquidGLCoefficients(p.options,p.blur),next=svgLiquidKey(measured,c);
    if(next!==key){
     const nextShape=svgLiquidShapeKey(measured,c),now=performance.now();
-    if(nextShape!==shape||now-builtAt>=EDGE_MOVE_MS){
+    if(nextShape!==shape||now-builtAt>=EDGE_MOVE_MS*(c.frost>0?16:1)*(c.aberration>0?3:1)){
      shape=nextShape;builtAt=now;
      try{const built=buildSvgLiquidAsset(measured,p.options,p.blur);key=next;setAsset(built);p.onError(false)}catch{key=next;p.onError(true);p.onReady(false);return}
     }

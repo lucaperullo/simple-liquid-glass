@@ -11,7 +11,7 @@ test('WebGL stays inside glyphs and tracks nested scrolling', async ({ page }) =
   await expect(layout).toHaveAttribute('data-renderer', 'webgl');
   await page.getByLabel('Refraction', { exact: true }).fill('0'); await page.waitForTimeout(100);
   const bounds = await layout.evaluate(el => {const r=el.getBoundingClientRect(),s=el.closest('.scene')!.getBoundingClientRect();return {x:r.x-s.x,y:r.y-s.y,w:r.width,h:r.height};});
-  const url = await page.locator('.slgf-backdrop').evaluate(el=>(el as HTMLElement).style.maskImage);
+  const url = await page.locator('.slgf-tint').evaluate(el=>(el as HTMLElement).style.maskImage);
   const mask = PNG.sync.read(Buffer.from(url.split(',')[1].replace(/["')]/g,''),'base64'));
   const before=PNG.sync.read(await page.locator('.scene').screenshot());
   await page.getByLabel('Refraction', { exact: true }).fill('88');await page.waitForTimeout(150);
@@ -42,7 +42,7 @@ test('iPhone auto WebGL video updates', async ({ page }) => {
 test('WebGL tint is above the image and accessibility mode releases the canvas', async ({ page }) => {
   await page.goto('/?renderer=webgl');
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
-  const tint=page.locator('.slgf-gpu-tint');
+  const tint=page.locator('.slgf-tint');
   await expect(tint).toBeVisible();
   // The shared canvas paints before the word, so the tint (inside the word) is above it.
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-glass-composition','scene');
@@ -63,7 +63,7 @@ test('webglScene="off" draws the word into its own canvas, under the tint', asyn
   await page.goto('/?renderer=webgl&scene=off');
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-renderer','webgl');
   await expect(page.locator('canvas[data-liquid-glass-scene]')).toHaveCount(0);
-  expect(await page.locator('.slgf-gpu-tint').evaluate(el=>el.previousElementSibling?.querySelector('canvas')!==null)).toBe(true);
+  expect(await page.locator('.slgf-tint').evaluate(el=>el.previousElementSibling?.querySelector('canvas')!==null)).toBe(true);
 });
 
 test('on Chromium a crowd of words moves from SVG to one shared WebGL canvas', async ({ page, browserName }) => {

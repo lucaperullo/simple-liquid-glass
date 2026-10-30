@@ -34,13 +34,13 @@ test('scrolling real content updates the backdrop without moving or rebuilding t
   const lens = page.locator('.slgf-layout');
   await expect(lens).toHaveAttribute('data-ready', 'true');
   const position = await lens.boundingBox();
-  const map = await page.locator('feImage').getAttribute('href');
+  const map = await page.locator('feImage[result="rawMap"]').getAttribute('href');
   const before = await lens.screenshot();
   await page.getByLabel('Scrollable backdrop', { exact: true }).evaluate(element => { element.scrollTop = 560; });
   await expect.poll(() => page.getByLabel('Scrollable backdrop', { exact: true }).evaluate(element => element.scrollTop)).toBe(560);
   expect(changedPixels(before, await lens.screenshot())).toBeGreaterThan(1000);
   expect(await lens.boundingBox()).toEqual(position);
-  expect(await page.locator('feImage').getAttribute('href')).toBe(map);
+  expect(await page.locator('feImage[result="rawMap"]').getAttribute('href')).toBe(map);
 });
 
 test('a real video plays underneath the stationary lens and can be paused', async ({ page, browserName }) => {
@@ -50,11 +50,11 @@ test('a real video plays underneath the stationary lens and can be paused', asyn
   await expect.poll(() => video.evaluate(element => element.currentTime)).toBeGreaterThan(.1);
   const lens = page.locator('.slgf-layout');
   const before = await lens.screenshot();
-  const map = await page.locator('feImage').getAttribute('href');
+  const map = await page.locator('feImage[result="rawMap"]').getAttribute('href');
   const start = await video.evaluate(element => element.currentTime);
   await expect.poll(() => video.evaluate(element => element.currentTime)).toBeGreaterThan(start + .4);
   expect(changedPixels(before, await lens.screenshot())).toBeGreaterThan(100);
-  expect(await page.locator('feImage').getAttribute('href')).toBe(map);
+  expect(await page.locator('feImage[result="rawMap"]').getAttribute('href')).toBe(map);
   await page.getByRole('button', { name: 'Pause video', exact: true }).click();
   await expect.poll(() => video.evaluate(element => element.paused)).toBe(true);
 });
@@ -88,7 +88,7 @@ test('the strength control reaches the renderer without hidden attenuation', asy
 test('readability controls update without rebuilding the lens', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.slgf-layout')).toHaveAttribute('data-ready', 'true');
-  const map = await page.locator('feImage').getAttribute('href');
+  const map = await page.locator('feImage[result="rawMap"]').getAttribute('href');
   const letters = page.locator('.slgf-letters');
   await expect(letters).toHaveCSS('-webkit-text-stroke-width', '1px');
   await page.getByLabel('Border width', { exact: true }).fill('2');
@@ -99,7 +99,7 @@ test('readability controls update without rebuilding the lens', async ({ page })
   await expect(letters).toHaveCSS('-webkit-text-stroke-color', 'rgb(0, 0, 0)');
   await expect(letters).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.4)');
   await expect(letters).toHaveCSS('text-shadow', 'none');
-  expect(await page.locator('feImage').getAttribute('href')).toBe(map);
+  expect(await page.locator('feImage[result="rawMap"]').getAttribute('href')).toBe(map);
   await page.emulateMedia({ media: 'print' });
   await expect(letters).toHaveCSS('-webkit-text-stroke-width', '0px');
   await expect(letters).toHaveCSS('text-shadow', 'none');

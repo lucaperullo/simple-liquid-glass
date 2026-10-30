@@ -125,3 +125,10 @@ export function buildGlyphField(rgba: Uint8ClampedArray, width: number, height: 
   }
   return { displacement, highlight };
 }
+
+/** Self-contained source of the field builder, to run it in a worker (see fields.ts). Function names come from the
+ * running code, so this stays consistent when a bundler renames them. */
+export function glyphFieldSource() {
+  return [distanceTransform, glyphDistance, smoothSurface, buildGlyphField].map(String).join('\n')
+    + `\nconst ${smoothstep.name} = ${String(smoothstep)};\nconst __buildGlyphField = ${buildGlyphField.name};`;
+}

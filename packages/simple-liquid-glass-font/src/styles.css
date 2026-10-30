@@ -7,10 +7,10 @@
 }
 .slgf-letters { display: inline-block; position: relative; }
 .slgf-baseline { display: inline-block; width: 0; height: 0; padding: 0; margin: 0; }
-.slgf-backdrop { display: none; pointer-events: none; }
+.slgf-backdrop, .slgf-tint { display: none; pointer-events: none; }
 .slgf-highlight { display: none; pointer-events: none; }
 .slgf-filter { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.slgf-backdrop {
+.slgf-backdrop, .slgf-tint {
   mask-size: 100% 100%;
   -webkit-mask-size: 100% 100%;
   mask-repeat: no-repeat;
@@ -21,9 +21,15 @@
     display: block;
     position: absolute;
     inset: 0;
-    background: var(--slgf-tint);
     backdrop-filter: var(--slgf-filter);
     -webkit-backdrop-filter: var(--slgf-filter);
+  }
+  /* Tint inside the letters: a plain masked layer, so the backdrop filter itself never needs a CSS mask. */
+  .slgf-layout[data-ready="true"] > .slgf-tint {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: var(--slgf-tint);
   }
   .slgf-layout[data-ready="true"] > .slgf-highlight {
     display: block;
@@ -44,7 +50,7 @@
   }
 }
 @media (forced-colors: active), (prefers-reduced-transparency: reduce), print {
-  .slgf-layout[data-ready="true"] > .slgf-backdrop, .slgf-layout[data-ready="true"] > .slgf-highlight { display: none; }
+  .slgf-layout[data-ready="true"] > .slgf-backdrop, .slgf-layout[data-ready="true"] > .slgf-tint, .slgf-layout[data-ready="true"] > .slgf-highlight { display: none; }
   .slgf-layout[data-ready="true"] > .slgf-letters {
     color: inherit;
     background: none;
@@ -53,4 +59,3 @@
   }
 }
 
-.slgf-gpu-tint { position: absolute; inset: 0; background: var(--slgf-tint); pointer-events: none; }

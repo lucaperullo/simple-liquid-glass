@@ -28,10 +28,17 @@ if(u_masked>0.5){vec2 p=u_maskRect.xy+vec2(v_uv.x,1.0-v_uv.y)*u_maskRect.zw;m=p.
 gl_FragColor=vec4(c.rgb*c.a,c.a)*m;}`;
 
 const transparent = (color: string) => color === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(color);
-const translationOnly = (transform: string) => transform === 'none' || /^matrix\(1, 0, 0, 1, [^,]+, [^,]+\)$/.test(transform);
+// Translation and positive scale composite as a scaled box; rotation and skew keep the panel's own canvas.
+const scaleOrTranslate = (transform: string) => {
+  if (transform === 'none') return true;
+  const m = /^matrix\(([^,]+), ([^,]+), ([^,]+), ([^,]+), [^,]+, [^,]+\)$/.exec(transform);
+  return !!m && Number(m[2]) === 0 && Number(m[3]) === 0 && Number(m[1]) > 0 && Number(m[4]) > 0;
+};
+// The rendered box keeps the layout's aspect under scale; a different aspect means rotation or skew somewhere above.
+const ASPECT_TOLERANCE = .02;
 
 const plainBox = (style: CSSStyleDeclaration) => Number(style.opacity) === 1 && style.filter === 'none' && style.mixBlendMode === 'normal'
-  && style.clipPath === 'none' && (style.maskImage || 'none') === 'none' && style.transform === 'none'
+  && style.clipPath === 'none' && (style.maskImage || 'none') === 'none' && scaleOrTranslate(style.transform)
   && style.overflowX === 'visible' && style.overflowY === 'visible' && (style.position === 'static' || style.zIndex === 'auto');
 
 /** Why a panel keeps its own canvas instead of joining a shared scene; undefined when it can join. */
@@ -46,7 +53,7 @@ export function sceneIneligibility(panel: HTMLElement, source: HTMLElement, root
   // The component itself hides the panel while its renderer starts (reveal="ready").
   if (Number(style.opacity) !== 1 && panel.dataset.glassReason !== 'initializing') return 'opacity';
   if (style.filter !== 'none' || style.mixBlendMode !== 'normal' || style.clipPath !== 'none' || (style.maskImage || 'none') !== 'none') return 'compositing';
-  if (!translationOnly(style.transform)) return 'transform';
+  if (!scaleOrTranslate(style.transform)) return 'transform';
   if (style.backgroundImage !== 'none' || !transparent(style.backgroundColor)) return 'background';
   if (style.zIndex !== 'auto' && Number(style.zIndex) < 0) return 'z-index';
   return undefined;
@@ -56,7 +63,7 @@ interface Slot extends SceneSlot {
   panel: HTMLElement;
   tex: WebGLTexture | null; fbo: WebGLFramebuffer | null;
   w: number; h: number; x: number; y: number; dpr: number;
-  ready: boolean; frames: number; rect?: DOMRect; evict: () => void;
+  ready: boolean; frames: number; rect?: DOMRect; sx: number; sy: number; evict: () => void;
   maskSource?: TexImageSource; maskTex: WebGLTexture | null; maskDirty: boolean;
 }
 
@@ -99,7 +106,7 @@ class Scene {
   add(panel: HTMLElement, evict: () => void): Slot {
     const gl = this.gl, scene = this;
     const slot: Slot = {
-      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, maskTex: null, maskDirty: false,
+      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, sx: 1, sy: 1, maskTex: null, maskDirty: false,
       prepare(w, h) {
         if (!slot.fbo || slot.w !== w || slot.h !== h) {
           scene.free(slot);
@@ -174,10 +181,15 @@ class Scene {
     this.canvasRect = this.canvas.isConnected ? this.canvas.getBoundingClientRect() : undefined;
     for (const slot of [...this.slots]) {
       if (!this.anchor(slot.panel)) { slot.evict(); continue; }
-      const rect = frameRect(slot.panel);
-      // Scaled ancestors change the panel's rendered size; its own canvas follows that, a shared one cannot.
-      if (Math.abs(rect.width - slot.panel.offsetWidth) >= 1 || Math.abs(rect.height - slot.panel.offsetHeight) >= 1) { slot.evict(); continue; }
-      slot.rect = rect;
+      const rect = frameRect(slot.panel), width = slot.panel.offsetWidth, height = slot.panel.offsetHeight;
+      // The engine renders at layout size and samples the scaled extent; the scene draws that scaled. Within a pixel
+      // of the layout size the box is not transformed (offset sizes are rounded); beyond it, compare with the exact
+      // layout size so rounding does not read as a change of aspect.
+      const transformed = Math.abs(rect.width - width) >= 1 || Math.abs(rect.height - height) >= 1;
+      const layout = transformed ? getComputedStyle(slot.panel) : undefined;
+      const sx = layout ? rect.width / (parseFloat(layout.width) || width) : 1, sy = layout ? rect.height / (parseFloat(layout.height) || height) : 1;
+      if (Math.abs(sx - sy) > ASPECT_TOLERANCE * Math.max(sx, sy)) { slot.evict(); continue; }
+      slot.rect = rect; slot.sx = sx; slot.sy = sy;
     }
   };
 
@@ -190,9 +202,9 @@ class Scene {
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (const slot of this.slots) {
       if (!slot.ready || !slot.tex || !slot.rect) continue;
-      const scale = dpr / slot.dpr;
-      const x = Math.round(slot.rect.left * dpr + slot.x * scale), y = Math.round(slot.rect.top * dpr + slot.y * scale);
-      const w = Math.round(slot.w * scale), h = Math.round(slot.h * scale);
+      const scale = dpr / slot.dpr, sx = scale * slot.sx, sy = scale * slot.sy;
+      const x = Math.round(slot.rect.left * dpr + slot.x * sx), y = Math.round(slot.rect.top * dpr + slot.y * sy);
+      const w = Math.round(slot.w * sx), h = Math.round(slot.h * sy);
       if (x >= view.right || y >= view.bottom || x + w <= view.left || y + h <= view.top) continue;
       boxes.push({ slot, x, y, w, h });
       left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x + w); bottom = Math.max(bottom, y + h);
@@ -233,7 +245,7 @@ class Scene {
       gl.uniform1f(this.uniforms.masked, slot.maskTex ? 1 : 0);
       if (slot.maskTex) {
         gl.bindTexture(gl.TEXTURE_2D, slot.maskTex);
-        const panelW = rect.width * slot.dpr, panelH = rect.height * slot.dpr;
+        const panelW = rect.width / slot.sx * slot.dpr, panelH = rect.height / slot.sy * slot.dpr;
         gl.uniform4f(this.uniforms.maskRect, slot.x / panelW, slot.y / panelH, slot.w / panelW, slot.h / panelH);
       }
       gl.activeTexture(gl.TEXTURE0);

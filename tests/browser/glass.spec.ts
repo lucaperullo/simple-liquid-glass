@@ -111,6 +111,20 @@ test('sibling WebGL panels share one scene canvas; webglScene="off" keeps one ca
   await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(0);
 });
 
+test('scaled panels stay in the shared scene; rotated ones keep their own canvas', async ({ page, browserName }) => {
+  test.skip(browserName === 'chromium', 'Chromium renders few panels through SVG');
+  await page.goto('/tests/browser/?siblings=6');
+  test.skip(!(await webglAvailable(page)), 'The browser has no WebGL context');
+  const panel = page.locator('#root [data-liquid-glass]').nth(2);
+  await expect(panel).toHaveAttribute('data-glass-composition', 'scene');
+  await panel.evaluate(el => { (el as HTMLElement).style.transform = 'scale(1.4)'; });
+  await page.waitForTimeout(300);
+  await expect(panel).toHaveAttribute('data-glass-composition', 'scene');
+  await panel.evaluate(el => { (el as HTMLElement).style.transform = 'rotate(12deg)'; });
+  await expect(panel).not.toHaveAttribute('data-glass-composition', 'scene');
+  await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(1);
+});
+
 test('renderer="auto" on Chromium moves a crowd of sibling panels to one WebGL scene', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium');
   await page.goto('/tests/browser/?siblings=6');

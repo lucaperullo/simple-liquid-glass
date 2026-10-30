@@ -8,12 +8,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('font changes preserve alignment, and text remains selectable', async ({ page }) => {
-  let previousMask = await page.locator('.slgf-backdrop').getAttribute('style');
+  let previousMask = await page.locator('.slgf-tint').getAttribute('style');
   for (const font of ['Georgia, serif', 'Courier New, monospace', 'Arial, sans-serif']) {
     await page.getByLabel('Font', { exact: true }).selectOption(font);
     await expect.poll(() => page.locator('.slgf-letters').evaluate(element => getComputedStyle(element).fontFamily.replaceAll('"', ''))).toBe(font);
-    await expect.poll(() => page.locator('.slgf-backdrop').getAttribute('style')).not.toBe(previousMask);
-    previousMask = await page.locator('.slgf-backdrop').getAttribute('style');
+    await expect.poll(() => page.locator('.slgf-tint').getAttribute('style')).not.toBe(previousMask);
+    previousMask = await page.locator('.slgf-tint').getAttribute('style');
   }
   await page.getByLabel('Words', { exact: true }).fill('Hello & glass');
   const selected = await page.locator('.slgf-letters').evaluate(element => {
@@ -43,7 +43,7 @@ test('blur changes backdrop pixels only inside the glyph mask', async ({ page, c
     const parent = element.closest('.scene')!.getBoundingClientRect();
     return { x: rect.x - parent.x, y: rect.y - parent.y, width: rect.width, height: rect.height };
   });
-  const maskUrl = await page.locator('.slgf-backdrop').evaluate(element => (element as HTMLElement).style.maskImage);
+  const maskUrl = await page.locator('.slgf-tint').evaluate(element => (element as HTMLElement).style.maskImage);
   const mask = PNG.sync.read(Buffer.from(maskUrl.split(',')[1].replace(/["')]/g, ''), 'base64'));
   const before = PNG.sync.read(await scene.screenshot());
   await page.getByLabel('Blur', { exact: true }).fill('16');
@@ -67,12 +67,12 @@ test('blur changes backdrop pixels only inside the glyph mask', async ({ page, c
 });
 
 test('the mask follows the visible glyphs in different fonts', async ({ page }) => {
-  await page.addStyleTag({ content: '.scene{background:white!important}.scene-scroll,.slgf-backdrop,.slgf-highlight{display:none!important}.slgf-letters{color:black!important;background:none!important;text-shadow:none!important;-webkit-text-stroke:0!important}' });
+  await page.addStyleTag({ content: '.scene{background:white!important}.scene-scroll,.slgf-backdrop,.slgf-tint,.slgf-highlight{display:none!important}.slgf-letters{color:black!important;background:none!important;text-shadow:none!important;-webkit-text-stroke:0!important}' });
   for (const font of ['Georgia, serif', 'Arial, sans-serif', 'Courier New, monospace']) {
     await page.getByLabel('Font', { exact: true }).selectOption(font);
     await expect.poll(() => page.locator('.slgf-letters').evaluate(element => getComputedStyle(element).fontFamily.replaceAll('"', ''))).toBe(font);
     const text = PNG.sync.read(await page.locator('.slgf-letters').screenshot());
-    const url = await page.locator('.slgf-backdrop').evaluate(element => (element as HTMLElement).style.maskImage);
+    const url = await page.locator('.slgf-tint').evaluate(element => (element as HTMLElement).style.maskImage);
     const mask = PNG.sync.read(Buffer.from(url.split(',')[1].replace(/["')]/g, ''), 'base64'));
     let ink = 0, matched = 0;
     for (let y = 0; y < text.height; y++) for (let x = 0; x < text.width; x++) {

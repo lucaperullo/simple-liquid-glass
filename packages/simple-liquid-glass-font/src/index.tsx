@@ -2,7 +2,7 @@ import {useLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
 import { createWebGLSurface, joinGlassCrowd, supportsSvgBackdrop, type GlassRenderer, type WebGLSurface, type WebGLSurfaceStatus } from 'simple-liquid-glass/webgl';
 import React, { useEffect, useId, useRef, useState, useMemo } from 'react';
 import type { CSSProperties, HTMLAttributes } from 'react';
-import { buildGlyphField } from './optics';
+import { glyphOptics } from './fields';
 
 export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
   /** Single-line text. Font styles are inherited from the surrounding element. */
@@ -43,6 +43,13 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
 
 const bounded = (value: number, fallback: number, max: number, min = 0) => Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
 // Words are grouped by the element holding their wrappers: their glass is composited in one canvas there.
+// Canvas resolves family names, not CSS system-font keywords: computed styles quote generic keywords, and
+// -apple-system / BlinkMacSystemFont are CSS-only aliases. Map them so the glyph raster uses the same face.
+const GENERIC = /^(system-ui|ui-sans-serif|ui-serif|ui-monospace|ui-rounded|sans-serif|serif|monospace|cursive|fantasy)$/;
+const canvasFamily = (family: string) => family.split(',').map(name => {
+  const bare = name.trim().replace(/^["']|["']$/g, '');
+  return bare === '-apple-system' || bare === 'BlinkMacSystemFont' ? 'system-ui' : GENERIC.test(bare) ? bare : `"${bare}"`;
+}).join(', ');
 const groupRoot = (layout: HTMLElement) => layout.parentElement?.parentElement ?? null;
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 
@@ -63,7 +70,7 @@ export function LiquidGlassText({
   const textRef = useRef<HTMLSpanElement>(null);
   const baselineRef = useRef<HTMLSpanElement>(null);
   const [mask, setMask] = useState<string>();
-  const [optics, setOptics] = useState<{ map: string; highlight: string; mask: ImageData; width: number; height: number }>();
+  const [optics, setOptics] = useState<{ map: string; highlight: string; glyphs: ImageData; width: number; height: number }>();
   const [crowded, setCrowded] = useState(false);
   const [native, setNative] = useState<boolean>();
   const filterId = `slgf-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -88,8 +95,8 @@ export function LiquidGlassText({
       const height = parseFloat(computed.height);
       if (!width || !height) { lastMeasurement = ''; setMask(undefined); setOptics(undefined); return; }
       const ratio = Math.min(2, window.devicePixelRatio || 1);
-      const font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
-      const signature = JSON.stringify([width, height, ratio, marker.offsetTop, font,
+      const font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${canvasFamily(computed.fontFamily)}`;
+      const signature = JSON.stringify([children, edge, width, height, ratio, marker.offsetTop, font,
         computed.fontKerning, computed.fontStretch, computed.fontVariantCaps,
         computed.letterSpacing, computed.wordSpacing, computed.direction, computed.textTransform,
         document.fonts?.check(font, children)]);
@@ -101,7 +108,7 @@ export function LiquidGlassText({
       if (!context) return;
       lastMeasurement = signature;
       context.scale(canvas.width / width, canvas.height / height);
-      context.font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
+      context.font = font;
       context.fontKerning = computed.fontKerning as CanvasFontKerning;
       context.fontStretch = computed.fontStretch as CanvasFontStretch;
       context.fontVariantCaps = computed.fontVariantCaps as CanvasFontVariantCaps;
@@ -113,17 +120,13 @@ export function LiquidGlassText({
       if (computed.textTransform === 'uppercase') content = content.toLocaleUpperCase();
       if (computed.textTransform === 'lowercase') content = content.toLocaleLowerCase();
       context.fillText(content, 0, marker.offsetTop, width);
-      setMask(canvas.toDataURL());
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-      // A shared WebGL scene cannot apply the CSS mask; it masks with the same glyph raster.
-      const glyphs = new ImageData(new Uint8ClampedArray(pixels.data), canvas.width, canvas.height);
-      const field = buildGlyphField(pixels.data, canvas.width, canvas.height, edge * ratio);
-      const encode = (data: Uint8ClampedArray) => {
-        pixels.data.set(data);
-        context.putImageData(pixels, 0, 0);
-        return canvas.toDataURL();
-      };
-      setOptics({ map: encode(field.displacement), highlight: encode(field.highlight), mask: glyphs, width, height });
+      // The raster is the glyph mask (also for a shared WebGL scene); the lens field is built off the main thread.
+      const glyphs = context.getImageData(0, 0, canvas.width, canvas.height);
+      void glyphOptics(signature, glyphs, edge * ratio).then(built => {
+        if (!active || lastMeasurement !== signature) return;
+        setMask(built.mask);
+        setOptics({ map: built.map, highlight: built.highlight, glyphs: built.glyphs, width, height });
+      }, () => { if (active && lastMeasurement === signature) lastMeasurement = ''; });
     };
     measure();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
@@ -166,8 +169,8 @@ export function LiquidGlassText({
   const gpuReady = wantsGPU && gpuStatus === 'active';
   const gpuOptions = useMemo(() => ({ map: optics?.map ?? '', scale: bend, dispersion: spread,
     additiveDispersion: true, neutralPoint: 128/255, specular: 0, classic: false,
-    radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.mask
-  }), [optics?.map, optics?.mask, bend, spread, blurRadius, saturationValue]);
+    radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.glyphs
+  }), [optics?.map, optics?.glyphs, bend, spread, blurRadius, saturationValue]);
   useEffect(() => {
     if (!layoutRef.current || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(entries => setVisible(entries[entries.length - 1].isIntersecting), { rootMargin: '150px' });
@@ -194,8 +197,12 @@ export function LiquidGlassText({
   useEffect(() => { gpu.current?.update(gpuOptions); }, [gpuOptions]);
   useEffect(() => { if (backdropVersion !== undefined) {scene.refresh();void gpu.current?.refresh().catch(() => {});} }, [backdropVersion]);
 
+  // The SVG lens masks itself to the glyphs inside its filter: Chrome ignores a CSS mask on a backdrop filter inside
+  // a rounded overflow clip, and an in-filter mask also follows the text through transforms.
+  const svgLens = !gpuReady && !wantsGPU && !!native && !!optics;
+  const cssMask = mask && !svgLens ? `url("${mask}")` : undefined, tintMask = mask ? `url("${mask}")` : undefined;
   const variables = {
-    '--slgf-filter': gpuReady ? 'none' : `${!wantsGPU && native && optics ? `url(#${filterId}) ` : ''}blur(${blurRadius}px) saturate(${saturationValue})`,
+    '--slgf-filter': gpuReady ? 'none' : svgLens ? `url(#${filterId})` : `blur(${blurRadius}px) saturate(${saturationValue})`,
     '--slgf-tint': tint,
     '--slgf-border-width': `${bounded(borderWidth, 1, 6)}px`,
     '--slgf-border-color': borderColor,
@@ -206,9 +213,10 @@ export function LiquidGlassText({
   } as CSSProperties;
 
   return <span {...props} className={['slgf-text', className].filter(Boolean).join(' ')} style={variables}>
-    <span ref={layoutRef} className="slgf-layout" data-ready={mask ? 'true' : undefined} data-renderer={gpuReady ? 'webgl' : !wantsGPU && native && optics ? 'native' : 'frosted'} data-renderer-reason={wantsGPU ? gpuStatus : undefined}>
+    <span ref={layoutRef} className="slgf-layout" data-ready={mask ? 'true' : undefined} data-renderer={gpuReady ? 'webgl' : svgLens ? 'native' : 'frosted'} data-renderer-reason={wantsGPU ? gpuStatus : undefined}>
       <span ref={textRef} className="slgf-letters">{children}<span ref={baselineRef} className="slgf-baseline" aria-hidden="true" /></span>
-      <span className="slgf-backdrop" aria-hidden="true" style={{ maskImage: mask ? `url("${mask}")` : undefined, WebkitMaskImage: mask ? `url("${mask}")` : undefined }}><span ref={gpuHolder} style={{ position: 'absolute', inset: 0, visibility: gpuReady ? 'visible' : 'hidden', pointerEvents: 'none' }} /><span className="slgf-gpu-tint" style={{ display: gpuReady ? undefined : 'none' }} /></span>
+      <span className="slgf-backdrop" aria-hidden="true" style={{ maskImage: cssMask, WebkitMaskImage: cssMask }}><span ref={gpuHolder} style={{ position: 'absolute', inset: 0, visibility: gpuReady ? 'visible' : 'hidden', pointerEvents: 'none' }} /></span>
+      <span className="slgf-tint" aria-hidden="true" data-mask={mask ? '' : undefined} style={{ maskImage: tintMask, WebkitMaskImage: tintMask }} />
       <span className="slgf-highlight" aria-hidden="true" style={{ backgroundImage: optics ? `url("${optics.highlight}")` : undefined }} />
       <svg className="slgf-filter" aria-hidden="true" focusable="false">
         {optics && <defs><filter id={filterId} filterUnits="userSpaceOnUse" x={-bend - 16} y={-bend - 16}
@@ -226,8 +234,12 @@ export function LiquidGlassText({
             <feDisplacementMap in="SourceGraphic" in2="map" scale={Math.max(0, bend - spread)} xChannelSelector="R" yChannelSelector="G" result="blueDisplaced" />
             <feColorMatrix in="blueDisplaced" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue" />
             <feBlend in="red" in2="green" mode="screen" result="rg" />
-            <feBlend in="rg" in2="blue" mode="screen" />
+            <feBlend in="rg" in2="blue" mode="screen" result="lensed" />
           </>}
+          <feGaussianBlur stdDeviation={blurRadius} result="frosted" />
+          <feColorMatrix in="frosted" type="saturate" values={String(saturationValue)} result="saturated" />
+          <feImage href={mask} x="0" y="0" width={optics.width} height={optics.height} preserveAspectRatio="none" result="glyphs" />
+          <feComposite in="saturated" in2="glyphs" operator="in" />
         </filter></defs>}
       </svg>
     </span>

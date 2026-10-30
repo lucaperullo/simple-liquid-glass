@@ -1,8 +1,20 @@
-## 5.5.1 — moving panels
+## 5.5.1 — moving glass
 
-- WebGL with native optics presents through bitmap transfer, like `optics="liquidgl"`, instead of copying the shared canvas into each panel every frame. Pixel output is unchanged. For six moving Retina panels in Chrome, main-thread script time drops from 33.7 to 26.9 ms/s (5.4.0: 26.2) and renderer CPU is lower than 5.5.0 in 9 of 11 paired runs. Those runs shared the Mac with other load, so the remaining gap to 5.4.0 is within noise rather than measured as zero.
-- WebGL quad draws cache their attribute location instead of querying it every draw.
-- SVG `optics="liquidgl"`: a panel moving near the edge of its backdrop no longer rebuilds its displacement map every frame. The refraction field is cached per panel shape, edge positions round to whole pixels, and position-only rebuilds run at most every 160 ms per encoded map (frost encodes 16), then settle on the exact map. Six moving Retina panels go from 907 to 67 ms/s renderer CPU, at 60 instead of 29 fps. Native SVG optics and still or interior panels are unchanged. Edge panels moving continuously still cost more than native optics (about 22 ms/s). Moving frosted `liquidgl` SVG panels drop from about 830 to 235 ms/s but remain at about 3 fps: Chromium re-runs the 16-sample filter every frame. Use WebGL for moving frosted glass.
+- **SVG displacement maps sized to the pane.** Chromium resends a backdrop filter's images to the GPU process with every frame in which the glass or its backdrop moves, so decoded map bytes were a per-frame cost. Native SVG maps were a fixed 512 px body (604×650 for a 180×120 pane); they now use 0.75 map pixels per CSS pixel of the longer side (64–512). `optics="liquidgl"` SVG maps drop from device resolution to 0.75 per CSS pixel. WebGL keeps 512 (uploaded once) and renders unchanged.
+- **Frosted `optics="liquidgl"` SVG** uses one map and a `feGaussianBlur` matched to liquidGL's 16-sample jitter disk instead of 16 maps. Blur extent is unchanged; the grain of the jittered samples is gone.
+- SVG `optics="liquidgl"`: a panel moving near the edge of its backdrop no longer rebuilds its map every frame. The refraction field is cached per panel shape, edge positions round to whole pixels, and position-only rebuilds run at most every 160 ms per encoded map, then settle on the exact map.
+- WebGL with native optics presents through bitmap transfer, like `optics="liquidgl"`, instead of copying the shared canvas into each panel every frame (pixel output unchanged). Quad draws cache their attribute location.
+- Chrome 156, M5 Retina, six panels unless noted (median of 4, frame rate and renderer main-thread ms/s):
+
+  | Scene | SVG 5.5.0 | SVG 5.5.1 | SVG liquidgl 5.5.0 | SVG liquidgl 5.5.1 | liquidGL WebGL |
+  |---|---|---|---|---|---|
+  | Moving panels | 60 fps · 20 | 60 fps · 19 | 26 fps · 797 | 60 fps · 33 | 60 fps · 26 |
+  | 24 moving panels | 16 fps · 11 | **60 fps** · 33 | 9 fps · 677 | 44 fps · 61 | 60 fps · 82 |
+  | Moving frosted panels | 60 fps · 23 | 60 fps · 20 | 1.5 fps · 802 | **60 fps** · 33 | 60 fps · 24 |
+  | Scroll | 60 fps · 13 | 60 fps · 11 | 60 fps · 16 | 60 fps · 14 | 60 fps · 21 |
+
+  CPU of the whole Chrome process tree for moving native SVG panels drops from 1212 to 463 ms/s and for scroll from 1093 to 350 ms/s. It remains higher than liquidGL with moving panels (463 vs 373 ms/s; 1013 vs 708 with 24 panels) because every SVG panel is its own GPU render pass. The WebGL renderer still draws 24 moving panels at about 31 fps.
+- Pixel changes against 5.5.0 on still scenes: native SVG 0.1–0.3/255 mean (rim pixels), liquidgl SVG 0.2–1.1/255, frosted liquidgl SVG 1.2–3.4/255 (grain). WebGL is identical.
 
 ## 5.5.0 — analytical optics, shared rendering, experimental scene
 

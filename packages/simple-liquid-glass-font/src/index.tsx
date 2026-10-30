@@ -42,7 +42,6 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
 }
 
 const bounded = (value: number, fallback: number, max: number, min = 0) => Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
-// Words are grouped by the element holding their wrappers: their glass is composited in one canvas there.
 // Canvas resolves family names, not CSS system-font keywords: computed styles quote generic keywords, and
 // -apple-system / BlinkMacSystemFont are CSS-only aliases. Map them so the glyph raster uses the same face.
 const GENERIC = /^(system-ui|ui-sans-serif|ui-serif|ui-monospace|ui-rounded|sans-serif|serif|monospace|cursive|fantasy)$/;
@@ -50,7 +49,13 @@ const canvasFamily = (family: string) => family.split(',').map(name => {
   const bare = name.trim().replace(/^["']|["']$/g, '');
   return bare === '-apple-system' || bare === 'BlinkMacSystemFont' ? 'system-ui' : GENERIC.test(bare) ? bare : `"${bare}"`;
 }).join(', ');
-const groupRoot = (layout: HTMLElement) => layout.parentElement?.parentElement ?? null;
+// Words are grouped by the nearest element that holds more than the word (wrappers around a single word, like a
+// span per animated word, are skipped): the glass of a heading's or sentence's words is composited there in one canvas.
+const groupRoot = (layout: HTMLElement) => {
+  let root = layout.parentElement?.parentElement ?? null;
+  for (let depth = 0; root && depth < 4 && root.childElementCount === 1 && root.parentElement && root.parentElement !== document.body; depth++) root = root.parentElement;
+  return root;
+};
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 
 export function LiquidGlassText({
@@ -91,12 +96,17 @@ export function LiquidGlassText({
     const measure = () => {
       if (!active) return;
       const computed = getComputedStyle(text);
-      const width = parseFloat(computed.width);
-      const height = parseFloat(computed.height);
+      // The raster covers the letters' padding box (the lens layers fill it): padding gives descenders and
+      // overhangs room under tight line heights.
+      const left = parseFloat(computed.paddingLeft) || 0, right = parseFloat(computed.paddingRight) || 0;
+      const vertical = (parseFloat(computed.paddingTop) || 0) + (parseFloat(computed.paddingBottom) || 0);
+      const borderBox = computed.boxSizing === 'border-box';
+      const width = parseFloat(computed.width) + (borderBox ? 0 : left + right), content = width - left - right;
+      const height = parseFloat(computed.height) + (borderBox ? 0 : vertical);
       if (!width || !height) { lastMeasurement = ''; setMask(undefined); setOptics(undefined); return; }
       const ratio = Math.min(2, window.devicePixelRatio || 1);
       const font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${canvasFamily(computed.fontFamily)}`;
-      const signature = JSON.stringify([children, edge, width, height, ratio, marker.offsetTop, font,
+      const signature = JSON.stringify([children, edge, width, height, left, ratio, marker.offsetTop, font,
         computed.fontKerning, computed.fontStretch, computed.fontVariantCaps,
         computed.letterSpacing, computed.wordSpacing, computed.direction, computed.textTransform,
         document.fonts?.check(font, children)]);
@@ -116,10 +126,10 @@ export function LiquidGlassText({
       context.wordSpacing = computed.wordSpacing;
       context.direction = computed.direction as CanvasDirection;
       context.textAlign = 'left';
-      let content = children;
-      if (computed.textTransform === 'uppercase') content = content.toLocaleUpperCase();
-      if (computed.textTransform === 'lowercase') content = content.toLocaleLowerCase();
-      context.fillText(content, 0, marker.offsetTop, width);
+      let label = children;
+      if (computed.textTransform === 'uppercase') label = label.toLocaleUpperCase();
+      if (computed.textTransform === 'lowercase') label = label.toLocaleLowerCase();
+      context.fillText(label, left, marker.offsetTop, content);
       // The raster is the glyph mask (also for a shared WebGL scene); the lens field is built off the main thread.
       const glyphs = context.getImageData(0, 0, canvas.width, canvas.height);
       void glyphOptics(signature, glyphs, edge * ratio).then(built => {
@@ -130,7 +140,7 @@ export function LiquidGlassText({
     };
     measure();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    observer?.observe(text);
+    observer?.observe(text, { box: 'border-box' });
     window.addEventListener('resize', measure);
     const fontLoaded = (event: FontFaceSetLoadEvent) => {
       const family = getComputedStyle(text).fontFamily.toLowerCase();
@@ -197,6 +207,18 @@ export function LiquidGlassText({
   useEffect(() => { gpu.current?.update(gpuOptions); }, [gpuOptions]);
   useEffect(() => { if (backdropVersion !== undefined) {scene.refresh();void gpu.current?.refresh().catch(() => {});} }, [backdropVersion]);
 
+  // Every primitive renders over the whole filter region, so it extends only as far as the farthest displaced sample
+  // (half the largest scale). Saturation is folded into the per-channel matrices of the colour separation, and a blur
+  // below half a pixel (invisible) adds no pass. Applying saturation per displaced image rather than to the recombined
+  // colour differs only inside the fringes.
+  const reach = Math.ceil((bend + spread) / 2) + 2;
+  const channel = (index: number) => {
+    const s = saturationValue, rows = [
+      [.213 + .787 * s, .715 - .715 * s, .072 - .072 * s],
+      [.213 - .213 * s, .715 + .285 * s, .072 - .072 * s],
+      [.213 - .213 * s, .715 - .715 * s, .072 + .928 * s]];
+    return [0, 1, 2].map(row => row === index ? `${rows[row].join(' ')} 0 0` : '0 0 0 0 0').join(' ') + ' 0 0 0 1 0';
+  };
   // The SVG lens masks itself to the glyphs inside its filter: Chrome ignores a CSS mask on a backdrop filter inside
   // a rounded overflow clip, and an in-filter mask also follows the text through transforms.
   const svgLens = !gpuReady && !wantsGPU && !!native && !!optics;
@@ -219,27 +241,29 @@ export function LiquidGlassText({
       <span className="slgf-tint" aria-hidden="true" data-mask={mask ? '' : undefined} style={{ maskImage: tintMask, WebkitMaskImage: tintMask }} />
       <span className="slgf-highlight" aria-hidden="true" style={{ backgroundImage: optics ? `url("${optics.highlight}")` : undefined }} />
       <svg className="slgf-filter" aria-hidden="true" focusable="false">
-        {optics && <defs><filter id={filterId} filterUnits="userSpaceOnUse" x={-bend - 16} y={-bend - 16}
-          width={optics.width + 2 * (bend + 16)} height={optics.height + 2 * (bend + 16)} colorInterpolationFilters="sRGB">
+        {optics && <defs><filter id={filterId} filterUnits="userSpaceOnUse" x={-reach} y={-reach}
+          width={optics.width + 2 * reach} height={optics.height + 2 * reach} colorInterpolationFilters="sRGB">
           <feImage href={optics.map} x="0" y="0" width={optics.width} height={optics.height} preserveAspectRatio="none" result="rawMap" />
           <feComponentTransfer in="rawMap" result="map">
             <feFuncR type="linear" slope="1" intercept={-1 / 510} />
             <feFuncG type="linear" slope="1" intercept={-1 / 510} />
           </feComponentTransfer>
-          {spread === 0 ? <feDisplacementMap in="SourceGraphic" in2="map" scale={bend} xChannelSelector="R" yChannelSelector="G" /> : <>
+          {spread === 0 ? <>
+            <feDisplacementMap in="SourceGraphic" in2="map" scale={bend} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+            <feColorMatrix in="displaced" type="saturate" values={String(saturationValue)} result="lensed" />
+          </> : <>
             <feDisplacementMap in="SourceGraphic" in2="map" scale={bend + spread} xChannelSelector="R" yChannelSelector="G" result="redDisplaced" />
-            <feColorMatrix in="redDisplaced" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red" />
+            <feColorMatrix in="redDisplaced" type="matrix" values={channel(0)} result="red" />
             <feDisplacementMap in="SourceGraphic" in2="map" scale={bend} xChannelSelector="R" yChannelSelector="G" result="greenDisplaced" />
-            <feColorMatrix in="greenDisplaced" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="green" />
+            <feColorMatrix in="greenDisplaced" type="matrix" values={channel(1)} result="green" />
             <feDisplacementMap in="SourceGraphic" in2="map" scale={Math.max(0, bend - spread)} xChannelSelector="R" yChannelSelector="G" result="blueDisplaced" />
-            <feColorMatrix in="blueDisplaced" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue" />
+            <feColorMatrix in="blueDisplaced" type="matrix" values={channel(2)} result="blue" />
             <feBlend in="red" in2="green" mode="screen" result="rg" />
             <feBlend in="rg" in2="blue" mode="screen" result="lensed" />
           </>}
-          <feGaussianBlur stdDeviation={blurRadius} result="frosted" />
-          <feColorMatrix in="frosted" type="saturate" values={String(saturationValue)} result="saturated" />
+          {blurRadius >= .5 && <feGaussianBlur in="lensed" stdDeviation={blurRadius} result="lensed" />}
           <feImage href={mask} x="0" y="0" width={optics.width} height={optics.height} preserveAspectRatio="none" result="glyphs" />
-          <feComposite in="saturated" in2="glyphs" operator="in" />
+          <feComposite in="lensed" in2="glyphs" operator="in" />
         </filter></defs>}
       </svg>
     </span>

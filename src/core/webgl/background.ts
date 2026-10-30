@@ -5,10 +5,17 @@ import { acquireTexture } from './textureCache';
 
 import type { EngineContext } from './types';
 
-/** Reuse a bounded static HTML texture while scrolling. Fall back for oversized sources. */
-export function cachedBackground(instance: EngineContext, source: HTMLElement, sourceBounds = () => source.getBoundingClientRect()) {
+/** Fraction of the free space before the content for one object-position component, or undefined (only %, keywords). */
+const alignment = (value: string | undefined) => value === undefined ? .5 : value.endsWith('%') ? parseFloat(value) / 100
+  : value === 'left' || value === 'top' ? 0 : value === 'right' || value === 'bottom' ? 1 : value === 'center' ? .5 : undefined;
+
+/** Reuse a bounded static HTML texture while scrolling. Fall back for oversized sources.
+ * With `videoFrame`, a playing video is uploaded once per presented frame and shared by every panel in the context,
+ * each sampling its own region (object-fit fill/contain/cover with percentage or keyword positions). */
+export function cachedBackground(instance: EngineContext, source: HTMLElement, sourceBounds = () => source.getBoundingClientRect(),
+  videoFrame?: () => number) {
   const renderer = instance.renderer, gl: WebGLRenderingContext = renderer.gl;
-  let image: HTMLCanvasElement | undefined;
+  let image: HTMLCanvasElement | HTMLVideoElement | undefined, imageFrame: number | undefined;
   let texture: WebGLTexture | null = null;
   let textureLease: ReturnType<typeof acquireTexture> | undefined;
   let program: WebGLProgram | null = null;
@@ -78,9 +85,36 @@ export function cachedBackground(instance: EngineContext, source: HTMLElement, s
     }
   };
 
+  const videoRegion = (rect: DOMRect, padding: number) => {
+    const video = source as HTMLVideoElement, frame = videoFrame!();
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh || vw > limit || vh > limit || video.readyState < 2 || renderer.contextLost) return false;
+    const bounds = sourceBounds(), style = getComputedStyle(video), [px, py] = style.objectPosition.split(' ');
+    const ax = alignment(px), ay = alignment(py);
+    let fx = bounds.width / vw, fy = bounds.height / vh;
+    if (style.objectFit === 'cover') fx = fy = Math.max(fx, fy);
+    else if (style.objectFit === 'contain') fx = fy = Math.min(fx, fy);
+    else if (style.objectFit !== 'fill') return false;
+    if (ax === undefined || ay === undefined) return false;
+    // The crop path clips the video to its element: sample in place only when the panel lies inside it (its shadow
+    // margin may reach past the edge, where sampling clamps).
+    if (rect.left < bounds.left - .5 || rect.top < bounds.top - .5 || rect.right > bounds.right + .5 || rect.bottom > bounds.bottom + .5) return false;
+    if (video !== image || frame !== imageFrame) {
+      gl.activeTexture(gl.TEXTURE0);
+      const next = acquireTexture(gl, video, true, frame);
+      textureLease?.release(); textureLease = next; texture = next.texture;
+      image = video; imageFrame = frame;
+    }
+    const dw = vw * fx, dh = vh * fy, left = bounds.left + (bounds.width - dw) * ax, top = bounds.top + (bounds.height - dh) * ay;
+    region = {x: (rect.left - padding - left) / dw, y: 1 - (rect.bottom + padding - top) / dh,
+      w: (rect.width + padding * 2) / dw, h: (rect.height + padding * 2) / dh};
+    return true;
+  };
+
   return (rect: DOMRect | undefined, padding: number) => {
     region = undefined;
     if (!rect) return false;
+    if (videoFrame) return videoRegion(rect, padding);
     const snapshot = instance.capture.cache.get(source)?.canvas as HTMLCanvasElement | undefined;
     if (!snapshot || snapshot.width > limit || snapshot.height > limit || snapshot.width * snapshot.height * 4 > 64 * 1024 * 1024) return false;
     if (renderer.contextLost) return false;

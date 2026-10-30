@@ -96,3 +96,13 @@ test('printing restores solid readable text', async ({ page }) => {
   const color = await page.locator('.slgf-letters').evaluate(element => getComputedStyle(element).color);
   expect(color).not.toBe('rgba(0, 0, 0, 0)');
 });
+
+test('the lens covers padded letters, so padding can make room for descenders', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'The in-filter glyph mask is the native SVG lens.');
+  await page.addStyleTag({ content: '.slgf-letters{padding:.12em .06em .24em}' });
+  const layout = page.locator('.slgf-layout');
+  await expect.poll(async () => {
+    const box = await layout.boundingBox(), glyphs = page.locator('feImage[result="glyphs"]');
+    return Math.abs(Number(await glyphs.getAttribute('width')) - box!.width) < 1 && Math.abs(Number(await glyphs.getAttribute('height')) - box!.height) < 1;
+  }).toBe(true);
+});

@@ -64,7 +64,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   const origin = document.createElement('div');
   origin.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none';
   origin.setAttribute('aria-hidden', 'true'); document.body.append(origin);
-  const prepare = media ? undefined : cachedBackground(context, source, () => sourceRect);
+  // Captured HTML and playing videos are sampled in place from one shared texture; canvases keep the crop path.
+  let mediaFrame = 0;
+  const prepare = video ? cachedBackground(context, source, () => sourceRect, () => mediaFrame)
+    : media ? undefined : cachedBackground(context, source, () => sourceRect);
   const optics = installPackageOptics(context, () => options);
   const liquidOptics = analytical?.(context);
   canvas.setAttribute('aria-hidden', 'true');
@@ -85,7 +88,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   // while geometry/optics changes remain free to render at the display cadence.
   let videoFrame = 0, videoCallback: number | undefined;
   const trackVideoFrame: VideoFrameRequestCallback = (_now,metadata) => {
-    videoFrame=metadata.presentedFrames;
+    videoFrame=metadata.presentedFrames??videoFrame+1;
     if (!disposed) videoCallback = video!.requestVideoFrameCallback(trackVideoFrame);
   };
   if (video?.requestVideoFrameCallback) videoCallback = video.requestVideoFrameCallback(trackVideoFrame);
@@ -146,6 +149,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       canvas.style.left=canvas.style.top=`-${pad}px`;}
       // A uniformly scaled panel samples the cached backdrop over its scaled extent (padding included) instead of
       // re-cropping and re-uploading it every frame; non-uniform scale keeps the crop.
+      mediaFrame = time;
       const useCache = Math.abs(scaleX - scaleY) < 1e-3 && prepare?.(rect, pad * scaleX);
       // Reset cached crop when switching to a transformed output.
       if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, pad);

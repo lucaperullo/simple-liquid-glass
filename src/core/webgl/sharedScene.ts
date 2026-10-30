@@ -1,5 +1,5 @@
 import { VS_QUAD } from '../../vendor/ybouane/shaders';
-import { subscribeFrame } from './contextPool';
+import { frameRect, subscribeFrame } from './contextPool';
 import { createWebGLEngine } from './runtime';
 import type { installLiquidGLOptics } from './liquidGLOptics';
 import type { SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
@@ -56,6 +56,8 @@ class Scene {
   private stop: () => void = () => {};
   private canvasRect?: DOMRect;
   private left = 0; private top = 0; private drawn = '';
+  // Re-place the canvas only when the parent's children change (keyed re-renders can reorder panels).
+  private readonly order = new MutationObserver(() => this.place());
 
   constructor(readonly parent: HTMLElement, readonly source: HTMLElement, readonly zIndex: string, private readonly done: (scene: Scene) => void) {
     const gl = this.canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: true });
@@ -66,6 +68,7 @@ class Scene {
     this.canvas.dataset.liquidGlassScene = ''; this.canvas.setAttribute('aria-hidden', 'true');
     this.canvas.addEventListener('webglcontextlost', this.lost);
     this.canvas.addEventListener('webglcontextrestored', this.restored);
+    this.order.observe(parent, { childList: true });
   }
 
   private lost = (event: Event) => { event.preventDefault(); };
@@ -128,7 +131,7 @@ class Scene {
     this.canvasRect = this.canvas.isConnected ? this.canvas.getBoundingClientRect() : undefined;
     for (const slot of [...this.slots]) {
       if (slot.panel.parentElement !== this.parent) { slot.evict(); continue; }
-      const rect = slot.panel.getBoundingClientRect();
+      const rect = frameRect(slot.panel);
       // Scaled ancestors change the panel's rendered size; its own canvas follows that, a shared one cannot.
       if (Math.abs(rect.width - slot.panel.offsetWidth) >= 1 || Math.abs(rect.height - slot.panel.offsetHeight) >= 1) { slot.evict(); continue; }
       slot.rect = rect;
@@ -138,7 +141,6 @@ class Scene {
   private frame = () => {
     const gl = this.gl;
     if (gl.isContextLost() || !this.canvasRect) return;
-    this.place(); // keyed re-renders can move panels
     const dpr = Math.min(devicePixelRatio || 1, MAX_DPR);
     const view = { left: -VIEWPORT_MARGIN * dpr, top: -VIEWPORT_MARGIN * dpr, right: (innerWidth + VIEWPORT_MARGIN) * dpr, bottom: (innerHeight + VIEWPORT_MARGIN) * dpr };
     const boxes: Array<{ slot: Slot; x: number; y: number; w: number; h: number }> = [];
@@ -192,7 +194,7 @@ class Scene {
   };
 
   private destroy() {
-    this.stop();
+    this.stop(); this.order.disconnect();
     this.canvas.removeEventListener('webglcontextlost', this.lost);
     this.canvas.removeEventListener('webglcontextrestored', this.restored);
     if (!this.gl.isContextLost()) { if (this.program) this.gl.deleteProgram(this.program); if (this.quad) this.gl.deleteBuffer(this.quad); }

@@ -21,6 +21,20 @@ export function acquireContextCanvas(bitmap=false) {
     }
   };
 }
+// Many panels read the same layout (their backdrop, the scroll) every frame. Share each read within one
+// synchronous frame; a microtask clears it, so it never outlives the frame whichever bundle owns the ticker.
+const rects = new Map<Element, DOMRect>();
+let scroll: { y: number; max: number } | undefined, clearing = false;
+const clearSoon = () => { if (clearing) return; clearing = true; queueMicrotask(() => { rects.clear(); scroll = undefined; clearing = false; }); };
+export function frameRect(element: Element): DOMRect {
+  let rect = rects.get(element);
+  if (!rect) { rect = element.getBoundingClientRect(); rects.set(element, rect); clearSoon(); }
+  return rect;
+}
+export function frameScroll(): { y: number; max: number } {
+  if (!scroll) { scroll = { y: scrollY, max: Math.max(0, document.documentElement.scrollHeight - innerHeight) }; clearSoon(); }
+  return scroll;
+}
 function tick() {
   pool.raf = 0; pool.ticking = true;
   try { const frames=[...pool.frames];for(const frame of frames)if(pool.frames.has(frame))pool.readers?.get(frame)?.();for(const frame of frames)if(pool.frames.has(frame))frame(); }

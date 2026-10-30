@@ -4,7 +4,7 @@ import { cachedBackground } from './background';
 import type { installLiquidGLOptics } from './liquidGLOptics';
 import { installPackageOptics } from './optics';
 import { acquireSource } from './source';
-import { acquireContextCanvas, subscribeFrame } from './contextPool';
+import { acquireContextCanvas, frameRect, frameScroll, subscribeFrame } from './contextPool';
 import { invalidateTextures } from './textureCache';
 import { canvasFrame } from './canvasFrames';
 import type { EngineContext, SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
@@ -71,7 +71,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   canvas.dataset.liquidGlassWebgl = '';
   canvas.style.cssText = `display:block;position:absolute;left:-${SHADOW_PAD}px;top:-${SHADOW_PAD}px;pointer-events:none`;
   if(!slot)holder.append(canvas);
-  let lastGeometry = '', lastTime = -1;
+  // Numbers, not a joined string: this runs for every panel on every frame.
+  const lastGeometry = new Float64Array(9).fill(NaN); let lastTime = -1;
   const lose = () => { invalidateTextures(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
   const restore = () => { changed(); setStatus('pending'); };
   renderer.canvas.addEventListener('webglcontextlost', lose);
@@ -93,8 +94,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   function measure(){
     if(disposed||document.hidden||renderer.contextLost||(faulted&&!dirty))return;
     try {
-      const measured=source.getBoundingClientRect(),lens=panel.getBoundingClientRect();
-      const y=scrollY,max=Math.max(0,document.documentElement.scrollHeight-innerHeight);
+      const measured=frameRect(source),lens=frameRect(panel),{y,max}=frameScroll();
       const fixedOffset=(y<0||y>max)&&fixedPanel?origin.getBoundingClientRect().top:0;
       // offsetWidth/Height round the layout size; within a pixel of it the box is not transformed, and its exact
       // size keeps the transform scale at 1 (the cached-background path) instead of a sub-pixel "scale".
@@ -116,10 +116,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       const rect=new DOMRect(lens.left,lens.top-fixedOffset,lens.width,lens.height);
       if(!width||!height||!sourceRect.width||!sourceRect.height)return;
       const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3);
-      const geometry = [rect.left - sourceRect.left, rect.top - sourceRect.top, sourceRect.width, sourceRect.height, width, height, rect.width, rect.height, dpr].join(':');
+      const g0=rect.left-sourceRect.left,g1=rect.top-sourceRect.top,g2=sourceRect.width,g3=sourceRect.height,g4=rect.width,g5=rect.height;
+      const sameGeometry=lastGeometry[0]===g0&&lastGeometry[1]===g1&&lastGeometry[2]===g2&&lastGeometry[3]===g3&&lastGeometry[4]===width&&lastGeometry[5]===height&&lastGeometry[6]===g4&&lastGeometry[7]===g5&&lastGeometry[8]===dpr;
+      const keepGeometry=()=>{lastGeometry[0]=g0;lastGeometry[1]=g1;lastGeometry[2]=g2;lastGeometry[3]=g3;lastGeometry[4]=width;lastGeometry[5]=height;lastGeometry[6]=g4;lastGeometry[7]=g5;lastGeometry[8]=dpr;};
       const version = media instanceof HTMLCanvasElement ? canvasFrame(media) : undefined;
       const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? version ?? 0;
-      if (!options.liquidGL?.specular && !dirty && geometry === lastGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
+      if (!options.liquidGL?.specular && !dirty && sameGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
       if (video && video.readyState < 2) return;
       const snapshot = media ?? shared?.capture.cache.get(source)?.canvas;
       if (!snapshot) return; // Keep the previous complete output during captures.
@@ -133,16 +135,15 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
         else{canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
         canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
         present(rendered.w,rendered.h);}
-        dirty=false;lastGeometry=geometry;lastTime=time;
+        dirty=false;keepGeometry();lastTime=time;
         if(!ready){ready=true;setStatus('active');}
         return;
       }
-      canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
-      canvas.style.transform='';
-      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;
       if(slot)renderer.target=slot.prepare(w,h);
-      const sampleRect = new DOMRect(rect.left, rect.top, rect.width, rect.height);
-      const useCache = scaleX === 1 && scaleY === 1 && prepare?.(sampleRect, SHADOW_PAD);
+      else{canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
+      canvas.style.transform='';
+      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;}
+      const useCache = scaleX === 1 && scaleY === 1 && prepare?.(rect, SHADOW_PAD);
       // Reset cached crop when switching to a transformed output.
       if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, SHADOW_PAD);
       if (!useCache) {
@@ -175,10 +176,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
         }
       }
       renderer.uploadAndBlur(scene, 0, 0, w, h, Math.max(0, options.blur) / 5);
-      renderer.clear();
+      if(!slot)renderer.clear(); // a scene slot's target is cleared by prepare()
       renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
       if(slot)slot.present(-SHADOW_PAD*dpr,-SHADOW_PAD*dpr,w,h,dpr);else present(w,h);
-      dirty = false; lastGeometry = geometry; lastTime = time;
+      dirty = false; keepGeometry(); lastTime = time;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }
     } catch {

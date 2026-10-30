@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
+import * as model from '../core/liquidGLModel';
 import {liquidGLCoefficients,liquidGLField} from '../core/liquidGLModel';
-import {buildSvgLiquidAsset,svgLiquidKey,svgLiquidCacheInfo} from '../core/svgLiquidGL';
+import {buildSvgLiquidAsset,svgLiquidKey,svgLiquidShapeKey,svgLiquidCacheInfo} from '../core/svgLiquidGL';
 const geometry={width:12,height:8,radius:2,sourceWidth:1200,sourceHeight:2400,x:400,y:400,dpr:1,scaleX:1,scaleY:1};
 const c=liquidGLCoefficients(undefined);
 afterEach(()=>jest.restoreAllMocks());
@@ -43,4 +44,18 @@ test('the LRU stays bounded when many distinct geometries are requested',()=>{
  for(let i=0;i<40;i++)buildSvgLiquidAsset({...geometry,width:13+i},{refraction:0,bevelDepth:0});
  expect(svgLiquidCacheInfo().entries).toBe(32);
  expect(svgLiquidCacheInfo().decodedBytes).toBeLessThanOrEqual(svgLiquidCacheInfo().budget);
+});
+
+test('edge positions round to whole pixels and share the position-free shape key',()=>{
+ expect(svgLiquidKey({...geometry,x:0},c)).toBe(svgLiquidKey({...geometry,x:.3},c));
+ expect(svgLiquidShapeKey({...geometry,x:0,y:3},c)).toBe(svgLiquidShapeKey({...geometry,x:7,y:900},c));
+ expect(svgLiquidShapeKey({...geometry,width:20},c)).not.toBe(svgLiquidShapeKey(geometry,c));
+});
+test('a pane moving along the source edge reuses its refraction field',()=>{
+ jest.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue({createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:()=>{}} as any);
+ jest.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('data:image/png;base64,map');
+ const edge={...geometry,width:14,x:0,y:0},field=jest.spyOn(model,'liquidGLField');
+ const first=buildSvgLiquidAsset(edge,undefined);const calls=field.mock.calls.length;expect(calls).toBe(14*8);
+ const moved=buildSvgLiquidAsset({...edge,x:3},undefined);
+ expect(moved).not.toBe(first);expect(field.mock.calls.length).toBe(calls);
 });

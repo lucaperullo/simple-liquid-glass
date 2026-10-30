@@ -4,7 +4,8 @@ declare const lab:any;
 declare global {interface Window {contexts:any[]}}
 function run(name:string,fn:(page:any)=>Promise<unknown>){
  test(name,async({page,browserName})=>{
-  await page.addInitScript(()=>{window.contexts=[];const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type:string,...args:any[]){const c=(get as any).call(this,type,...args);if(type==='webgl'&&c&&!window.contexts.some(x=>x.deref()===c))window.contexts.push(new WeakRef(c));return c}as any});
+  // The shared context lives on an OffscreenCanvas when bitmap transfer is available.
+  await page.addInitScript(()=>{window.contexts=[];for(const proto of [HTMLCanvasElement.prototype,typeof OffscreenCanvas==='undefined'?undefined:OffscreenCanvas.prototype]){if(!proto)continue;const get=proto.getContext;(proto as any).getContext=function(type:string,...args:any[]){const c=(get as any).call(this,type,...args);if(type==='webgl'&&c&&!window.contexts.some(x=>x.deref()===c))window.contexts.push(new WeakRef(c));return c}}});
   await page.goto('/tests/browser/optimization.html');await page.waitForFunction(()=>!!(window as any).lab);
   if(name.startsWith('alpha')||name.startsWith('custom')){const available=await page.evaluate(()=>!!document.createElement('canvas').getContext('webgl'));test.skip(!available,'The browser has no WebGL context');await page.evaluate(()=>{window.contexts=[]})}
   if(name.startsWith('custom')||name.startsWith('partial'))test.skip(browserName!=='chromium','Native SVG/section eligibility is verified on Chromium; other backends retain full capture');
@@ -21,7 +22,7 @@ run('alpha and 24 simultaneous surfaces, isolation, shared context, recovery',as
   for(let i=0;i<24;i++){const panel=document.createElement('div');panel.style.cssText=`position:absolute;left:${i%6*120+4}px;top:${Math.floor(i/6)*80+4}px;width:${96+i%3*5}px;height:${56+i%3*5}px`;document.body.append(panel);panels.push(panel);surfaces.push(lab.createWebGLSurface(panel,panel,source,options,s=>statuses[i]=s))}
   for(let i=0;i<200&&statuses.filter(s=>s==='active').length!==24;i++)await wait(20);
   const pixels=()=>panels.map((p,i)=>{const c=p.querySelector('canvas');if(!c)return null;return [...c.getContext('2d').getImageData(c.width/2,c.height/2,1,1).data]});
-  const first=pixels(),contexts=window.contexts.map(r=>r.deref()).filter(Boolean),gl=contexts[0];
+  const first=pixels(),contexts=window.contexts.map(r=>r.deref()).filter(c=>c&&!c.isContextLost()),gl=contexts[0];
   const ext=gl.getExtension('WEBGL_lose_context');ext.loseContext();await wait(150);const lost=statuses.filter(s=>s==='webgl-unavailable').length;ext.restoreContext();for(let i=0;i<200&&statuses.filter(s=>s==='active').length!==24;i++)await wait(20);const restored=pixels();
   ctx.clearRect(0,0,720,320);ctx.fillStyle='rgba(255,0,0,.5)';ctx.fillRect(0,0,720,320);await wait(100);const alpha=pixels()[0];
   surfaces.forEach(s=>s.destroy());await wait(50);

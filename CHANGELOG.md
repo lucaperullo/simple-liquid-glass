@@ -1,3 +1,9 @@
+## 5.5.1 — moving panels
+
+- WebGL with native optics presents through bitmap transfer, like `optics="liquidgl"`, instead of copying the shared canvas into each panel every frame. Pixel output is unchanged. For six moving Retina panels in Chrome, main-thread script time drops from 33.7 to 26.9 ms/s (5.4.0: 26.2) and renderer CPU is lower than 5.5.0 in 9 of 11 paired runs. Those runs shared the Mac with other load, so the remaining gap to 5.4.0 is within noise rather than measured as zero.
+- WebGL quad draws cache their attribute location instead of querying it every draw.
+- SVG `optics="liquidgl"`: a panel moving near the edge of its backdrop no longer rebuilds its displacement map every frame. The refraction field is cached per panel shape, edge positions round to whole pixels, and position-only rebuilds run at most every 160 ms, then settle on the exact map. Six moving Retina panels go from 907 to 67 ms/s renderer CPU, at 60 instead of 29 fps. Native SVG optics and still or interior panels are unchanged. Edge panels moving continuously still cost more than native optics (about 22 ms/s).
+
 ## 5.5.0 — analytical optics, shared rendering, experimental scene
 
 - New `optics="liquidgl"` (SVG and WebGL) and WebGL-only `webglOptics="liquidgl"` select an analytical rounded-box refraction model adapted from naughtyduk/liquidGL (MIT, see `THIRD_PARTY_NOTICES.md`), configured with `liquidGLOptions`. Native optics remain the default.

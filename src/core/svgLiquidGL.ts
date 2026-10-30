@@ -4,16 +4,40 @@ export interface SvgLiquidGeometry { width:number;height:number;radius:number;so
 export interface SvgLiquidAsset { maps:string[][];scale:number;padding:number;width:number;height:number;dpr:number;coefficients:LiquidGLCoefficients;decodedBytes:number;key:string }
 const cache=new Map<string,SvgLiquidAsset>();let bytes=0;
 const BUDGET=64*1024*1024,MAX_ENTRIES=32;
-const quant=(x:number)=>Math.round(x*4)/4;
+// Edge positions only move the out-of-source fade, whose ramp spans 1% of the source; whole pixels keep it exact enough.
+const quant=(x:number)=>Math.round(x);
 export function svgLiquidKey(g:SvgLiquidGeometry,c:LiquidGLCoefficients){
  const extent=(c.refraction+c.bevelDepth)*(1+c.aberration);
  const mx=g.sourceWidth*extent+4*c.frost/g.dpr,my=g.sourceHeight*extent+4*c.frost/g.dpr;
  const coordinate=(v:number,size:number,source:number,margin:number)=>v>=margin&&v+size<=source-margin?'inside':quant(v);
- return JSON.stringify([g.width,g.height,g.radius,g.sourceWidth,g.sourceHeight,g.dpr,g.scaleX,g.scaleY,coordinate(g.x,g.width*g.scaleX,g.sourceWidth,mx),coordinate(g.y,g.height*g.scaleY,g.sourceHeight,my),c.refraction,c.bevelDepth,c.bevelWidth,c.frost,c.aberration]);
+ return JSON.stringify([svgLiquidShapeKey(g,c),coordinate(g.x,g.width*g.scaleX,g.sourceWidth,mx),coordinate(g.y,g.height*g.scaleY,g.sourceHeight,my)]);
+}
+/** The key without the pane position: equal shape keys differ only in where a pane sits near the source edge. */
+export function svgLiquidShapeKey(g:SvgLiquidGeometry,c:LiquidGLCoefficients){
+ return JSON.stringify([g.width,g.height,g.radius,g.sourceWidth,g.sourceHeight,g.dpr,g.scaleX,g.scaleY,c.refraction,c.bevelDepth,c.bevelWidth,c.frost,c.aberration]);
 }
 // Match the reference's float arithmetic as closely as JavaScript permits; GPU sin is implementation dependent.
 const f=Math.fround;
 function random(x:number,y:number){const n=f(f(Math.sin(f(f(f(x)*f(12.9898))+f(f(y)*f(78.233)))))*f(43758.5453123));return n-Math.floor(n)}
+// The refraction field and rounded mask depend only on the pane shape; a pane moving near the source edge reuses them.
+interface ShapeField { dx:Float64Array;dy:Float64Array;mask:Uint8Array }
+const fields=new Map<string,ShapeField>();let fieldBytes=0;
+const FIELD_BUDGET=16*1024*1024,fieldSize=(width:number,height:number)=>width*height*17;
+function shapeField(g:SvgLiquidGeometry,c:LiquidGLCoefficients,width:number,height:number):ShapeField{
+ const key=svgLiquidShapeKey(g,c),hit=fields.get(key);
+ if(hit){fields.delete(key);fields.set(key,hit);return hit;}
+ const count=width*height,dx=new Float64Array(count),dy=new Float64Array(count),mask=new Uint8Array(count);
+ for(let row=0;row<height;row++)for(let col=0;col<width;col++){
+  const i=row*width+col,x=(col+.5)/width*g.width*g.scaleX,y=(row+.5)/height*g.height*g.scaleY;
+  const field=liquidGLField(x,y,g.width*g.scaleX,g.height*g.scaleY,g.radius,c);dx[i]=field[0]*g.sourceWidth;dy[i]=field[1]*g.sourceHeight;
+  const qx=Math.max(Math.abs(x-g.width*g.scaleX/2)-g.width*g.scaleX/2+g.radius,0),qy=Math.max(Math.abs(g.height*g.scaleY/2-y)-g.height*g.scaleY/2+g.radius,0);
+  mask[i]=Math.round(255*(1-smoothstep(-.5,.5,(Math.hypot(qx,qy)-g.radius)*g.dpr)));
+ }
+ const field={dx,dy,mask},bytes=fieldSize(width,height);
+ if(bytes>FIELD_BUDGET)return field;
+ while(fields.size&&fieldBytes+bytes>FIELD_BUDGET){const [oldest,entry]=fields.entries().next().value!;fieldBytes-=fieldSize(entry.mask.length,1);fields.delete(oldest);}
+ fields.set(key,field);fieldBytes+=bytes;return field;
+}
 export function buildSvgLiquidAsset(g:SvgLiquidGeometry,options:LiquidGLOptions|undefined,blur=0):SvgLiquidAsset{
  const c=liquidGLCoefficients(options,blur),key=svgLiquidKey(g,c),hit=cache.get(key);
  if(hit){cache.delete(key);cache.set(key,hit);return hit;}
@@ -30,13 +54,10 @@ export function buildSvgLiquidAsset(g:SvgLiquidGeometry,options:LiquidGLOptions|
  const mx=g.sourceWidth*margin+4*c.frost/g.dpr,my=g.sourceHeight*margin+4*c.frost/g.dpr;
  const gx=g.x>=mx&&g.x+g.width*g.scaleX<=g.sourceWidth-mx?(g.sourceWidth-g.width*g.scaleX)/2:quant(g.x);
  const gy=g.y>=my&&g.y+g.height*g.scaleY<=g.sourceHeight-my?(g.sourceHeight-g.height*g.scaleY)/2:quant(g.y);
- const dx=new Float64Array(count),dy=new Float64Array(count),blend=new Float64Array(count),mask=new Uint8Array(count);
+ const {dx,dy,mask}=shapeField(g,c,width,height),blend=new Float64Array(count);
  const captureDpr=Math.min(g.dpr,2,16384/g.sourceWidth,16384/g.sourceHeight,Math.sqrt(16*1024*1024/(g.sourceWidth*g.sourceHeight)));
  for(let row=0;row<height;row++)for(let col=0;col<width;col++){
   const i=row*width+col,x=(col+.5)/width*g.width*g.scaleX,y=(row+.5)/height*g.height*g.scaleY;
-  const field=liquidGLField(x,y,g.width*g.scaleX,g.height*g.scaleY,g.radius,c);dx[i]=field[0]*g.sourceWidth;dy[i]=field[1]*g.sourceHeight;
-  const qx=Math.max(Math.abs(x-g.width*g.scaleX/2)-g.width*g.scaleX/2+g.radius,0),qy=Math.max(Math.abs(g.height*g.scaleY/2-y)-g.height*g.scaleY/2+g.radius,0);
-  mask[i]=Math.round(255*(1-smoothstep(-.5,.5,(Math.hypot(qx,qy)-g.radius)*g.dpr)));
   const u=(gx+x+dx[i])/g.sourceWidth,v=(gy+y+dy[i])/g.sourceHeight,oob=Math.max(-u,u-1,-v,v-1);
   blend[i]=1-smoothstep(0,.01,oob);
  }

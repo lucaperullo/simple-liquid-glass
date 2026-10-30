@@ -24,7 +24,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false): WebGLEngine {
   const canvas = document.createElement('canvas'), scene = document.createElement('canvas');
   canvas.width = canvas.height = scene.width = scene.height = 1;
-  const transfer=initial.optics==='liquidgl'&&!forceLegacy&&!!analytical?.supportsBitmap();
+  // Copying the shared canvas costs every moving frame; transfer its bitmap whenever the probe allows, for both optics.
+  const transfer=!forceLegacy&&!!analytical?.supportsBitmap();
   const output=canvas.getContext('2d'),ctx=scene.getContext('2d');
   if(!output||!ctx)throw new Error('LiquidGlass: canvas unavailable');
   const lease=acquireContextCanvas(transfer);

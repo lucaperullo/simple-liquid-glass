@@ -71,6 +71,6 @@
     "access": "public"
   },
   "dependencies": {
-    "simple-liquid-glass": "^5.4.0"
+    "simple-liquid-glass": "^5.5.0"
   }
 }

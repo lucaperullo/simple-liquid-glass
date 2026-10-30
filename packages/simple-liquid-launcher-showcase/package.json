@@ -15,7 +15,7 @@
     "lucide-react": "0.541.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "simple-liquid-glass": "5.4.0",
+    "simple-liquid-glass": "5.5.0",
     "simple-liquid-text": "0.4.0",
     "three": "^0.186.0"
   },

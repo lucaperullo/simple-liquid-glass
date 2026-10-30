@@ -38,7 +38,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
     throw error;
   }
   canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
-  if(slot){panel.dataset.glassComposition='scene';slot.mask(initial.mask);}
+  if(slot){panel.dataset.glassComposition='scene';slot.mask(initial.mask,initial.reveal);}
   const present=(w:number,h:number)=>{
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     if(bitmaps){bitmaps.transferFromImageBitmap((renderer.canvas as OffscreenCanvas).transferToImageBitmap());return}
@@ -200,7 +200,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   if (shared && !shared.capture.cache.has(source)) void shared.refresh().catch(() => {});
   const stopFrame = subscribeFrame(frame,()=>{measurement=measure();});
   return {
-    update(next) { if (slot && next.mask !== options.mask) slot.mask(next.mask); options = next; changed(); },
+    update(next) { if (slot && (next.mask !== options.mask || next.reveal !== options.reveal)) slot.mask(next.mask, next.reveal); options = next; changed(); },
     async refresh() { await shared?.refresh(); changed(); },
     destroy() {
       if (disposed) return;

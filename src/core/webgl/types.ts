@@ -33,6 +33,9 @@ export interface WebGLOptions {
   mask?: TexImageSource;
   /** false: no outer shadow, so no shadow margin is rendered around the panel (glyph surfaces). Default true. */
   shadow?: boolean;
+  /** Fraction of the panel width shown from its left edge (typing glyphs in). A shared scene clips while
+   * compositing; a panel with its own canvas ignores it, so the caller clips that holder with CSS. */
+  reveal?: number;
 }
 export type WebGLStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-backdrop'
   | 'invalid-selector' | 'webgl-unavailable' | 'capture-failed';
@@ -54,7 +57,7 @@ export interface SceneSlot {
   prepare(w: number, h: number): WebGLFramebuffer;
   /** The drawn framebuffer is ready; (x, y) offsets it from the panel's top-left in device pixels at `dpr`. */
   present(x: number, y: number, w: number, h: number, dpr: number): void;
-  /** Alpha mask over the panel box, or none. */
-  mask(source?: TexImageSource): void;
+  /** Alpha mask over the panel box, or none, shown up to `reveal` (fraction of the width, default 1). */
+  mask(source?: TexImageSource, reveal?: number): void;
   release(): void;
 }

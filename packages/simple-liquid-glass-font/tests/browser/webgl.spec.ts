@@ -78,3 +78,22 @@ test('on Chromium a crowd of words moves from SVG to one shared WebGL canvas', a
   await page.goto('/tests/browser/crowd.html?words=20&scene=off');
   await expect.poll(kinds).toEqual(['native']);
 });
+
+test('reveal types characters in by clipping the lens, without rebuilding it', async ({ page, browserName }) => {
+  await page.goto('/tests/browser/crowd.html?words=1&reveal=2');
+  const layout = page.locator('.slgf-layout');
+  await expect(layout).toHaveAttribute('data-ready', 'true');
+  const width = (await layout.boundingBox())!.width;
+  const clip = await page.locator('.slgf-letters').evaluate(el => getComputedStyle(el).clipPath);
+  const hidden = Number(/inset\([^ ]+ ([\d.]+)px/.exec(clip)?.[1]);
+  // "Wo" of "Word 1": most of the word stays hidden.
+  expect(hidden).toBeGreaterThan(width * .4);
+  expect(hidden).toBeLessThan(width * .9);
+  if (browserName === 'chromium') {
+    const map = await page.locator('feImage[result="rawMap"]').getAttribute('href');
+    expect(Number(await page.locator('feComposite[operator="in"]').getAttribute('width'))).toBeLessThan(width);
+    await page.goto('/tests/browser/crowd.html?words=1');
+    await expect(layout).toHaveAttribute('data-ready', 'true');
+    expect(await page.locator('feImage[result="rawMap"]').getAttribute('href')).toBe(map);
+  }
+});

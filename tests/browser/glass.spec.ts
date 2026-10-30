@@ -125,6 +125,23 @@ test('scaled panels stay in the shared scene; rotated ones keep their own canvas
   await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(1);
 });
 
+test('a shared scene inside a scaled ancestor stays on its panels', async ({ page, browserName }) => {
+  test.skip(browserName === 'chromium', 'Chromium renders few panels through SVG');
+  await page.goto('/tests/browser/?siblings=6');
+  test.skip(!(await webglAvailable(page)), 'The browser has no WebGL context');
+  await expect(page.locator('#root [data-glass-composition="scene"]')).toHaveCount(6);
+  await page.locator('#root').evaluate(el => { el.style.transform = 'scale(.7)'; el.style.transformOrigin = '0 0'; });
+  await expect.poll(() => page.evaluate(() => {
+    const canvas = document.querySelector('#root canvas[data-liquid-glass-scene]')!.getBoundingClientRect();
+    const panels = [...document.querySelectorAll('#root [data-liquid-glass]')].map(el => el.getBoundingClientRect());
+    const left = Math.min(...panels.map(r => r.left)), top = Math.min(...panels.map(r => r.top));
+    const right = Math.max(...panels.map(r => r.right)), bottom = Math.max(...panels.map(r => r.bottom));
+    const pixels = document.querySelector<HTMLCanvasElement>('#root canvas[data-liquid-glass-scene]')!.width / devicePixelRatio;
+    // One canvas pixel per device pixel on screen, covering the panels: scaled a second time it would shrink.
+    return Math.abs(canvas.width - pixels) < 1 && canvas.left <= left && canvas.top <= top && canvas.right >= right && canvas.bottom >= bottom;
+  })).toBe(true);
+});
+
 test('renderer="auto" on Chromium moves a crowd of sibling panels to one WebGL scene', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium');
   await page.goto('/tests/browser/?siblings=6');

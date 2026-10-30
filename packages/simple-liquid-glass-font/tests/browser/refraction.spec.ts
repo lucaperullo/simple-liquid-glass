@@ -73,7 +73,7 @@ test('the strength control reaches the renderer without hidden attenuation', asy
   await page.goto('/');
   await page.getByRole('button', { name: 'Scroll content', exact: true }).click();
   await page.getByLabel('Color separation', { exact: true }).fill('0');
-  await expect(page.locator('feDisplacementMap')).toHaveAttribute('scale', '88');
+  await expect(page.locator('feDisplacementMap')).toHaveAttribute('scale', '101');
   for (const strength of [0, 88, 176, 300]) {
     await page.getByLabel('Refraction', { exact: true }).fill(String(strength));
     await expect(page.locator('feDisplacementMap')).toHaveAttribute('scale', String(strength));

@@ -31,6 +31,8 @@ export interface WebGLOptions {
   /** Alpha mask over the panel box (glyph outlines). A shared scene applies it when compositing; a panel with its
    * own canvas ignores it, so the caller masks that output holder with CSS. */
   mask?: TexImageSource;
+  /** false: no outer shadow, so no shadow margin is rendered around the panel (glyph surfaces). Default true. */
+  shadow?: boolean;
 }
 export type WebGLStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-backdrop'
   | 'invalid-selector' | 'webgl-unavailable' | 'capture-failed';

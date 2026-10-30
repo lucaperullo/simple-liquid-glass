@@ -7,13 +7,13 @@ import './style.css';
 function Demo() {
   const [font, setFont] = useState('Arial, sans-serif');
   const [blur, setBlur] = useState(.3);
-  const [refraction, setRefraction] = useState(88);
+  const [refraction, setRefraction] = useState(101);
   const [borderWidth, setBorderWidth] = useState(1);
   const [borderColor, setBorderColor] = useState('rgb(255 255 255 / 0.75)');
-  const [fill, setFill] = useState(.1);
-  const [shadow, setShadow] = useState(.25);
+  const [fill, setFill] = useState(.22);
+  const [shadow, setShadow] = useState(0);
   const [enabled, setEnabled] = useState(true);
-  const [dispersion, setDispersion] = useState(1.5);
+  const [dispersion, setDispersion] = useState(6);
   const [text, setText] = useState('Liquid.');
   const [mode, setMode] = useState<'video' | 'scroll'>('video');
   const [paused, setPaused] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);

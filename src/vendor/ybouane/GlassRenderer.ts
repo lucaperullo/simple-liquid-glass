@@ -72,6 +72,8 @@ export class GlassRenderer {
 	blurActive = false;
 	/** Shared scenes draw each panel into a framebuffer of their context instead of the canvas. */
 	target: WebGLFramebuffer | null = null;
+	/** Margin around the panel for its outer shadow (CSS px); 0 for surfaces that paint none. */
+	pad = SHADOW_PAD;
 	/** Unblurred cached backgrounds are sampled in place from the shared snapshot (region: x, y, w, h in its UV
 	 *  space) instead of being copied into the panel's background framebuffer first. */
 	direct: { texture: WebGLTexture; region: [number, number, number, number] } | null = null;
@@ -279,7 +281,7 @@ export class GlassRenderer {
 		this._uniform(p, 'u_center', u.u_center, [W * 0.5, H * 0.5]);
 		this._uniform(p, 'u_size', u.u_size, [width * dpr, height * dpr]);
 		this._uniform(p, 'u_radius', u.u_radius, [config.cornerRadius * dpr]);
-		this._uniform(p, 'u_pad', u.u_pad, [SHADOW_PAD * dpr]);
+		this._uniform(p, 'u_pad', u.u_pad, [this.pad * dpr]);
 		this._uniform(p, 'u_alpha', u.u_alpha, [config.opacity]);
 
 

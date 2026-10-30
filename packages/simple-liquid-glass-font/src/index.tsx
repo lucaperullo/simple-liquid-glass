@@ -23,11 +23,11 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
   saturation?: number;
   /** Translucent CSS color painted inside the letters. */
   tint?: string;
-  /** SVG displacement scale in CSS pixels (0–300). Default: 88. */
+  /** SVG displacement scale in CSS pixels (0–300). Default: 101. */
   refraction?: number;
   /** Width of the curved letter edge in CSS pixels (1–32). Default: 8. */
   bevel?: number;
-  /** Difference between the red and blue displacement scales (0–8). Default: 1.5. */
+  /** Difference between the red and blue displacement scales (0–8). Default: 6. */
   dispersion?: number;
   /** Directional edge highlight intensity (0–2). Default: 0.8. */
   specular?: number;
@@ -35,9 +35,9 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
   borderWidth?: number;
   /** CSS outline color. Default: 75% white. */
   borderColor?: string;
-  /** CSS fill over the glass. Default: 10% white. */
+  /** CSS fill over the glass. Default: 22% white. */
   fillColor?: string;
-  /** CSS text-shadow. Default: a soft dark shadow; "none" disables it. */
+  /** CSS text-shadow. Default: none (a shadow shows through the clear letters). */
   shadow?: string;
 }
 
@@ -55,9 +55,9 @@ const isMobile = () => /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent
 
 export function LiquidGlassText({
   children, renderer = 'auto', webglScene = 'auto', backdropRef, backdropSelector, backdropVersion, blur = .3, saturation = 1.2, tint = 'rgb(255 255 255 / 0.04)',
-  refraction = 88, bevel = 8, dispersion = 1.5, specular = .8,
+  refraction = 101, bevel = 8, dispersion = 6, specular = .8,
   borderWidth = 1, borderColor = 'rgb(255 255 255 / 0.75)',
-  fillColor = 'rgb(255 255 255 / 0.1)', shadow = '0 2px 4px rgb(0 0 0 / 0.25)',
+  fillColor = 'rgb(255 255 255 / 0.22)', shadow = 'none',
   className, style, ...props
 }: LiquidGlassTextProps) {
   const layoutRef = useRef<HTMLSpanElement>(null);
@@ -74,9 +74,9 @@ export function LiquidGlassText({
   const [crowded, setCrowded] = useState(false);
   const [native, setNative] = useState<boolean>();
   const filterId = `slgf-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const bend = bounded(refraction, 88, 300);
+  const bend = bounded(refraction, 101, 300);
   const edge = bounded(bevel, 8, 32, 1);
-  const spread = bend === 0 ? 0 : bounded(dispersion, 1.5, 8);
+  const spread = bend === 0 ? 0 : bounded(dispersion, 6, 8);
   const blurRadius = bounded(blur, .3, 32);
   const saturationValue = bounded(saturation, 1.2, 3);
 
@@ -169,7 +169,7 @@ export function LiquidGlassText({
   const gpuReady = wantsGPU && gpuStatus === 'active';
   const gpuOptions = useMemo(() => ({ map: optics?.map ?? '', scale: bend, dispersion: spread,
     additiveDispersion: true, neutralPoint: 128/255, specular: 0, classic: false,
-    radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.glyphs
+    radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.glyphs, shadow: false
   }), [optics?.map, optics?.glyphs, bend, spread, blurRadius, saturationValue]);
   useEffect(() => {
     if (!layoutRef.current || typeof IntersectionObserver === 'undefined') return;

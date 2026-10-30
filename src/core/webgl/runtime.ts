@@ -125,14 +125,15 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       if (video && video.readyState < 2) return;
       const snapshot = media ?? shared?.capture.cache.get(source)?.canvas;
       if (!snapshot) return; // Keep the previous complete output during captures.
-      const w = Math.round((width + SHADOW_PAD * 2) * dpr), h = Math.round((height + SHADOW_PAD * 2) * dpr);
+      const pad = options.shadow === false ? 0 : SHADOW_PAD; renderer.pad = pad;
+      const w = Math.round((width + pad * 2) * dpr), h = Math.round((height + pad * 2) * dpr);
       // CSS transforms scale the canvas too. Sample the same visual extent.
       const scaleX = rect.width / width, scaleY = rect.height / height;
       if(options.optics==='liquidgl' && liquidOptics){
-        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
+        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,pad,options,media?(version??(video?time:performance.now())):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
         if(!rendered)return;
         if(slot)slot.present(rendered.left*dpr,rendered.top*dpr,rendered.w,rendered.h,dpr);
-        else{canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
+        else{canvas.style.transform=`translate(${rendered.left+pad}px,${rendered.top+pad}px)`;
         canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
         present(rendered.w,rendered.h);}
         dirty=false;keepGeometry();lastTime=time;
@@ -140,20 +141,22 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
         return;
       }
       if(slot)renderer.target=slot.prepare(w,h);
-      else{canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
+      else{canvas.style.width = `${width + pad * 2}px`; canvas.style.height = `${height + pad * 2}px`;
       canvas.style.transform='';
-      canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;}
-      const useCache = scaleX === 1 && scaleY === 1 && prepare?.(rect, SHADOW_PAD);
+      canvas.style.left=canvas.style.top=`-${pad}px`;}
+      // A uniformly scaled panel samples the cached backdrop over its scaled extent (padding included) instead of
+      // re-cropping and re-uploading it every frame; non-uniform scale keeps the crop.
+      const useCache = Math.abs(scaleX - scaleY) < 1e-3 && prepare?.(rect, pad * scaleX);
       // Reset cached crop when switching to a transformed output.
-      if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, SHADOW_PAD);
+      if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, pad);
       if (!useCache) {
         if (scene.width !== w || scene.height !== h) {
           scene.width = w; scene.height = h;
         } else {
           ctx.clearRect(0, 0, w, h);
         }
-        const dx = (sourceRect.left - rect.left) / scaleX * dpr + SHADOW_PAD * dpr;
-        const dy = (sourceRect.top - rect.top) / scaleY * dpr + SHADOW_PAD * dpr;
+        const dx = (sourceRect.left - rect.left) / scaleX * dpr + pad * dpr;
+        const dy = (sourceRect.top - rect.top) / scaleY * dpr + pad * dpr;
         const dw = sourceRect.width / scaleX * dpr, dh = sourceRect.height / scaleY * dpr;
         if (media) {
           const sw = video?.videoWidth ?? (media as HTMLCanvasElement).width;
@@ -175,10 +178,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
           ctx.drawImage(snapshot, dx, dy, dw, dh);
         }
       }
-      renderer.uploadAndBlur(scene, 0, 0, w, h, Math.max(0, options.blur) / 5);
+      // Below a third of a device pixel the blur is invisible but would still run its passes for every panel.
+      const blurRadius = Math.max(0, options.blur) / 5;
+      renderer.uploadAndBlur(scene, 0, 0, w, h, blurRadius * dpr < .3 ? 0 : blurRadius);
       if(!slot)renderer.clear(); // a scene slot's target is cleared by prepare()
       renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
-      if(slot)slot.present(-SHADOW_PAD*dpr,-SHADOW_PAD*dpr,w,h,dpr);else present(w,h);
+      if(slot)slot.present(-pad*dpr,-pad*dpr,w,h,dpr);else present(w,h);
       dirty = false; keepGeometry(); lastTime = time;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }

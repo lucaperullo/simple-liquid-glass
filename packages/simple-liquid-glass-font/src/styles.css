@@ -59,3 +59,18 @@
   }
 }
 
+
+/* The caret while text is typed in (caret prop): a thin glass bar with a soft glow. */
+.slgf-caret {
+  position: absolute;
+  top: var(--slgf-caret-top, .22em);
+  bottom: var(--slgf-caret-bottom, .26em);
+  width: .05em;
+  border-radius: .03em;
+  background: var(--slgf-caret-color, rgb(255 255 255 / .85));
+  box-shadow: 0 0 .14em rgb(255 255 255 / .55);
+  pointer-events: none;
+  animation: slgf-caret 1.1s ease-in-out infinite;
+}
+@keyframes slgf-caret { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .slgf-caret { animation: none; } }

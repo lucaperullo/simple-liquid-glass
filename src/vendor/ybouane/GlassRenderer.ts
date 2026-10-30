@@ -35,20 +35,37 @@ const programKeys = new WeakMap<WebGLProgram, string>();
 // Last values per shared program: panels drawing in turn skip uniforms that did not change between them.
 const uniformValues = new WeakMap<WebGLProgram, Map<string, number[]>>();
 
-/** Release a program obtained from GlassRenderer._link; it is deleted when its last user releases it. */
+// Programs nobody uses stay linked for the next panel on the context (a heading scrolled back into view would
+// otherwise compile its shaders again, stalling the frame); the oldest go beyond this many.
+const IDLE_PROGRAMS = 12;
+
+/** Release a program obtained from GlassRenderer._link; once unused it stays cached for reuse until crowded out. */
 export function releaseProgram(gl: WebGLRenderingContext, program: WebGLProgram | null): void {
 	const key = program && programKeys.get(program), cache = programs.get(gl), entry = key ? cache?.get(key) : undefined;
 	if (!entry || entry.program !== program) { if (program && !key && !gl.isContextLost()) gl.deleteProgram(program); return; }
 	if (--entry.users) return;
-	cache!.delete(key!);
-	if (!gl.isContextLost()) gl.deleteProgram(program!);
+	cache!.delete(key!); cache!.set(key!, entry);
+	let idle = 0;
+	for (const value of cache!.values()) if (!value.users) idle++;
+	for (const [oldKey, value] of cache!) {
+		if (idle <= IDLE_PROGRAMS) break;
+		if (value.users) continue;
+		cache!.delete(oldKey); idle--;
+		if (!gl.isContextLost()) gl.deleteProgram(value.program);
+	}
 }
 
 export class GlassRenderer {
 	readonly canvas: HTMLCanvasElement | OffscreenCanvas;
 	readonly gl: WebGLRenderingContext;
-	readonly cropCanvas: HTMLCanvasElement;
-	readonly cropCtx: CanvasRenderingContext2D;
+	// The crop canvas is needed only for oversized sources: created on first use (a 2D context per panel is not free).
+	private crop?: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D };
+	get cropCanvas(): HTMLCanvasElement { return this.cropTarget().canvas; }
+	get cropCtx(): CanvasRenderingContext2D { return this.cropTarget().ctx; }
+	private cropTarget() {
+		if (!this.crop) { const canvas = document.createElement('canvas'); this.crop = { canvas, ctx: canvas.getContext('2d')! }; }
+		return this.crop;
+	}
 
 	blitP!: WebGLProgram;
 	blitU!: UniformMap;
@@ -87,9 +104,6 @@ export class GlassRenderer {
 		this.sharedCanvas = !!sharedCanvas;
 		this.canvas = sharedCanvas ?? document.createElement('canvas');
 		if(!sharedCanvas&&'style' in this.canvas)this.canvas.style.display = 'none';
-
-		this.cropCanvas = document.createElement('canvas');
-		this.cropCtx = this.cropCanvas.getContext('2d')!;
 
 		const gl = this.canvas.getContext('webgl', {
 			alpha: true,

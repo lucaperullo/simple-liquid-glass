@@ -39,9 +39,14 @@ export interface LiquidGlassTextProps extends Omit<HTMLAttributes<HTMLSpanElemen
   fillColor?: string;
   /** CSS text-shadow. Default: none (a shadow shows through the clear letters). */
   shadow?: string;
-  /** Characters shown from the start, for typing text in (fractions reveal part of the next one). The glass is
-   * clipped, not rebuilt, so animating this costs no more than moving the text. Default: all. Left-to-right text. */
+  /** Characters shown from the start, for typing text in. Animate it continuously (fractions move the edge through a
+   * character); beyond the length the soft edge finishes clearing the last one. The glass is masked, not rebuilt, so
+   * animating this costs no more than moving the text. Default: all. Left-to-right text. */
   reveal?: number;
+  /** Width of the soft revealed edge in em (0: a hard edge). Default: 0.5. */
+  revealFeather?: number;
+  /** Show a glass caret at the revealed edge while text is typed in. */
+  caret?: boolean;
 }
 
 const bounded = (value: number, fallback: number, max: number, min = 0) => Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
@@ -54,6 +59,18 @@ const canvasFamily = (family: string) => family.split(',').map(name => {
 }).join(', ');
 // Words are grouped by the nearest element that holds more than the word (wrappers around a single word, like a
 // span per animated word, are skipped): the glass of a heading's or sentence's words is composited there in one canvas.
+// An opaque-to-clear horizontal ramp: the soft revealed edge inside the SVG lens (positioned, never re-encoded).
+let rampImage = '';
+const ramp = () => {
+  if (rampImage || typeof document === 'undefined') return rampImage;
+  const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 1;
+  const context = canvas.getContext('2d');
+  if (!context) return rampImage;
+  const gradient = context.createLinearGradient(0, 0, 64, 0);
+  gradient.addColorStop(0, '#fff'); gradient.addColorStop(1, 'rgb(255 255 255 / 0)');
+  context.fillStyle = gradient; context.fillRect(0, 0, 64, 1);
+  return rampImage = canvas.toDataURL();
+};
 const groupRoot = (layout: HTMLElement) => {
   let root = layout.parentElement?.parentElement ?? null;
   for (let depth = 0; root && depth < 4 && root.childElementCount === 1 && root.parentElement && root.parentElement !== document.body; depth++) root = root.parentElement;
@@ -62,7 +79,7 @@ const groupRoot = (layout: HTMLElement) => {
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 
 export function LiquidGlassText({
-  children, reveal, renderer = 'auto', webglScene = 'auto', backdropRef, backdropSelector, backdropVersion, blur = .3, saturation = 1.2, tint = 'rgb(255 255 255 / 0.04)',
+  children, reveal, revealFeather = .5, caret = false, renderer = 'auto', webglScene = 'auto', backdropRef, backdropSelector, backdropVersion, blur = .3, saturation = 1.2, tint = 'rgb(255 255 255 / 0.04)',
   refraction = 101, bevel = 8, dispersion = 6, specular = .8,
   borderWidth = 1, borderColor = 'rgb(255 255 255 / 0.75)',
   fillColor = 'rgb(255 255 255 / 0.22)', shadow = 'none',
@@ -79,8 +96,8 @@ export function LiquidGlassText({
   const baselineRef = useRef<HTMLSpanElement>(null);
   const [mask, setMask] = useState<string>();
   const [optics, setOptics] = useState<{ map: string; highlight: string; glyphs: ImageData; width: number; height: number }>();
-  // Right edge of each character prefix in the raster (CSS px), for `reveal`.
-  const [edges, setEdges] = useState<number[]>([]);
+  // Right edge of each character prefix in the raster (CSS px) and the font size, for `reveal`.
+  const [edges, setEdges] = useState<{ x: number[]; em: number }>();
   const [crowded, setCrowded] = useState(false);
   const [native, setNative] = useState<boolean>();
   const filterId = `slgf-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -137,7 +154,7 @@ export function LiquidGlassText({
       context.fillText(label, left, marker.offsetTop, content);
       const characters = [...label], prefixEdges = [left];
       for (let i = 1; i <= characters.length; i++) prefixEdges.push(left + Math.min(content, context.measureText(characters.slice(0, i).join('')).width));
-      setEdges(prefixEdges);
+      setEdges({ x: prefixEdges, em: parseFloat(computed.fontSize) || 16 });
       // The raster is the glyph mask (also for a shared WebGL scene); the lens field is built off the main thread.
       const glyphs = context.getImageData(0, 0, canvas.width, canvas.height);
       void glyphOptics(signature, glyphs, edge * ratio).then(built => {
@@ -185,20 +202,24 @@ export function LiquidGlassText({
   const wantsGPU = !solidText && native !== undefined && (!native || renderer === 'webgl' || crowded);
   const scene=useLiquidGlassBackdrop(layoutRef,wantsGPU&&visible&&!backdropRef&&!backdropSelector);
   const gpuReady = wantsGPU && gpuStatus === 'active';
-  const revealX = useMemo(() => {
-    if (reveal === undefined || edges.length < 2) return undefined;
-    const shown = Math.min(edges.length - 1, Math.max(0, reveal)), whole = Math.floor(shown);
-    const next = Math.min(edges.length - 1, whole + 1);
-    return edges[whole] + (edges[next] - edges[whole]) * (shown - whole);
-  }, [reveal, edges]);
+  // The revealed edge: opaque up to head - feather, clear from head. Past the last character the head keeps moving
+  // (half an em per character) until the feather has cleared it.
+  const shown = useMemo(() => {
+    if (reveal === undefined || !edges || edges.x.length < 2) return undefined;
+    const last = edges.x.length - 1, feather = Math.max(0, revealFeather) * edges.em, count = Math.max(0, reveal);
+    const whole = Math.floor(count);
+    const head = count >= last ? edges.x[last] + (count - last) * edges.em * .5 : edges.x[whole] + (edges.x[whole + 1] - edges.x[whole]) * (count - whole);
+    return { head, feather, typing: head - feather < edges.x[last] };
+  }, [reveal, revealFeather, edges]);
   const gpuOptions = useMemo(() => ({ map: optics?.map ?? '', scale: bend, dispersion: spread,
     additiveDispersion: true, neutralPoint: 128/255, specular: 0, classic: false,
     radius: 0, blur: blurRadius, saturation: saturationValue * 100, mask: optics?.glyphs, shadow: false,
-    reveal: revealX === undefined || !optics ? undefined : revealX / optics.width
-  }), [optics?.map, optics?.glyphs, optics?.width, bend, spread, blurRadius, saturationValue, revealX]);
+    reveal: shown && optics ? shown.head / optics.width : undefined, revealFeather: shown && optics ? shown.feather / optics.width : undefined
+  }), [optics?.map, optics?.glyphs, optics?.width, bend, spread, blurRadius, saturationValue, shown]);
   useEffect(() => {
     if (!layoutRef.current || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(entries => setVisible(entries[entries.length - 1].isIntersecting), { rootMargin: '150px' });
+    // Half a screen ahead: the lens is set up before it scrolls in, not in the frames that bring it on screen.
+    const observer = new IntersectionObserver(entries => setVisible(entries[entries.length - 1].isIntersecting), { rootMargin: '50% 0px' });
     observer.observe(layoutRef.current);
     return () => observer.disconnect();
   }, []);
@@ -237,9 +258,14 @@ export function LiquidGlassText({
   // The SVG lens masks itself to the glyphs inside its filter: Chrome ignores a CSS mask on a backdrop filter inside
   // a rounded overflow clip, and an in-filter mask also follows the text through transforms.
   const svgLens = !gpuReady && !wantsGPU && !!native && !!optics;
-  // Typing in clips every layer at the revealed edge; never the backdrop filter itself (that would isolate it).
-  const clip = revealX === undefined || !optics ? undefined : `inset(-1em ${Math.max(0, optics.width - revealX)}px -1em -1em)`;
   const cssMask = mask && !svgLens ? `url("${mask}")` : undefined, tintMask = mask ? `url("${mask}")` : undefined;
+  // Typing in masks every layer with the soft edge; never the backdrop filter itself (that would isolate it), whose
+  // filter masks itself.
+  const revealEdge = shown ? `linear-gradient(to right, #000 ${shown.head - shown.feather}px, transparent ${shown.head}px)` : undefined;
+  const fade: CSSProperties | undefined = revealEdge ? { maskImage: revealEdge, WebkitMaskImage: revealEdge } : undefined;
+  const tintFade: CSSProperties = tintMask && revealEdge
+    ? { maskImage: `${tintMask}, ${revealEdge}`, WebkitMaskImage: `${tintMask}, ${revealEdge}`, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' } as CSSProperties
+    : { maskImage: tintMask, WebkitMaskImage: tintMask };
   const variables = {
     '--slgf-filter': gpuReady ? 'none' : svgLens ? `url(#${filterId})` : `blur(${blurRadius}px) saturate(${saturationValue})`,
     '--slgf-tint': tint,
@@ -253,10 +279,11 @@ export function LiquidGlassText({
 
   return <span {...props} className={['slgf-text', className].filter(Boolean).join(' ')} style={variables}>
     <span ref={layoutRef} className="slgf-layout" data-ready={mask ? 'true' : undefined} data-renderer={gpuReady ? 'webgl' : svgLens ? 'native' : 'frosted'} data-renderer-reason={wantsGPU ? gpuStatus : undefined}>
-      <span ref={textRef} className="slgf-letters" style={{ clipPath: clip }}>{children}<span ref={baselineRef} className="slgf-baseline" aria-hidden="true" /></span>
-      <span className="slgf-backdrop" aria-hidden="true" style={{ maskImage: cssMask, WebkitMaskImage: cssMask }}><span ref={gpuHolder} style={{ position: 'absolute', inset: 0, clipPath: clip, visibility: gpuReady ? 'visible' : 'hidden', pointerEvents: 'none' }} /></span>
-      <span className="slgf-tint" aria-hidden="true" data-mask={mask ? '' : undefined} style={{ maskImage: tintMask, WebkitMaskImage: tintMask, clipPath: clip }} />
-      <span className="slgf-highlight" aria-hidden="true" style={{ backgroundImage: optics ? `url("${optics.highlight}")` : undefined, clipPath: clip }} />
+      <span ref={textRef} className="slgf-letters" style={fade}>{children}<span ref={baselineRef} className="slgf-baseline" aria-hidden="true" /></span>
+      <span className="slgf-backdrop" aria-hidden="true" style={{ maskImage: cssMask, WebkitMaskImage: cssMask }}><span ref={gpuHolder} style={{ position: 'absolute', inset: 0, ...fade, visibility: gpuReady ? 'visible' : 'hidden', pointerEvents: 'none' }} /></span>
+      <span className="slgf-tint" aria-hidden="true" data-mask={mask ? '' : undefined} style={tintFade} />
+      <span className="slgf-highlight" aria-hidden="true" style={{ backgroundImage: optics ? `url("${optics.highlight}")` : undefined, ...fade }} />
+      {caret && shown?.typing && <span className="slgf-caret" aria-hidden="true" style={{ left: shown.head - shown.feather / 2 }} />}
       <svg className="slgf-filter" aria-hidden="true" focusable="false">
         {optics && <defs><filter id={filterId} filterUnits="userSpaceOnUse" x={-reach} y={-reach}
           width={optics.width + 2 * reach} height={optics.height + 2 * reach} colorInterpolationFilters="sRGB">
@@ -280,7 +307,13 @@ export function LiquidGlassText({
           </>}
           {blurRadius >= .5 && <feGaussianBlur in="lensed" stdDeviation={blurRadius} result="lensed" />}
           <feImage href={mask} x="0" y="0" width={optics.width} height={optics.height} preserveAspectRatio="none" result="glyphs" />
-          <feComposite in="lensed" in2="glyphs" operator="in" {...(revealX === undefined ? {} : { x: -reach, y: -reach, width: Math.max(0, revealX + reach), height: optics.height + 2 * reach })} />
+          {shown ? <>
+            <feComposite in="lensed" in2="glyphs" operator="in" result="glyphed" />
+            <feFlood x={-reach} y={-reach} width={Math.max(0, shown.head - shown.feather + reach)} height={optics.height + 2 * reach} result="solid" />
+            {shown.feather > 0 && <feImage href={ramp()} x={shown.head - shown.feather} y={-reach} width={shown.feather} height={optics.height + 2 * reach} preserveAspectRatio="none" result="ramp" />}
+            <feMerge result="shown"><feMergeNode in="solid" />{shown.feather > 0 && <feMergeNode in="ramp" />}</feMerge>
+            <feComposite in="glyphed" in2="shown" operator="in" />
+          </> : <feComposite in="lensed" in2="glyphs" operator="in" />}
         </filter></defs>}
       </svg>
     </span>

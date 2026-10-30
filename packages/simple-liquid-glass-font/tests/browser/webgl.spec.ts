@@ -79,19 +79,20 @@ test('on Chromium a crowd of words moves from SVG to one shared WebGL canvas', a
   await expect.poll(kinds).toEqual(['native']);
 });
 
-test('reveal types characters in by clipping the lens, without rebuilding it', async ({ page, browserName }) => {
+test('reveal types characters in behind a soft edge, without rebuilding the lens', async ({ page, browserName }) => {
   await page.goto('/tests/browser/crowd.html?words=1&reveal=2');
   const layout = page.locator('.slgf-layout');
   await expect(layout).toHaveAttribute('data-ready', 'true');
   const width = (await layout.boundingBox())!.width;
-  const clip = await page.locator('.slgf-letters').evaluate(el => getComputedStyle(el).clipPath);
-  const hidden = Number(/inset\([^ ]+ ([\d.]+)px/.exec(clip)?.[1]);
-  // "Wo" of "Word 1": most of the word stays hidden.
-  expect(hidden).toBeGreaterThan(width * .4);
-  expect(hidden).toBeLessThan(width * .9);
+  const mask = await page.locator('.slgf-letters').evaluate(el => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
+  const [solid, clear] = [...mask.matchAll(/([\d.]+)px/g)].map(match => Number(match[1]));
+  // "Wo" of "Word 1": the soft edge ends inside the word, half an em after it turns solid.
+  expect(clear).toBeGreaterThan(width * .1);
+  expect(clear).toBeLessThan(width * .6);
+  expect(clear - solid).toBeGreaterThan(10);
   if (browserName === 'chromium') {
     const map = await page.locator('feImage[result="rawMap"]').getAttribute('href');
-    expect(Number(await page.locator('feComposite[operator="in"]').getAttribute('width'))).toBeLessThan(width);
+    expect(Number(await page.locator('feFlood').getAttribute('width'))).toBeLessThan(width);
     await page.goto('/tests/browser/crowd.html?words=1');
     await expect(layout).toHaveAttribute('data-ready', 'true');
     expect(await page.locator('feImage[result="rawMap"]').getAttribute('href')).toBe(map);

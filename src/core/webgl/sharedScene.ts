@@ -22,9 +22,9 @@ import type { SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types'
 
 const MAX_DPR = 3, VIEWPORT_MARGIN = 64, SIZE_STEP = 256;
 // u_maskRect maps the slot's top-down uv onto the mask, which covers the panel box: outside it nothing shows.
-const BLIT = `precision highp float;varying vec2 v_uv;uniform sampler2D u_lens;uniform sampler2D u_mask;uniform vec4 u_maskRect;uniform float u_masked;uniform float u_reveal;
+const BLIT = `precision highp float;varying vec2 v_uv;uniform sampler2D u_lens;uniform sampler2D u_mask;uniform vec4 u_maskRect;uniform float u_masked;uniform float u_reveal;uniform float u_feather;
 void main(){vec4 c=texture2D(u_lens,v_uv);float m=1.0;
-if(u_masked>0.5){vec2 p=u_maskRect.xy+vec2(v_uv.x,1.0-v_uv.y)*u_maskRect.zw;m=p.x<0.0||p.y<0.0||p.x>u_reveal||p.y>1.0?0.0:texture2D(u_mask,p).a;}
+if(u_masked>0.5){vec2 p=u_maskRect.xy+vec2(v_uv.x,1.0-v_uv.y)*u_maskRect.zw;m=p.x<0.0||p.y<0.0||p.x>1.0||p.y>1.0?0.0:texture2D(u_mask,p).a*(u_feather>0.0?clamp((u_reveal-p.x)/u_feather,0.0,1.0):step(p.x,u_reveal));}
 gl_FragColor=vec4(c.rgb*c.a,c.a)*m;}`;
 
 const transparent = (color: string) => color === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(color);
@@ -64,8 +64,11 @@ interface Slot extends SceneSlot {
   tex: WebGLTexture | null; fbo: WebGLFramebuffer | null;
   w: number; h: number; x: number; y: number; dpr: number;
   ready: boolean; frames: number; rect?: DOMRect; sx: number; sy: number; evict: () => void;
-  maskSource?: TexImageSource; maskTex: WebGLTexture | null; maskDirty: boolean; reveal: number;
+  maskSource?: TexImageSource; maskTex: WebGLTexture | null; maskDirty: boolean; reveal: number; feather: number;
 }
+
+// How long an empty scene keeps its context before releasing it.
+const SCENE_REST_MS = 8000;
 
 class Scene {
   readonly canvas = document.createElement('canvas');
@@ -74,12 +77,13 @@ class Scene {
   private program: WebGLProgram | null = null;
   private quad: WebGLBuffer | null = null;
   private position = 0;
-  private uniforms: Record<'lens' | 'mask' | 'maskRect' | 'masked' | 'reveal', WebGLUniformLocation | null> = { lens: null, mask: null, maskRect: null, masked: null, reveal: null };
+  private uniforms: Record<'lens' | 'mask' | 'maskRect' | 'masked' | 'reveal' | 'feather', WebGLUniformLocation | null> = { lens: null, mask: null, maskRect: null, masked: null, reveal: null, feather: null };
   private stop: () => void = () => {};
   private canvasRect?: DOMRect;
   // An ancestor transform (an animated heading) scales the canvas too; positions and sizes are divided by it.
   private canvasScale = 1;
   private left = 0; private top = 0; private drawn = '';
+  private resting?: ReturnType<typeof setTimeout>;
   // Re-place the canvas only when the parent's children change (keyed re-renders can reorder panels).
   private readonly order = new MutationObserver(() => this.place());
 
@@ -106,9 +110,10 @@ class Scene {
   }
 
   add(panel: HTMLElement, evict: () => void): Slot {
+    clearTimeout(this.resting);
     const gl = this.gl, scene = this;
     const slot: Slot = {
-      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, sx: 1, sy: 1, maskTex: null, maskDirty: false, reveal: 1,
+      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, sx: 1, sy: 1, maskTex: null, maskDirty: false, reveal: 1, feather: 0,
       prepare(w, h) {
         if (!slot.fbo || slot.w !== w || slot.h !== h) {
           scene.free(slot);
@@ -130,8 +135,8 @@ class Scene {
         if (w !== slot.w || h !== slot.h) return;
         slot.x = x; slot.y = y; slot.dpr = dpr; slot.ready = true; slot.frames++;
       },
-      mask(source, reveal = 1) {
-        if (reveal !== slot.reveal) { slot.reveal = reveal; scene.drawn = ''; }
+      mask(source, reveal = 1, feather = 0) {
+        if (reveal !== slot.reveal || feather !== slot.feather) { slot.reveal = reveal; slot.feather = feather; scene.drawn = ''; }
         if (source === slot.maskSource) return;
         slot.maskSource = source; slot.maskDirty = true; scene.drawn = '';
       },
@@ -166,7 +171,7 @@ class Scene {
     this.free(slot); this.drawn = '';
     if (slot.maskTex && !this.gl.isContextLost()) this.gl.deleteTexture(slot.maskTex);
     slot.maskTex = null;
-    if (!this.slots.size) { this.destroy(); return; }
+    if (!this.slots.size) { this.rest(); return; }
     this.place();
   }
 
@@ -235,7 +240,7 @@ class Scene {
       const shaders = [compile(gl.VERTEX_SHADER, VS_QUAD), compile(gl.FRAGMENT_SHADER, BLIT)];
       gl.linkProgram(program); shaders.forEach(shader => gl.deleteShader(shader));
       this.program = program; this.position = gl.getAttribLocation(program, 'a_pos');
-      this.uniforms = { lens: gl.getUniformLocation(program, 'u_lens'), mask: gl.getUniformLocation(program, 'u_mask'), maskRect: gl.getUniformLocation(program, 'u_maskRect'), masked: gl.getUniformLocation(program, 'u_masked'), reveal: gl.getUniformLocation(program, 'u_reveal') };
+      this.uniforms = { lens: gl.getUniformLocation(program, 'u_lens'), mask: gl.getUniformLocation(program, 'u_mask'), maskRect: gl.getUniformLocation(program, 'u_maskRect'), masked: gl.getUniformLocation(program, 'u_masked'), reveal: gl.getUniformLocation(program, 'u_reveal'), feather: gl.getUniformLocation(program, 'u_feather') };
       this.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     }
@@ -248,7 +253,7 @@ class Scene {
       const slot = box.slot, rect = slot.rect!;
       gl.activeTexture(gl.TEXTURE1);
       if (slot.maskDirty) this.uploadMask(slot);
-      gl.uniform1f(this.uniforms.masked, slot.maskTex ? 1 : 0); gl.uniform1f(this.uniforms.reveal, slot.reveal);
+      gl.uniform1f(this.uniforms.masked, slot.maskTex ? 1 : 0); gl.uniform1f(this.uniforms.reveal, slot.reveal); gl.uniform1f(this.uniforms.feather, slot.feather);
       if (slot.maskTex) {
         gl.bindTexture(gl.TEXTURE_2D, slot.maskTex);
         const panelW = rect.width / slot.sx * slot.dpr, panelH = rect.height / slot.sy * slot.dpr;
@@ -265,7 +270,18 @@ class Scene {
     this.drawn = key;
   };
 
+  /** With no panels left, clear, stop drawing and leave the page, but keep the context (and its compiled programs) a
+   * while: panels leave as they scroll out of view, and scrolling back would otherwise rebuild the scene mid-scroll. */
+  private rest() {
+    this.stop(); this.stop = () => {};
+    const gl = this.gl;
+    if (!gl.isContextLost()) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+    this.drawn = ''; this.canvas.remove();
+    this.resting = setTimeout(() => { if (!this.slots.size) this.destroy(); }, SCENE_REST_MS);
+  }
+
   private destroy() {
+    clearTimeout(this.resting);
     this.stop(); this.order.disconnect();
     this.canvas.removeEventListener('webglcontextlost', this.lost);
     this.canvas.removeEventListener('webglcontextrestored', this.restored);

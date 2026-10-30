@@ -28,8 +28,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   // Copying the shared canvas costs every moving frame; transfer its bitmap whenever the probe allows, for both optics.
   const transfer=!slot&&!forceLegacy&&!!analytical?.supportsBitmap();
   // A transferred bitmap is handed to the compositor as is (bitmaprenderer); drawing it into a 2D canvas copies it.
-  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps||slot?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
-  if(!(bitmaps||output||slot)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
+  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps||slot?null:canvas.getContext('2d');
+  if(!(bitmaps||output||slot))throw new Error('LiquidGlass: canvas unavailable');
+  // The crop canvas serves only backdrops the cached snapshot cannot: its 2D context is created on first use.
+  let crop:CanvasRenderingContext2D|null|undefined;
   const lease=slot?undefined:acquireContextCanvas(transfer);
   let renderer:GlassRenderer;
   try{renderer=new GlassRenderer(slot?slot.canvas:lease!.canvas)}catch(error){
@@ -38,7 +40,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
     throw error;
   }
   canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
-  if(slot){panel.dataset.glassComposition='scene';slot.mask(initial.mask,initial.reveal);}
+  if(slot){panel.dataset.glassComposition='scene';slot.mask(initial.mask,initial.reveal,initial.revealFeather);}
   const present=(w:number,h:number)=>{
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     if(bitmaps){bitmaps.transferFromImageBitmap((renderer.canvas as OffscreenCanvas).transferToImageBitmap());return}
@@ -154,6 +156,9 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       // Reset cached crop when switching to a transformed output.
       if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, pad);
       if (!useCache) {
+        crop ??= scene.getContext('2d');
+        const ctx = crop;
+        if (!ctx) return;
         if (scene.width !== w || scene.height !== h) {
           scene.width = w; scene.height = h;
         } else {
@@ -200,7 +205,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   if (shared && !shared.capture.cache.has(source)) void shared.refresh().catch(() => {});
   const stopFrame = subscribeFrame(frame,()=>{measurement=measure();});
   return {
-    update(next) { if (slot && (next.mask !== options.mask || next.reveal !== options.reveal)) slot.mask(next.mask, next.reveal); options = next; changed(); },
+    update(next) {
+      if (slot && (next.mask !== options.mask || next.reveal !== options.reveal || next.revealFeather !== options.revealFeather)) slot.mask(next.mask, next.reveal, next.revealFeather);
+      // Mask and reveal only change compositing (or the caller's CSS): typing text in never re-renders the lens.
+      const lens = (Object.keys({ ...options, ...next }) as (keyof WebGLOptions)[]).some(key => key !== 'mask' && key !== 'reveal' && key !== 'revealFeather' && next[key] !== options[key]);
+      options = next; if (lens) changed();
+    },
     async refresh() { await shared?.refresh(); changed(); },
     destroy() {
       if (disposed) return;

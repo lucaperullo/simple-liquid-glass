@@ -36,6 +36,8 @@ export interface WebGLOptions {
   /** Fraction of the panel width shown from its left edge (typing glyphs in). A shared scene clips while
    * compositing; a panel with its own canvas ignores it, so the caller clips that holder with CSS. */
   reveal?: number;
+  /** Width of the soft edge before `reveal`, as a fraction of the panel width (default 0: a hard edge). */
+  revealFeather?: number;
 }
 export type WebGLStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-backdrop'
   | 'invalid-selector' | 'webgl-unavailable' | 'capture-failed';
@@ -58,6 +60,6 @@ export interface SceneSlot {
   /** The drawn framebuffer is ready; (x, y) offsets it from the panel's top-left in device pixels at `dpr`. */
   present(x: number, y: number, w: number, h: number, dpr: number): void;
   /** Alpha mask over the panel box, or none, shown up to `reveal` (fraction of the width, default 1). */
-  mask(source?: TexImageSource, reveal?: number): void;
+  mask(source?: TexImageSource, reveal?: number, feather?: number): void;
   release(): void;
 }

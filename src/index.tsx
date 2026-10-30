@@ -61,6 +61,13 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
   /** iOS always uses WebGL for refraction. Select webgl to enable it on Android/desktop too. */
   renderer?: GlassRenderer;
+  /**
+   * WebGL glass of sibling panels over the same backdrop is composited in one shared canvas (`'auto'`, default)
+   * when a panel's own box paints nothing under its glass: no background, opacity 1, no filter/mask/clip-path,
+   * no rotation or scale, z-index not negative. Other panels keep their own canvas. `'off'` always uses one
+   * canvas per panel, e.g. when an unrelated element sits between grouped panels in the DOM and overlaps one.
+   */
+  webglScene?: 'auto' | 'off';
   /** Change this value to refresh a WebGL HTML snapshot after external visual changes. */
   backdropVersion?: string | number;
   /** Coordinated material defaults; explicit props override individual settings. */
@@ -314,6 +321,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   mobileFallback,
   effectMode = 'auto',
   renderer = 'auto',
+  webglScene = 'auto',
   reveal = 'ready',
   backdropVersion,
   mirror: _mirror,
@@ -442,7 +450,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     radius: effectiveRadiusPx, blur, saturation, optics: webglOptics, liquidGL: liquidGLOptions
   }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation, webglOptics, liquidGLOptions]);
   const webgl = useWebGL(webglRequested && visibilityReady && isVisible, containerRef, webglHolderRef,
-    webglOptions, backdropRef, backdropSelector, backdropVersion);
+    webglOptions, backdropRef, backdropSelector, backdropVersion, webglScene !== 'off');
   const webglReady = webglRequested && webgl.status === 'active';
 
   // Build backdrop-filter string with effectMode and mobile/iOS fallbacks

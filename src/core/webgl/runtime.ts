@@ -7,7 +7,7 @@ import { acquireSource } from './source';
 import { acquireContextCanvas, subscribeFrame } from './contextPool';
 import { invalidateTextures } from './textureCache';
 import { canvasFrame } from './canvasFrames';
-import type { EngineContext, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
+import type { EngineContext, SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
 function fixedToViewport(element: HTMLElement): boolean {
   let fixed = false;
@@ -19,24 +19,26 @@ function fixedToViewport(element: HTMLElement): boolean {
   return fixed;
 }
 
-/** Shared GPU context, private framebuffer state, and one composited canvas per surface. */
+/** Shared GPU context, private framebuffer state, and one composited canvas per surface, or a framebuffer
+ * in a shared scene's context when `slot` is given (the scene composites every panel into one canvas). */
 export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, source: HTMLElement,
-  initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false): WebGLEngine {
+  initial: WebGLOptions, status: (status: WebGLStatus) => void, analytical?: typeof installLiquidGLOptics,forceLegacy=false,slot?:SceneSlot): WebGLEngine {
   const canvas = document.createElement('canvas'), scene = document.createElement('canvas');
   canvas.width = canvas.height = scene.width = scene.height = 1;
   // Copying the shared canvas costs every moving frame; transfer its bitmap whenever the probe allows, for both optics.
-  const transfer=!forceLegacy&&!!analytical?.supportsBitmap();
+  const transfer=!slot&&!forceLegacy&&!!analytical?.supportsBitmap();
   // A transferred bitmap is handed to the compositor as is (bitmaprenderer); drawing it into a 2D canvas copies it.
-  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
-  if(!(bitmaps||output)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
-  const lease=acquireContextCanvas(transfer);
+  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps||slot?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
+  if(!(bitmaps||output||slot)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
+  const lease=slot?undefined:acquireContextCanvas(transfer);
   let renderer:GlassRenderer;
-  try{renderer=new GlassRenderer(lease.canvas)}catch(error){
-    lease.release();canvas.width=canvas.height=scene.width=scene.height=0;
+  try{renderer=new GlassRenderer(slot?slot.canvas:lease!.canvas)}catch(error){
+    lease?.release();canvas.width=canvas.height=scene.width=scene.height=0;
     if(transfer)return createWebGLEngine(panel,holder,source,initial,status,analytical,true);
     throw error;
   }
   canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
+  if(slot)panel.dataset.glassComposition='scene';
   const present=(w:number,h:number)=>{
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     if(bitmaps){bitmaps.transferFromImageBitmap((renderer.canvas as OffscreenCanvas).transferToImageBitmap());return}
@@ -68,7 +70,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   canvas.setAttribute('aria-hidden', 'true');
   canvas.dataset.liquidGlassWebgl = '';
   canvas.style.cssText = `display:block;position:absolute;left:-${SHADOW_PAD}px;top:-${SHADOW_PAD}px;pointer-events:none`;
-  holder.append(canvas);
+  if(!slot)holder.append(canvas);
   let lastGeometry = '', lastTime = -1;
   const lose = () => { invalidateTextures(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
   const restore = () => { changed(); setStatus('pending'); };
@@ -122,11 +124,12 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       // CSS transforms scale the canvas too. Sample the same visual extent.
       const scaleX = rect.width / width, scaleY = rect.height / height;
       if(options.optics==='liquidgl' && liquidOptics){
-        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined);
+        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,SHADOW_PAD,options,media?(version??(video?time:performance.now())):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
         if(!rendered)return;
-        canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
+        if(slot)slot.present(rendered.left*dpr,rendered.top*dpr,rendered.w,rendered.h,dpr);
+        else{canvas.style.transform=`translate(${rendered.left+SHADOW_PAD}px,${rendered.top+SHADOW_PAD}px)`;
         canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
-        present(rendered.w,rendered.h);
+        present(rendered.w,rendered.h);}
         dirty=false;lastGeometry=geometry;lastTime=time;
         if(!ready){ready=true;setStatus('active');}
         return;
@@ -134,6 +137,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       canvas.style.width = `${width + SHADOW_PAD * 2}px`; canvas.style.height = `${height + SHADOW_PAD * 2}px`;
       canvas.style.transform='';
       canvas.style.left=canvas.style.top=`-${SHADOW_PAD}px`;
+      if(slot)renderer.target=slot.prepare(w,h);
       const sampleRect = new DOMRect(rect.left, rect.top, rect.width, rect.height);
       const useCache = scaleX === 1 && scaleY === 1 && prepare?.(sampleRect, SHADOW_PAD);
       // Reset cached crop when switching to a transformed output.
@@ -170,7 +174,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       renderer.uploadAndBlur(scene, 0, 0, w, h, Math.max(0, options.blur) / 5);
       renderer.clear();
       renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
-      present(w,h);
+      if(slot)slot.present(-SHADOW_PAD*dpr,-SHADOW_PAD*dpr,w,h,dpr);else present(w,h);
       dirty = false; lastGeometry = geometry; lastTime = time;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }
@@ -191,7 +195,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       renderer.canvas.removeEventListener('webglcontextlost', lose);renderer.canvas.removeEventListener('webglcontextrestored', restore);
       video?.removeEventListener('seeked', mediaChanged);video?.removeEventListener('loadeddata', mediaChanged);
       if (videoCallback !== undefined) video?.cancelVideoFrameCallback(videoCallback);
-      origin.remove(); shared?.release(); context.destroy(); lease.release();
+      origin.remove(); shared?.release(); context.destroy(); lease?.release(); slot?.release();
+      if(slot)delete panel.dataset.glassComposition;
       canvas.remove(); canvas.width = canvas.height = 0;
       scene.width = 0; scene.height = 0;
     }

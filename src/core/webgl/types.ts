@@ -42,3 +42,12 @@ export interface WebGLEngine {
   refresh(): Promise<void>;
   destroy(): void;
 }
+/** One panel's target in a shared scene (sharedScene.ts): it draws into a framebuffer of the scene's context. */
+export interface SceneSlot {
+  canvas: HTMLCanvasElement;
+  /** Binds and clears a w×h device-pixel framebuffer for the panel's next draw. */
+  prepare(w: number, h: number): WebGLFramebuffer;
+  /** The drawn framebuffer is ready; (x, y) offsets it from the panel's top-left in device pixels at `dpr`. */
+  present(x: number, y: number, w: number, h: number, dpr: number): void;
+  release(): void;
+}

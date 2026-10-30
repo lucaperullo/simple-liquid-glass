@@ -54,13 +54,18 @@ export class GlassRenderer {
 
 	contextLost = false;
 	blurActive = false;
+	/** Shared scenes draw each panel into a framebuffer of their context instead of the canvas. */
+	target: WebGLFramebuffer | null = null;
 
 	_onContextLost: (e: Event) => void;
 	_onContextRestored: () => void;
 
+	readonly sharedCanvas: boolean;
+
 	constructor(sharedCanvas?: HTMLCanvasElement | OffscreenCanvas) {
+		this.sharedCanvas = !!sharedCanvas;
 		this.canvas = sharedCanvas ?? document.createElement('canvas');
-		if('style' in this.canvas)this.canvas.style.display = 'none';
+		if(!sharedCanvas&&'style' in this.canvas)this.canvas.style.display = 'none';
 
 		this.cropCanvas = document.createElement('canvas');
 		this.cropCtx = this.cropCanvas.getContext('2d')!;
@@ -244,8 +249,8 @@ export class GlassRenderer {
 		gl.bindTexture(gl.TEXTURE_2D, this.blurActive ? fboSet.blurA.tex : fboSet.bg.tex);
 		gl.uniform1i(this.glassU.u_blurTex, 1);
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.viewport(0, this.canvas.height - H, W, H);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.target);
+		gl.viewport(0, this.target ? 0 : this.canvas.height - H, W, H);
 		gl.uniform2f(this.glassU.u_res, W, H);
 
 		gl.uniform2f(this.glassU.u_center, W * 0.5, H * 0.5);
@@ -262,11 +267,11 @@ export class GlassRenderer {
 	}
 
 	clear(): void {
-		const gl = this.gl;
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.viewport(0, this.canvas.height - this.height, this.width, this.height);
+		const gl = this.gl, y = this.target ? 0 : this.canvas.height - this.height;
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.target);
+		gl.viewport(0, y, this.width, this.height);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(0, this.canvas.height - this.height, this.width, this.height);
+		gl.scissor(0, y, this.width, this.height);
 		gl.clearColor(0, 0, 0, 0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
@@ -288,7 +293,8 @@ export class GlassRenderer {
 			if(this.blurP)gl.deleteProgram(this.blurP);
 			if (this.glassP) gl.deleteProgram(this.glassP);
 		}
-		if('remove' in this.canvas)this.canvas.remove();
+		// A shared canvas belongs to its pool or scene.
+		if(!this.sharedCanvas&&'remove' in this.canvas)this.canvas.remove();
 	}
 
 	// ────────────────────────────────────────────
@@ -301,7 +307,7 @@ export class GlassRenderer {
 		this.width = w;
 		this.height = h;
 
-		if (this.canvas.width !== w || this.canvas.height !== h) {
+		if (!this.target && (this.canvas.width !== w || this.canvas.height !== h)) {
 			this.canvas.width = w;
 			this.canvas.height = h;
 		}

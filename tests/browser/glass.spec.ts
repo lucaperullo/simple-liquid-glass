@@ -21,7 +21,7 @@ test('hydrates production build without hydration errors or lost content', async
   if (browserName === 'chromium') {
     await expect(page.locator('.liquid-glass-filter')).toHaveCount(1);
   } else if (await webglAvailable(page)) {
-    await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(1);
+    await expect(page.locator('#root canvas[data-liquid-glass-webgl], #root canvas[data-liquid-glass-scene]')).toHaveCount(1);
   } else {
     await expect(page.locator('#root [data-liquid-glass]')).toHaveAttribute('data-glass-reason', 'webgl-unavailable');
   }
@@ -33,7 +33,7 @@ test('engines without SVG backdrop filters refract through WebGL and release it 
   await page.goto('/tests/browser/');
   const glass = page.locator('#root [data-liquid-glass]');
   if (await webglAvailable(page)) {
-    await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(1);
+    await expect(page.locator('#root canvas[data-liquid-glass-webgl], #root canvas[data-liquid-glass-scene]')).toHaveCount(1);
     await expect(glass).toHaveAttribute('data-glass-strategy', 'webgl');
   } else {
     await expect(glass).toHaveAttribute('data-glass-reason', 'webgl-unavailable');
@@ -93,4 +93,33 @@ test('diagnostics match the active renderer and explicit modes', async ({page,br
   await expect(glass).toHaveAttribute('data-glass-strategy','off');
   await page.goto('/tests/browser/?effect=blur');
   await expect(glass).toHaveAttribute('data-glass-reason','blur-requested');
+});
+
+test('sibling WebGL panels share one scene canvas; webglScene="off" keeps one canvas each', async ({ page, browserName }) => {
+  test.skip(browserName === 'chromium', 'Chromium renders few panels through SVG');
+  await page.goto('/tests/browser/?siblings=6');
+  test.skip(!(await webglAvailable(page)), 'The browser has no WebGL context');
+  const glass = page.locator('#root [data-liquid-glass]');
+  await expect(glass).toHaveCount(6);
+  await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(1);
+  await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(0);
+  await expect(page.locator('#root [data-glass-composition="scene"]')).toHaveCount(6);
+  await page.evaluate(() => (window as any).unmountGlass());
+  await expect(page.locator('#root canvas')).toHaveCount(0);
+  await page.goto('/tests/browser/?siblings=6&scene=off');
+  await expect(page.locator('#root canvas[data-liquid-glass-webgl]')).toHaveCount(6);
+  await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(0);
+});
+
+test('renderer="auto" on Chromium moves a crowd of sibling panels to one WebGL scene', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium');
+  await page.goto('/tests/browser/?siblings=6');
+  await expect(page.locator('#root [data-glass-strategy="svg"]')).toHaveCount(6);
+  await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(0);
+  await page.goto('/tests/browser/?siblings=16');
+  test.skip(!(await webglAvailable(page)), 'The browser has no WebGL context');
+  await expect(page.locator('#root [data-glass-strategy="webgl"]')).toHaveCount(16);
+  await expect(page.locator('#root canvas[data-liquid-glass-scene]')).toHaveCount(1);
+  await page.goto('/tests/browser/?siblings=16&scene=off');
+  await expect(page.locator('#root [data-glass-strategy="svg"]')).toHaveCount(16);
 });

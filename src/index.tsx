@@ -3,6 +3,7 @@ import type { LiquidGLOptions } from './core/webgl/types';
 export type { LiquidGLOptions } from './core/webgl/types';
 import { useWebGL } from './core/webgl/useWebGL';
 import { isIOSDevice, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
+import { useGlassCrowd } from './core/useGlassCrowd';
 export type { GlassRenderer } from './core/renderer';
 import type { RenderingDiagnostics } from './diagnostics';
 export type { RenderingDiagnostics, RenderingStrategy, RenderingReason } from './diagnostics';
@@ -10,7 +11,7 @@ import { resolveMaterialProps } from './materials';
 export { MATERIAL_PRESETS } from './materials';
 export type { MaterialPreset } from './materials';
 import type { MaterialPreset } from './materials';
-import React, { useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 
 /** Longest a client-mounted instance stays transparent while its renderer starts. */
 const REVEAL_TIMEOUT_MS = 400;
@@ -320,7 +321,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   iosBlurMode = 'auto',
   mobileFallback,
   effectMode = 'auto',
-  renderer = 'auto',
+  renderer: requestedRenderer = 'auto',
   webglScene = 'auto',
   reveal = 'ready',
   backdropVersion,
@@ -365,8 +366,27 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
 
   const nativeOptions = useMemo(() => resolveLensOptions(lensProfile, lensOptions), [lensProfile, lensOptions]);
 
+  const isIOS = (() => {
+    if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+    return isIOSDevice(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+  })();
+
+  // detect generic mobile (Android/iOS phones/tablets)
+  const isMobile = (() => {
+    if (!mounted || typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  })();
+
   const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
     && supportsSvgBackdrop(navigator.userAgent || '', navigator.maxTouchPoints || 0);
+  // Desktop Chromium: a crowd of sibling panels renders through one shared WebGL scene (see useGlassCrowd).
+  const crowdBackdrop = useCallback(() => {
+    try { return backdropRef?.current ?? (backdropSelector ? document.querySelector<HTMLElement>(backdropSelector) : null); } catch { return null; }
+  }, [backdropRef, backdropSelector]);
+  const crowded = useGlassCrowd(containerRef, requestedRenderer === 'auto' && effectMode === 'auto' && webglScene !== 'off'
+    && supportsSvgBackdropFilter && !isMobile, crowdBackdrop);
+  const renderer: GlassRenderer = crowded ? 'webgl' : requestedRenderer;
   const svgMaps = !wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
 
   // Generate displacement map SVG as data URI
@@ -430,18 +450,6 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   }
 
   // detect iOS (WebKit on iPhone/iPad or Mac with touch)
-  const isIOS = (() => {
-    if (!mounted || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
-    return isIOSDevice(navigator.userAgent || '', navigator.maxTouchPoints || 0);
-  })();
-
-  // detect generic mobile (Android/iOS phones/tablets)
-  const isMobile = (() => {
-    if (!mounted || typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-  })();
-
   // Safari, iOS and Firefox can't run SVG filters in backdrop-filter, so they refract through WebGL.
   const webglRequested = mounted && wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
   const webglOptions = useMemo(() => ({

@@ -1,3 +1,22 @@
+## 5.6.0 — one canvas for a crowd of glass
+
+- **Shared WebGL scene.** Sibling WebGL panes over the same backdrop render into per-pane framebuffers of one context and are composited into a single `canvas[data-liquid-glass-scene]` placed before the first pane, instead of one presentation canvas each. Panes carry `data-glass-composition="scene"`. A pane that is not eligible (static position, opacity, filters/blend/clip/mask, a non-translation transform, its own background, negative z-index, or inside its backdrop) keeps its own canvas. New prop `webglScene` (`'auto'` default, `'off'` restores one canvas per pane).
+- **Crowds on Chrome.** On desktop Chromium, `renderer="auto"` moves 16 or more scene-eligible sibling panes over one backdrop to the shared scene and switches back to SVG below 12. Every SVG pane is its own GPU render pass, so Chrome's CPU grew with each one (829 ms/s for 24 scrolling panes against 347 in the scene). Backdrops containing video or iframes stay on SVG. Mobile and explicit `renderer` / `effectMode` values are unchanged.
+- **Cached backdrops stay on the GPU.** Fractional pane sizes were read as a scale change, which re-cropped and re-uploaded the backdrop every frame; exact layout sizes keep the cached texture. Panes without blur sample it in place through a region uniform instead of copying a crop.
+- Shader programs are shared per context and reference-counted, unchanged uniforms are not resent, and element rects and scroll offsets are read once per frame.
+- Chrome 156, M5 Retina, 60 Hz, each library with its default look, scrolling panes (frame rate · Chrome process-tree CPU ms/s, median of 2):
+
+  | Panes | **5.6** `renderer="auto"` | 5.5.1 SVG | 5.5.1 WebGL | liquidGL WebGL | liquidGL WebGPU |
+  |---|---|---|---|---|---|
+  | 24 | **60 fps · 369** | 60 fps · 841 | 36 fps · 648 | 60 fps · 567 | 60 fps · 393 |
+  | 48 | **60 fps · 404** | 60 fps · 1495 | 21 fps · 1230 | 39 fps · 713 | 60 fps · 462 |
+  | 64 | **60 fps · 444** | 60 fps · 1935 | 17 fps · 1369 | 30 fps · 578 | 60 fps · 484 |
+  | 88 | **60 fps · 531** | 41 fps · 1803 | 12 fps · 1358 | 22 fps · 504 | 60 fps · 547 |
+  | 104 | **60 fps · 531** | 35 fps · 1858 | 12 fps · 1400 | 18 fps · 428 | 60 fps · 587 |
+
+- Known limits: grouped panes are drawn below every element between them in their parent, so content interleaved between sibling panes appears above all of their glass; use `webglScene="off"` for such layouts. Antialiasing of the outermost edge pixels differs slightly from a per-pane canvas. With changing HTML backdrops the scene uses more main-thread time than liquidGL WebGPU.
+- **Bundle size grows**: Brotli budgets are core 50.5 KB (5.5: 47.3), interactive 52.6 KB (49.3), mirror 50.5 KB (47.3), web component 36.5 KB (35.7).
+
 ## 5.5.1 — moving glass
 
 - **SVG displacement maps sized to the pane.** Chromium resends a backdrop filter's images to the GPU process with every frame in which the glass or its backdrop moves, so decoded map bytes were a per-frame cost. Native SVG maps were a fixed 512 px body (604×650 for a 180×120 pane); they now use 0.75 map pixels per CSS pixel of the longer side (64–512). `optics="liquidgl"` SVG maps drop from device resolution to 0.75 per CSS pixel. WebGL keeps 512 (uploaded once) and renders unchanged.

@@ -21,7 +21,8 @@ run('alpha and 24 simultaneous surfaces, isolation, shared context, recovery',as
   const surfaces=[],panels=[],statuses=[];
   for(let i=0;i<24;i++){const panel=document.createElement('div');panel.style.cssText=`position:absolute;left:${i%6*120+4}px;top:${Math.floor(i/6)*80+4}px;width:${96+i%3*5}px;height:${56+i%3*5}px`;document.body.append(panel);panels.push(panel);surfaces.push(lab.createWebGLSurface(panel,panel,source,options,s=>statuses[i]=s))}
   for(let i=0;i<200&&statuses.filter(s=>s==='active').length!==24;i++)await wait(20);
-  const pixels=()=>panels.map((p,i)=>{const c=p.querySelector('canvas');if(!c)return null;return [...c.getContext('2d').getImageData(c.width/2,c.height/2,1,1).data]});
+  // Panels present through a 2D or a bitmaprenderer canvas; read either through a 2D copy.
+  const pixels=()=>panels.map((p,i)=>{const c=p.querySelector('canvas');if(!c)return null;const copy=document.createElement('canvas');copy.width=c.width;copy.height=c.height;const x=copy.getContext('2d');x.drawImage(c,0,0);return [...x.getImageData(c.width/2,c.height/2,1,1).data]});
   const first=pixels(),contexts=window.contexts.map(r=>r.deref()).filter(c=>c&&!c.isContextLost()),gl=contexts[0];
   const ext=gl.getExtension('WEBGL_lose_context');ext.loseContext();await wait(150);const lost=statuses.filter(s=>s==='webgl-unavailable').length;ext.restoreContext();for(let i=0;i<200&&statuses.filter(s=>s==='active').length!==24;i++)await wait(20);const restored=pixels();
   ctx.clearRect(0,0,720,320);ctx.fillStyle='rgba(255,0,0,.5)';ctx.fillRect(0,0,720,320);await wait(100);const alpha=pixels()[0];

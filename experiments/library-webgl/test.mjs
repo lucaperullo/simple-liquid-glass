@@ -1,3 +1,4 @@
+// Panel canvases present through 2D or bitmaprenderer contexts; pixels are read through a 2D copy.
 import {chromium, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -24,7 +25,7 @@ for (const [name,type] of [['chromium',chromium],['webkit',webkit]]) {
    await page.goto(`${base}/experiments/library-webgl/?renderer=webgl&optics=${optics}&scene=${scene}`);
    await page.waitForFunction(()=>document.querySelector('#library-glass')?.dataset.glassStrategy==='webgl');
    await page.waitForFunction(()=>document.querySelector('#second-glass')?.dataset.glassStrategy==='webgl');
-   const pixels=()=>page.evaluate(()=>{const canvas=document.querySelector('#library-glass canvas');const p=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let hash=0,count=0;for(let i=0;i<p.length;i+=4){hash=(hash*31+p[i]+p[i+1]+p[i+2])>>>0;if(p[i+3])count++;}return {hash,count};});
+   const pixels=()=>page.evaluate(()=>{const canvas=document.querySelector('#library-glass canvas');const p=(o=>{const k=document.createElement('canvas');k.width=o.width;k.height=o.height;const x=k.getContext('2d');x.drawImage(o,0,0);return x})(canvas).getImageData(0,0,canvas.width,canvas.height).data;let hash=0,count=0;for(let i=0;i<p.length;i+=4){hash=(hash*31+p[i]+p[i+1]+p[i+2])>>>0;if(p[i+3])count++;}return {hash,count};});
    const first=await pixels();assert.ok(first.count>100);
    if(scene==='static'){
     await page.evaluate(()=>scrollTo(0,550));await page.waitForTimeout(100);assert.notEqual((await pixels()).hash,first.hash);
@@ -62,9 +63,9 @@ for(const [name,type] of [['chromium',chromium],['webkit',webkit]]) {
   await page.evaluate(edge=>scrollTo(0,edge==='top'?0:document.documentElement.scrollHeight-innerHeight),edge);await settle();
   for(const offset of (edge==='top'?[35,100,55]:[-35,-100,-55])){
    await page.evaluate(offset=>{window.libraryLab.source.current.style.transform=`translateY(${offset}px)`;},offset);await settle();
-   await page.evaluate(()=>{const c=document.querySelector('#library-glass canvas');window.reference=c.getContext('2d').getImageData(0,0,c.width,c.height).data;window.libraryLab.source.current.style.transform='';});await settle();
+   await page.evaluate(()=>{const c=document.querySelector('#library-glass canvas');window.reference=(o=>{const k=document.createElement('canvas');k.width=o.width;k.height=o.height;const x=k.getContext('2d');x.drawImage(o,0,0);return x})(c).getImageData(0,0,c.width,c.height).data;window.libraryLab.source.current.style.transform='';});await settle();
    await page.evaluate(offset=>{const original=Element.prototype.getBoundingClientRect,descriptor=Object.getOwnPropertyDescriptor(window,'scrollY'),base=scrollY;window.libraryLab.source.current.style.transform=`translateY(${offset}px)`;Object.defineProperty(window,'scrollY',{configurable:true,get:()=>base-offset});Element.prototype.getBoundingClientRect=function(){const r=original.call(this);return getComputedStyle(this).position==='fixed'?new DOMRect(r.x,r.y+offset,r.width,r.height):r;};window.restoreElastic=()=>{Element.prototype.getBoundingClientRect=original;if(descriptor)Object.defineProperty(window,'scrollY',descriptor);else delete window.scrollY;window.libraryLab.source.current.style.transform='';};},offset);await settle();
-   const error=await page.evaluate(()=>{const c=document.querySelector('#library-glass canvas'),p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return p.reduce((sum,v,i)=>sum+Math.abs(v-window.reference[i]),0)/p.length;});assert.ok(error<.1,`${name} ${edge} overscroll pixels ${error}`);await page.evaluate(()=>window.restoreElastic());await settle();
+   const error=await page.evaluate(()=>{const c=document.querySelector('#library-glass canvas'),p=(o=>{const k=document.createElement('canvas');k.width=o.width;k.height=o.height;const x=k.getContext('2d');x.drawImage(o,0,0);return x})(c).getImageData(0,0,c.width,c.height).data;return p.reduce((sum,v,i)=>sum+Math.abs(v-window.reference[i]),0)/p.length;});assert.ok(error<.1,`${name} ${edge} overscroll pixels ${error}`);await page.evaluate(()=>window.restoreElastic());await settle();
   }
  }
  await page.evaluate(async()=>{const {acquireContextCanvas}=await import('/src/core/webgl/contextPool.ts');const lease=acquireContextCanvas(document.querySelector('#library-glass canvas')?.dataset.liquidGlassPresentation==='bitmap-transfer'),c=lease.canvas,gl=c.getContext('webgl'),ext=gl.getExtension('WEBGL_lose_context');lease.release();window.restoreGL=()=>ext.restoreContext();await new Promise(resolve=>{c.addEventListener('webglcontextlost',resolve,{once:true});ext.loseContext();});});
@@ -97,7 +98,7 @@ for(const [name,type] of [['chromium',chromium],['webkit',webkit]]) {
    let status='pending';const engine=createWebGLEngine(panel,panel,source,options,next=>status=next);
    await until(()=>status==='active');
    const c=panel.querySelector('canvas');
-   const center=c.getContext('2d').getImageData(c.width/2,c.height/2,1,1).data;
+   const center=(o=>{const k=document.createElement('canvas');k.width=o.width;k.height=o.height;const x=k.getContext('2d');x.drawImage(o,0,0);return x})(c).getImageData(c.width/2,c.height/2,1,1).data;
    const {acquireContextCanvas}=await import('/src/core/webgl/contextPool.ts');const lease=acquireContextCanvas(),gl=lease.canvas.getContext('webgl');lease.release();
    const transparent=center[3]===0;
    const upload=gl.texImage2D.bind(gl);gl.texImage2D=()=>{throw new Error('transient upload failure');};
@@ -107,7 +108,7 @@ for(const [name,type] of [['chromium',chromium],['webkit',webkit]]) {
    const lens=document.createElement('div');lens.style.cssText='position:fixed;top:0;left:0;width:160px;height:160px;transform-origin:0 0';document.body.append(lens);
    status='pending';const htmlEngine=createWebGLEngine(lens,lens,html,options,next=>status=next);await until(()=>status==='active');
    const output=lens.querySelector('canvas');
-   const read=()=>output.getContext('2d').getImageData(0,0,output.width,output.height).data;
+   const read=()=>(o=>{const k=document.createElement('canvas');k.width=o.width;k.height=o.height;const x=k.getContext('2d');x.drawImage(o,0,0);return x})(output).getImageData(0,0,output.width,output.height).data;
    const normal=read();html.style.transform='scale(.5)';lens.style.transform='scale(.5)';await htmlEngine.refresh();await settle();
    const scaled=read();let error=0;for(let i=0;i<normal.length;i++)error+=Math.abs(normal[i]-scaled[i]);error/=normal.length;
    htmlEngine.destroy();lens.remove();

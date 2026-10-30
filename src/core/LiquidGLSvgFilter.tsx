@@ -70,7 +70,9 @@ export function LiquidGLSvgFilter(props:Props){
  let level=samples,depth=0;
  while(level.length>1){const next:string[]=[];for(let i=0;i<level.length;i+=2){const name=`average${depth}x${i}`;nodes.push(<feComposite key={name} in={level[i]} in2={level[i+1]} operator="arithmetic" k2={.5} k3={.5} result={name}/>);next.push(name)}level=next;depth++;}
  const lensed=level[0];
- nodes.push(<feComponentTransfer key="fallback-mask" in={lensed} result="validRefract"><feFuncA type="discrete" tableValues="0 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>,<feComposite key="valid" in={lensed} in2="validRefract" operator="in" result="refracted"/>,<feComposite key="fallback" in="SourceGraphic" in2="validRefract" operator="out" result="fallback"/>,<feComposite key="sampled" in="refracted" in2="fallback" operator="over" result="sampled"/>);
+ // Samples displaced outside the backdrop are transparent; the unrefracted backdrop fills them. One composite
+ // instead of an alpha mask plus three composites: each primitive is a GPU pass on every moving frame.
+ nodes.push(<feComposite key="sampled" in={lensed} in2="SourceGraphic" operator="over" result="sampled"/>);
  let output='sampled';
  if(props.options?.specular){
   nodes.push(<feColorMatrix key="opaque" in={output} type="matrix" values={OPAQUE} result="opaqueLens"/>);

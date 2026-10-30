@@ -26,8 +26,9 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   canvas.width = canvas.height = scene.width = scene.height = 1;
   // Copying the shared canvas costs every moving frame; transfer its bitmap whenever the probe allows, for both optics.
   const transfer=!forceLegacy&&!!analytical?.supportsBitmap();
-  const output=canvas.getContext('2d'),ctx=scene.getContext('2d');
-  if(!output||!ctx)throw new Error('LiquidGlass: canvas unavailable');
+  // A transferred bitmap is handed to the compositor as is (bitmaprenderer); drawing it into a 2D canvas copies it.
+  const bitmaps=transfer?canvas.getContext('bitmaprenderer'):null,output=bitmaps?null:canvas.getContext('2d'),ctx=scene.getContext('2d');
+  if(!(bitmaps||output)||!ctx)throw new Error('LiquidGlass: canvas unavailable');
   const lease=acquireContextCanvas(transfer);
   let renderer:GlassRenderer;
   try{renderer=new GlassRenderer(lease.canvas)}catch(error){
@@ -38,9 +39,9 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   canvas.dataset.liquidGlassPresentation=transfer?'bitmap-transfer':'canvas-copy';
   const present=(w:number,h:number)=>{
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
-    output.globalCompositeOperation='copy';
-    if(transfer){const image=(renderer.canvas as OffscreenCanvas).transferToImageBitmap();try{output.drawImage(image,0,0,w,h)}finally{image.close()}}
-    else output.drawImage(renderer.canvas,0,0,w,h);
+    if(bitmaps){bitmaps.transferFromImageBitmap((renderer.canvas as OffscreenCanvas).transferToImageBitmap());return}
+    output!.globalCompositeOperation='copy';
+    output!.drawImage(renderer.canvas,0,0,w,h);
   };
   let options = initial, dirty = true, disposed = false;
   const changed=()=>{dirty=true;};

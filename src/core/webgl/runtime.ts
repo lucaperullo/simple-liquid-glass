@@ -6,7 +6,7 @@ import { installPackageOptics } from './optics';
 import { acquireSource } from './source';
 import { acquireContextCanvas, frameRect, frameScroll, subscribeFrame } from './contextPool';
 import { invalidateTextures } from './textureCache';
-import { canvasFrame } from './canvasFrames';
+import { canvasFrame, liveCanvasFrame } from './canvasFrames';
 import type { EngineContext, SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
 function fixedToViewport(element: HTMLElement): boolean {
@@ -66,10 +66,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   const origin = document.createElement('div');
   origin.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none';
   origin.setAttribute('aria-hidden', 'true'); document.body.append(origin);
-  // Captured HTML and playing videos are sampled in place from one shared texture; canvases keep the crop path.
+  // Captured HTML, playing videos and canvases are sampled in place from one texture per context, uploaded once per
+  // frame (video frame, canvas version or render batch) for every panel sharing it.
   let mediaFrame = 0;
-  const prepare = video ? cachedBackground(context, source, () => sourceRect, () => mediaFrame)
-    : media ? undefined : cachedBackground(context, source, () => sourceRect);
+  const prepare = cachedBackground(context, source, () => sourceRect, media && (() => mediaFrame));
   const optics = installPackageOptics(context, () => options);
   const liquidOptics = analytical?.(context);
   canvas.setAttribute('aria-hidden', 'true');
@@ -125,6 +125,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       const sameGeometry=lastGeometry[0]===g0&&lastGeometry[1]===g1&&lastGeometry[2]===g2&&lastGeometry[3]===g3&&lastGeometry[4]===width&&lastGeometry[5]===height&&lastGeometry[6]===g4&&lastGeometry[7]===g5&&lastGeometry[8]===dpr;
       const keepGeometry=()=>{lastGeometry[0]=g0;lastGeometry[1]=g1;lastGeometry[2]=g2;lastGeometry[3]=g3;lastGeometry[4]=width;lastGeometry[5]=height;lastGeometry[6]=g4;lastGeometry[7]=g5;lastGeometry[8]=dpr;};
       const version = media instanceof HTMLCanvasElement ? canvasFrame(media) : undefined;
+      // An unversioned canvas may change every frame: panels drawing in one batch share its single upload.
+      const canvasVersion = media && !video ? version ?? liveCanvasFrame() : 0;
       const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? version ?? 0;
       if (!options.liquidGL?.specular && !dirty && sameGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
       if (video && video.readyState < 2) return;
@@ -135,7 +137,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       // CSS transforms scale the canvas too. Sample the same visual extent.
       const scaleX = rect.width / width, scaleY = rect.height / height;
       if(options.optics==='liquidgl' && liquidOptics){
-        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,pad,options,media?(version??(video?time:performance.now())):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
+        const rendered=liquidOptics(snapshot as HTMLCanvasElement|HTMLVideoElement,rect,sourceRect,width,height,dpr,pad,options,media?(video?time:canvasVersion):undefined,slot&&{prepare:(fw,fh)=>{slot.prepare(fw,fh)}});
         if(!rendered)return;
         if(slot)slot.present(rendered.left*dpr,rendered.top*dpr,rendered.w,rendered.h,dpr);
         else{canvas.style.transform=`translate(${rendered.left+pad}px,${rendered.top+pad}px)`;
@@ -151,7 +153,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       canvas.style.left=canvas.style.top=`-${pad}px`;}
       // A uniformly scaled panel samples the cached backdrop over its scaled extent (padding included) instead of
       // re-cropping and re-uploading it every frame; non-uniform scale keeps the crop.
-      mediaFrame = time;
+      mediaFrame = video ? time : canvasVersion;
       const useCache = Math.abs(scaleX - scaleY) < 1e-3 && prepare?.(rect, pad * scaleX);
       // Reset cached crop when switching to a transformed output.
       if (!useCache && prepare && (scaleX !== 1 || scaleY !== 1)) prepare(undefined, pad);

@@ -211,7 +211,7 @@ controls. As with SVG, low quality disables chromatic separation; otherwise it u
 are deprecated and have no effect.
 
 For live video, point `backdropRef` directly at a `<video muted autoPlay playsInline>` element.
-A direct canvas source is live too. For HTML sources, text, attributes, images loading, inputs,
+A direct canvas source is live too: it is uploaded once per frame and shared by every panel over it (each samples its own region), so many panels over one animated canvas cost one upload. For HTML sources, text, attributes, images loading, inputs,
 and size changes refresh the snapshot automatically at a bounded interval, including during continuous updates. Change
 `backdropVersion` or call `ref.current.refreshBackdrop()` after changes outside the subtree,
 such as a stylesheet/theme change. Refresh retains the previous frame until the new capture is

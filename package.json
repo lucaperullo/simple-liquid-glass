@@ -63,7 +63,7 @@
     "test:browser": "playwright test",
     "test:compat": "node scripts/check-compat.cjs",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs",
+    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs",
     "test:scene": "node experiments/scene/test.mjs"
   },
   "size-limit": [

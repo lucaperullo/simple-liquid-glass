@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>simple-liquid-glass · engine</title>
+<style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#111;font:14px system-ui,sans-serif;color:#fff}
+#backdrop{position:fixed;top:0;left:0;width:300px;height:200px}
+#host{position:absolute;top:40px;left:40px;width:120px;height:80px;background:transparent}
+#html-source{position:fixed;top:250px;left:0;width:200px;height:120px;background:#2e8f4f}
+#html-host{position:absolute;top:270px;left:20px;width:80px;height:60px;background:transparent}
+</style></head><body>
+<canvas id="backdrop" width="300" height="200"></canvas>
+<div id="host"></div>
+<div id="html-source"><p>HTML backdrop content</p></div>
+<div id="html-host"></div>
+<script type="module" src="./main.ts"></script>
+</body></html>

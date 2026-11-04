@@ -27,6 +27,8 @@ Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no Rea
   `LiquidTrigger` (`'always' | 'hover' | 'press'`).
 - `simple-liquid-glass/web-component` → side-effect import; registers the `<liquid-glass>` custom
   element. Also exports `defineLiquidGlass(tag?)` and `LiquidGlassElement`.
+- `simple-liquid-glass/engine` (`@experimental`, `ENGINE_API = 1`) → `getGlassEngine()`, a
+  framework-agnostic custom-material API. See "Engine API (experimental)" below.
 
 ## How refraction works — and the #1 thing to get right
 
@@ -197,3 +199,31 @@ SSR-safe out of the box — it only touches the DOM in effects. Use it in client
 Import LiquidGlassScene from simple-liquid-glass/backdrop and wrap page sections plus glass. WebGL surfaces without explicit backdropRef/backdropSelector bind automatically; explicit sources always win. iOS auto-selects WebGL; Android/desktop use renderer="webgl". The provider shares captures, not WebGL contexts. Automatic surfaces are excluded without removing layout space; explicitly sourced glass remains capturable. simple-liquid-text 0.3.0 uses the same provider. Divide long pages into direct-child sections; avoid sticky/parallax HTML inside cached regions. Cross-origin content must permit capture.
 
 Experimental (5.5, unstable API): import { createExperimentalScene } from 'simple-liquid-glass/experimental'; createExperimentalScene(overlay, panels, source, { radius, blur, liquidGL }) renders analytical liquidGL refraction for a fixed list of flat, axis-aligned panels through one shared WebGL canvas composited below all overlay content. Returns { canvas, refresh(), status(), destroy() }. No nested clips, interleaved z-order, rotation or glass-through-glass; recreate it when panels change.
+
+## Engine API (experimental)
+import { getGlassEngine } from 'simple-liquid-glass/engine'. No React import. getGlassEngine() returns the page's
+GlassEngine singleton (null on the server or without WebGL), shared by every bundle of the package through
+ENGINE_API (currently 1). engine.defineMaterial({ id, fragment(caps), uniforms?, samplers?, inputs?, draw(ctx,
+params), reset? }) compiles a private fragment shader that defines `vec4 slg_shade(vec2 p)` (premultiplied colour
+at view point p, CSS px, y down) behind the stable slg_* prelude: slg_view, slg_scale, slg_origin, slg_viewport,
+slg_time, slg_point(), slg_toScreen(p), slg_hasBackdrop(), slg_backdrop(screen). draw(ctx, params) sets ctx.uniform
+/ ctx.bind / ctx.resource(resource) and calls ctx.draw(rects?) (no rects = the whole surface; rects = view-space
+CSS-px boxes, scissored — the G2 bleed/scissor gap). It returns 'drawn' | 'unchanged' | 'pending' | 'resized':
+'pending' still presents the frame and asks again next frame (a backdrop still loading, the G3 liveness/draw-result
+protocol); 'resized' redraws now with bleed() re-read. engine.defineResource({ id, create(gl), dispose? }) plus
+ctx.resource(resource) give one instance per WebGL context, recreated lazily after a context loss — the G10 gap.
+engine.createSurface({ host, material, params, backdrop?, backdropVersion?, bleed?, maxScale?, active?, onStatus? })
+draws one region into its own presentation canvas (sharing the package's one pooled WebGL context); backdrop is an
+HTMLElement (<video>/<canvas> sampled in place, anything else captured through the existing HTML-capture pipeline,
+loaded lazily as a separate chunk) or { scene: true } for the nearest LiquidGlassScene. surface.update(partial)
+marks it dirty; surface.diagnostics() reports composition ('own' — always, see limits below), scale,
+uploadsLastFrame, lastDrawMs, drawnFrames. A material that throws on 3 consecutive frames sets status to
+{ state: 'fallback', reason: 'material-error' } and stops drawing that surface only. engine.capabilities() reports
+webgl, maxFragmentUniformVectors, maxTextureSize, bitmapTransfer, tier ('full' | 'lite', a conservative heuristic).
+engine.onFrame(callback, 'measure' | 'before' | 'after') hooks the shared frame loop; engine.invalidate(surfaces?)
+marks surfaces dirty; engine.stats() reports { contexts, surfaces, visible, drawn, missed, uploads, uploadBytes,
+frameMs, layers } (layers is always 0).
+Not implemented in this release: document-order layers (no createLayer), glass-on-glass (no slg_under), a frost
+input (no slg_frost), pointer input (no slg_pointer) and backdrop-source providers. SurfaceOptions.composition
+always resolves to 'own' — there is no multi-surface shared canvas for engine surfaces. An MIT example material is
+at tests/engine/tint-material.ts.

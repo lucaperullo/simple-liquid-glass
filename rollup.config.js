@@ -88,6 +88,19 @@ export default [
       { file: 'dist/web-component.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
     ],
     plugins: jsPlugins()
+  },
+  // @experimental engine extension API (./engine) — framework-agnostic, no React import.
+  // `backdrop.ts` loads the html-to-image HTML-capture pipeline (../webgl/source) through a
+  // dynamic import, only for a surface that actually uses an HTML backdrop, so it must build as
+  // real separate chunks (output.dir), not a single file — inlining would keep the bytes in the
+  // entry file and defeat the point. The exports map still points at dist/engine.esm.js / .cjs.
+  {
+    input: 'src/engine/index.ts',
+    output: [
+      { dir: 'dist', entryFileNames: 'engine.esm.js', chunkFileNames: 'engine-[name].esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { dir: 'dist', entryFileNames: 'engine.cjs', chunkFileNames: 'engine-[name].cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: jsPlugins()
   }
   // Public types are generated from source and bundled by rollup.types.config.js.
 ];

@@ -41,6 +41,11 @@
       "types": "./dist/experimental.d.ts",
       "import": "./dist/experimental.esm.js",
       "require": "./dist/experimental.cjs"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "import": "./dist/engine.esm.js",
+      "require": "./dist/engine.cjs"
     }
   },
   "files": [
@@ -63,7 +68,7 @@
     "test:browser": "playwright test",
     "test:compat": "node scripts/check-compat.cjs",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs",
+    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs && node experiments/engine/test.mjs",
     "test:scene": "node experiments/scene/test.mjs"
   },
   "size-limit": [
@@ -103,6 +108,19 @@
       "name": "experimental — import { createExperimentalScene } (Brotli)",
       "path": "dist/experimental.esm.js",
       "limit": "31.3 KB"
+    },
+    {
+      "name": "engine — import { getGlassEngine } (Brotli, experimental, no React; follows the lazy HTML-capture chunk too — see the next entry for what every consumer always pays)",
+      "path": "dist/engine.esm.js",
+      "limit": "30 KB"
+    },
+    {
+      "name": "engine core only — the chunk every consumer always loads; an HTML-backdrop surface additionally loads engine-source lazily (~18 KB brotli, not counted here)",
+      "path": "dist/engine-index.esm.js",
+      "limit": "11.5 KB",
+      "ignore": [
+        "./engine-source.esm.js"
+      ]
     }
   ],
   "repository": {

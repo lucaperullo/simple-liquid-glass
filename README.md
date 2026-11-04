@@ -514,6 +514,63 @@ npm run storybook
 
 Switch the Backgrounds toolbar between light/dark to see text color adapt in real time.
 
+## Engine API (experimental)
+
+`simple-liquid-glass/engine` is a framework-agnostic extension API for custom WebGL materials — your own private
+GLSL, running on this package's shared WebGL context, frame loop and backdrop leases. It is `@experimental`: its
+types and behaviour may change in a minor release while `ENGINE_API` stays `1` (see the CHANGELOG's "Engine API"
+section for every change). It has no React import and never imports, detects or special-cases any other package.
+
+```ts
+import { getGlassEngine, type DrawResult } from 'simple-liquid-glass/engine';
+
+const engine = getGlassEngine(); // null on the server, or without WebGL
+if (engine) {
+  const material = engine.defineMaterial<{ color: [number, number, number, number] }>({
+    id: 'my-app/tint@1',
+    fragment: (caps) => `
+      uniform vec4 u_color;
+      vec4 slg_shade(vec2 p) {
+        vec3 backdrop = slg_backdrop(slg_toScreen(p));
+        return vec4(mix(backdrop, u_color.rgb, u_color.a), 1.0);
+      }
+    `,
+    inputs: { backdrop: true },
+    draw(ctx, params): DrawResult {
+      ctx.uniform('u_color', ...params.color);
+      ctx.draw();
+      return 'drawn';
+    },
+  });
+
+  const surface = engine.createSurface({
+    host: document.querySelector('#panel')!,
+    material,
+    params: { color: [1, 1, 1, 0.25] },
+    backdrop: document.querySelector('#background')!, // <video>/<canvas> sampled in place, HTML captured, or { scene: true }
+  });
+
+  surface.update({ color: [0.2, 0.6, 1, 0.3] }); // redraws once, next frame
+}
+```
+
+A fragment defines `vec4 slg_shade(vec2 p)`; the engine supplies the rest of the program (vertex shader, `main()`
+and the `slg_*` prelude: `slg_view`, `slg_scale`, `slg_origin`, `slg_viewport`, `slg_time`, `slg_point()`,
+`slg_toScreen(p)`, `slg_hasBackdrop()`, `slg_backdrop(screen)`). `draw()` returns one of `'drawn'`, `'unchanged'`,
+`'pending'` (present this frame, ask again next frame — a loading backdrop) or `'resized'` (redraw now at a
+freshly re-read `bleed()`). `defineResource()` gives one instance per WebGL context (a shared LUT or atlas,
+re-created lazily after a context loss). `createSurface()`'s `active()` option keeps a surface drawing every
+frame (a spring, say); otherwise it only redraws when its params, geometry or backdrop actually change. A material
+that throws on 3 consecutive frames falls back to `status: { state: 'fallback', reason: 'material-error' }` and
+stops drawing, without affecting any other surface.
+
+**What this release does not include.** Only G1 (custom materials), the two items its design bundles with it — G2
+bleed/scissored draws and G3 the liveness/draw-result protocol — and G10 (per-context resources) are implemented.
+There is no document-order layer (`createLayer`), no glass-on-glass `under` input, no frost input and no pointer
+input, and every surface composites through its own presentation canvas (sharing the one pooled WebGL context,
+never a multi-surface shared canvas). See the CHANGELOG's "Engine API" entry for the full list and an MIT example
+material at `tests/engine/tint-material.ts`.
+
 ## License
 
 MIT © [lucaperullo]

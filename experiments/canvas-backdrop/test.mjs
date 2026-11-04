@@ -61,6 +61,19 @@ try{for(const [name,type] of Object.entries({chromium,webkit,firefox}).filter(([
     console.log(name,`scene=${scene} blur=${blur}`,'uploads/frame',after.uploads,'(crop path',cropped.uploads+')','pixel diff',d);
    }
   }
+  // maxScale caps the drawing scale of a panel's own canvas and of the shared scene; unset keeps the device ratio.
+  for(const scene of ['off','auto']){
+   const ratios=[];
+   for(const query of ['',`&maxScale=1.5`]){
+    const page=await browser.newPage({viewport:{width:800,height:600},deviceScaleFactor:3});
+    await page.goto(base+`?n=5&animate=0&scene=${scene}`+query);
+    await page.waitForFunction(()=>[...document.querySelectorAll('[data-panel]')].every(p=>p.dataset.glassStrategy==='webgl'),null,{timeout:20000});await frames(page,5);
+    ratios.push(await page.evaluate(scene=>{const c=document.querySelector(scene==='auto'?'canvas[data-liquid-glass-scene]':'[data-panel] canvas[data-liquid-glass-webgl]');return c.width/parseFloat(c.style.width)},scene));
+    await page.close();
+   }
+   assert.ok(Math.abs(ratios[0]-3)<.02&&Math.abs(ratios[1]-1.5)<.02,`${name} scene=${scene}: drawing scale ${ratios} (expected 3 unset, 1.5 capped)`);
+   console.log(name,`scene=${scene} maxScale`,ratios,'passed');
+  }
   // liquidGL optics share the upload too (each panel used to upload its own version).
   const lgl=await open(browser,'n=5&optics=liquidgl&scene=off');const u=await perFrame(lgl.page);
   assert.ok(u.uploads<=1.1,`${name} liquidgl: ${u.uploads} uploads per frame`);await lgl.page.close();

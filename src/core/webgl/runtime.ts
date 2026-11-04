@@ -120,7 +120,9 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       sourceRect=new DOMRect(measured.left,elastic&&!fixedSource?documentTop-y:measured.top,measured.width,measured.height);
       const rect=new DOMRect(lens.left,lens.top-fixedOffset,lens.width,lens.height);
       if(!width||!height||!sourceRect.width||!sourceRect.height)return;
-      const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3);
+      const cap = options.maxScale! > 0 ? options.maxScale! : Infinity;
+      if (slot) slot.maxScale = cap;
+      const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3, cap);
       const g0=rect.left-sourceRect.left,g1=rect.top-sourceRect.top,g2=sourceRect.width,g3=sourceRect.height,g4=rect.width,g5=rect.height;
       const sameGeometry=lastGeometry[0]===g0&&lastGeometry[1]===g1&&lastGeometry[2]===g2&&lastGeometry[3]===g3&&lastGeometry[4]===width&&lastGeometry[5]===height&&lastGeometry[6]===g4&&lastGeometry[7]===g5&&lastGeometry[8]===dpr;
       const keepGeometry=()=>{lastGeometry[0]=g0;lastGeometry[1]=g1;lastGeometry[2]=g2;lastGeometry[3]=g3;lastGeometry[4]=width;lastGeometry[5]=height;lastGeometry[6]=g4;lastGeometry[7]=g5;lastGeometry[8]=dpr;};

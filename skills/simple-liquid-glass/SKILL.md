@@ -33,7 +33,7 @@ This skill is the working summary + the rules that prevent the common mistakes.
 
 Core: `radius` (50), `scale` (160, displacement strength), `frost` (0.1), `blur` (0),
 `saturation` (140), `aberrationIntensity` (0), `borderColor`, `glassColor`, `autoTextColor` (false),
-`quality` (`'low'`), `effectMode` (`'auto'`), `renderer` (`'auto'`), `backdropRef`/`backdropSelector`, `backdropVersion`.
+`quality` (`'low'`), `effectMode` (`'auto'`), `renderer` (`'auto'`), `backdropRef`/`backdropSelector`, `backdropVersion`, `maxScale` (unset: no cap).
 WebGL shares `lensProfile`, `lensOptions`, `displacementScale`, and dispersion with the SVG component.
 HTML captures refresh for DOM changes; use `ref.current.refreshBackdrop()` for external changes.
 Point directly at video/canvas for live frames; nested media in an HTML source is a snapshot.

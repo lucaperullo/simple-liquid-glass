@@ -51,6 +51,7 @@ ancestors: an opacity ancestor blanks Chromium's backdrop-filter until the fade 
 | `backdropRef` | RefObject<HTMLElement> | — | explicit sibling backdrop |
 | `backdropSelector` | string | — | selector alternative |
 | `backdropVersion` | string \| number | — | refresh HTML capture |
+| `maxScale` | number | — | cap the WebGL drawing scale (device px per CSS px), e.g. 1.5 on phones |
 | `children` | ReactNode | — | content inside the glass |
 | `mode` | `'preset' \| 'custom'` | `'preset'` | preset applies tuned defaults; props still override |
 | `scale` | number | `160` | displacement strength (negative inverts the bend) |
@@ -109,7 +110,7 @@ Also: `usePointerElastic(ref, options)` — apply the elastic spring to any `Liq
 `angle`, `shape-adapt` (`"false"` to disable), `lens`, `lens-strength`, `lens-center` (`"x,y"`),
 `liquid`, `liquid-speed`, `liquid-scale`.
 
-The custom element supports `renderer`, `backdrop-selector`, `backdrop-version`, `effect-mode`,
+The custom element supports `renderer`, `backdrop-selector`, `backdrop-version`, `max-scale`, `effect-mode`,
 `lens-profile`, `strength`, and `dispersion` in addition to the attributes above. iOS automatically
 uses WebGL with an explicit source. `renderer="webgl"` opts other platforms in. It exposes
 `refreshBackdrop(): Promise<void>` and `data-glass-strategy`/`data-glass-reason`.

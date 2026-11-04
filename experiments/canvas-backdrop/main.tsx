@@ -1,5 +1,5 @@
 // One canvas backdrop under n glass panels: the G4 upload test, the pixel check and the canvas benchmark.
-// ?n=5|48 &animate=0|1 &scene=auto|off &optics=native|liquidgl &blur=0
+// ?n=5|48 &animate=0|1 &scene=auto|off &optics=native|liquidgl &maxScale=1.5 &blur=0
 import React, { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LiquidGlass } from '../../src/index';
@@ -8,6 +8,7 @@ const params = new URLSearchParams(location.search);
 const n = Number(params.get('n') ?? 5), animate = params.get('animate') !== '0';
 const optics = params.get('optics') === 'liquidgl' ? 'liquidgl' : 'native';
 const blur = Number(params.get('blur') ?? 0);
+const maxScale = params.has('maxScale') ? Number(params.get('maxScale')) : undefined;
 
 function paint(canvas: HTMLCanvasElement, t: number) {
   const dpr = devicePixelRatio || 1, w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
@@ -44,7 +45,7 @@ function App() {
   return <>
     <canvas ref={backdrop} id="backdrop"/>
     <div id="panels">{Array.from({ length: n }, (_, i) => <LiquidGlass key={i} className="panel" data-panel={i} renderer="webgl"
-      webglScene={params.get('scene') === 'off' ? 'off' : 'auto'} optics={optics} blur={blur}
+      webglScene={params.get('scene') === 'off' ? 'off' : 'auto'} optics={optics} maxScale={maxScale} blur={blur}
       backdropRef={backdrop} radius={Math.min(24, ph / 2)} glassColor="rgba(255,255,255,.04)"
       style={{ left: gap + (i % cols) * (pw + gap), top: gap + Math.floor(i / cols) * (ph + gap), width: pw, height: ph }}>
       <span style={{ display: 'block', padding: 8 }}>{i + 1}</span></LiquidGlass>)}</div>

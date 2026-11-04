@@ -113,7 +113,7 @@ class Scene {
     clearTimeout(this.resting);
     const gl = this.gl, scene = this;
     const slot: Slot = {
-      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, sx: 1, sy: 1, maskTex: null, maskDirty: false, reveal: 1, feather: 0,
+      canvas: this.canvas, panel, evict, tex: null, fbo: null, w: 0, h: 0, x: 0, y: 0, dpr: 1, ready: false, frames: 0, sx: 1, sy: 1, maskTex: null, maskDirty: false, reveal: 1, feather: 0, maxScale: Infinity,
       prepare(w, h) {
         if (!slot.fbo || slot.w !== w || slot.h !== h) {
           scene.free(slot);
@@ -206,7 +206,10 @@ class Scene {
   private frame = () => {
     const gl = this.gl;
     if (gl.isContextLost() || !this.canvasRect) return;
-    const dpr = Math.min(devicePixelRatio || 1, MAX_DPR);
+    // Panels capped by maxScale draw fewer pixels; when all are, the scene composites at the largest cap too.
+    let cap = 0;
+    for (const slot of this.slots) cap = Math.max(cap, slot.maxScale);
+    const dpr = Math.min(devicePixelRatio || 1, MAX_DPR, cap || Infinity);
     const view = { left: -VIEWPORT_MARGIN * dpr, top: -VIEWPORT_MARGIN * dpr, right: (innerWidth + VIEWPORT_MARGIN) * dpr, bottom: (innerHeight + VIEWPORT_MARGIN) * dpr };
     const boxes: Array<{ slot: Slot; x: number; y: number; w: number; h: number }> = [];
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;

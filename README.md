@@ -349,6 +349,7 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS, Safari and Firefox; on desktop Chromium SVG, or the shared WebGL scene for 16+ sibling panels; force either with svg/webgl |
 | `webglScene` | `'auto' \| 'off'` | `'auto'` | Sibling WebGL panels over one backdrop share one canvas. `'off'` keeps one canvas per panel (and SVG on Chromium) |
 | `backdropVersion` | `string \| number` | — | Change to refresh cached HTML |
+| `maxScale` | `number` | — (device pixel ratio, at most 3; 2 for liquidGL optics) | Upper bound for the WebGL drawing scale in device pixels per CSS pixel, e.g. `1.5` on phones to shade about a third of the pixels of a 2.6× screen. A shared scene composites at the largest `maxScale` of its panels. SVG and CSS rendering are unaffected |
 | `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
@@ -735,7 +736,7 @@ exported TypeScript types.
 ```
 
 Omit `renderer` for automatic iOS selection. WebGL attributes include `lens-profile`, `strength`,
-`dispersion`, `radius`, `scale`, `blur`, `saturation`, `backdrop-selector`, and `backdrop-version`.
+`dispersion`, `radius`, `scale`, `blur`, `saturation`, `backdrop-selector`, `backdrop-version`, and `max-scale` (the `maxScale` prop).
 `effect-mode="blur"` or `"off"` explicitly disables refraction. Call
 `element.refreshBackdrop()` for a manual capture refresh. Disconnecting the element releases
 its framebuffers and source subscription; the shared context is released when the last surface disconnects. Geometry and optical attribute updates reuse the existing engine. `lens-profile` and `strength` now select the same native lens on Chromium and WebGL; explicit legacy directional/lens attributes keep the classic gradient path.
@@ -750,7 +751,7 @@ Run `npm run test:webgl` for the library integration/overscroll tests in Chromiu
 `simple-liquid-glass/webgl` exports the framework-independent `createWebGLSurface(element,
 output, backdrop, options, onStatus)` engine and its TypeScript types. It accepts a displacement
 map URI, scale, dispersion, radius, blur and saturation; the output holder can be CSS-masked.
-`additiveDispersion` and `neutralPoint` support glyph maps. The returned surface exposes
+`additiveDispersion` and `neutralPoint` support glyph maps; `maxScale` caps the drawing scale. The returned surface exposes
 `update(options)`, `refresh()` and `destroy()`. This is the canonical engine used by
 `simple-liquid-text`, including overscroll tracking and background capture lifecycle.
 

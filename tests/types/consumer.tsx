@@ -21,7 +21,10 @@ ref.current?.getDiagnostics().reason;
 const invalidMaterial = <LiquidGlass material="plastic" />;
 void material; void invalidMaterial;
 
-const gpu = <LiquidGlass renderer="webgl" backdropSelector="#background" backdropVersion={1} />;
+const gpu = <LiquidGlass renderer="webgl" backdropSelector="#background" backdropVersion={1} maxScale={1.5} />;
+// @ts-expect-error maxScale is a number
+const invalidScale = <LiquidGlass maxScale="1.5" />;
+void invalidScale;
 const interactiveGpu = <LiquidGlassInteractive renderer="webgl" backdropSelector="#background" />;
 ref.current?.refreshBackdrop().then(() => {});
 // @ts-expect-error unsupported renderer
@@ -30,7 +33,7 @@ void gpu; void interactiveGpu; void invalidRenderer;
 
 import { createWebGLSurface, type WebGLSurfaceOptions } from 'simple-liquid-glass/webgl';
 const surfaceOptions: WebGLSurfaceOptions = { map: '', scale: 80, dispersion: 1, specular: 0,
-  classic: false, additiveDispersion: true, neutralPoint: 128/255, radius: 0, blur: 0, saturation: 100 };
+  classic: false, additiveDispersion: true, neutralPoint: 128/255, radius: 0, blur: 0, saturation: 100, maxScale: 2 };
 void createWebGLSurface; void surfaceOptions;
 
 import {LiquidGlassScene,useLiquidGlassBackdrop,createLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';

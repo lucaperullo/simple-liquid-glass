@@ -38,6 +38,9 @@ export interface WebGLOptions {
   reveal?: number;
   /** Width of the soft edge before `reveal`, as a fraction of the panel width (default 0: a hard edge). */
   revealFeather?: number;
+  /** Upper bound for the drawing scale in device pixels per CSS pixel. Unset (default): the device pixel ratio,
+   * capped at 3 (2 for liquidGL optics). Values that are not positive numbers are ignored. */
+  maxScale?: number;
 }
 export type WebGLStatus = 'pending' | 'active' | 'missing-backdrop' | 'invalid-backdrop'
   | 'invalid-selector' | 'webgl-unavailable' | 'capture-failed';
@@ -61,5 +64,7 @@ export interface SceneSlot {
   present(x: number, y: number, w: number, h: number, dpr: number): void;
   /** Alpha mask over the panel box, or none, shown up to `reveal` (fraction of the width, default 1). */
   mask(source?: TexImageSource, reveal?: number, feather?: number): void;
+  /** The panel's `maxScale` (Infinity when unset): the scene composites at the largest of its panels'. */
+  maxScale: number;
   release(): void;
 }

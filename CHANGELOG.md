@@ -1,6 +1,7 @@
 ## Unreleased
 
 - **Canvas backdrops are sampled in place.** A `<canvas>` backdrop is uploaded once per WebGL context per frame (once per version for the canvases `LiquidGlassScene` paints), and every pane over it samples its own region of that texture, as video already did. Before, each pane copied its crop through a 2D canvas and uploaded it, so 48 panes over one live canvas cost 48 copies and 48 uploads per frame; now it is one upload per frame for the shared scene, or one for the shared offscreen context. `optics="liquidgl"` panes share the upload too (each used to upload its own copy every frame). No API change. Panes keep the crop when the canvas exceeds the context's `MAX_TEXTURE_SIZE`, uses `object-fit: none` or `scale-down`, is scaled non-uniformly, or when the pane extends past the canvas. Output matches the crop within 0.41/255 mean on Chromium, WebKit and Firefox, with and without blur (`experiments/canvas-backdrop/test.mjs`, run by `npm run test:webgl`).
+- **`maxScale`** (new, optional): `<LiquidGlass maxScale={1.5}>`, `WebGLSurfaceOptions.maxScale` and the `max-scale` attribute of `<liquid-glass>` cap the WebGL drawing scale in device pixels per CSS pixel. A shared scene composites at the largest cap among its panels (uncapped if any panel is). Defaults are unchanged: without it WebGL draws at the device pixel ratio, at most 3 (2 for liquidGL optics). SVG and CSS rendering ignore it.
 
 ## 5.6.0 — one canvas for a crowd of glass
 

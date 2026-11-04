@@ -71,6 +71,11 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   webglScene?: 'auto' | 'off';
   /** Change this value to refresh a WebGL HTML snapshot after external visual changes. */
   backdropVersion?: string | number;
+  /**
+   * Upper bound for the WebGL drawing scale, in device pixels per CSS pixel (for example `1.5` on phones).
+   * Unset (default): the device pixel ratio, capped at 3 (2 for liquidGL optics). SVG and CSS rendering are unaffected.
+   */
+  maxScale?: number;
   /** Coordinated material defaults; explicit props override individual settings. */
   material?: MaterialPreset;
   /** Called after mount whenever the rendering strategy, reason, or quality changes. */
@@ -325,6 +330,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   webglScene = 'auto',
   reveal = 'ready',
   backdropVersion,
+  maxScale,
   mirror: _mirror,
   backdropRef,
   backdropSelector,
@@ -455,8 +461,8 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   const webglOptions = useMemo(() => ({
     map: displacementDataUri, scale: filterScale, dispersion: resolvedQuality === 'low' ? 0 : filterConfig.dispersion * aberrationIntensity,
     specular: refraction === 'lens' ? nativeOptions.specular : 0, classic: refraction !== 'lens',
-    radius: effectiveRadiusPx, blur, saturation, optics: webglOptics, liquidGL: liquidGLOptions
-  }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation, webglOptics, liquidGLOptions]);
+    radius: effectiveRadiusPx, blur, saturation, optics: webglOptics, liquidGL: liquidGLOptions, maxScale
+  }), [displacementDataUri, filterScale, filterConfig.dispersion, aberrationIntensity, resolvedQuality, nativeOptions.specular, refraction, effectiveRadiusPx, blur, saturation, webglOptics, liquidGLOptions, maxScale]);
   const webgl = useWebGL(webglRequested && visibilityReady && isVisible, containerRef, webglHolderRef,
     webglOptions, backdropRef, backdropSelector, backdropVersion, webglScene !== 'off');
   const webglReady = webglRequested && webgl.status === 'active';

@@ -13,7 +13,7 @@ const SHEEN='linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255
 const ElementBase=(typeof HTMLElement==='undefined'?class{}:HTMLElement)as typeof HTMLElement;
 /** Stable shadow DOM and WebGL binding; geometry/optics updates reuse GPU resources. */
 export class LiquidGlassElement extends ElementBase{
- static get observedAttributes(){return ['renderer','effect-mode','reveal','backdrop-selector','backdrop-version','lens-profile','strength','dispersion','radius','frost','blur','saturation','displace','scale','border-color','lightness','alpha','angle','shape-adapt','lens','lens-strength','lens-center','liquid','liquid-speed','liquid-scale']}
+ static get observedAttributes(){return ['renderer','effect-mode','reveal','backdrop-selector','backdrop-version','lens-profile','strength','dispersion','radius','frost','blur','saturation','displace','scale','border-color','lightness','alpha','angle','shape-adapt','lens','lens-strength','lens-center','liquid','liquid-speed','liquid-scale','max-scale']}
  private readonly filterId=`lg-wc-${++uid}`;
  private readonly root:ShadowRoot;
  private ro?:ResizeObserver;
@@ -81,7 +81,7 @@ export class LiquidGlassElement extends ElementBase{
    try{const selector=this.getAttribute('backdrop-selector');if(selector)source=document.querySelector<HTMLElement>(selector)}catch{this.dataset.glassReason='invalid-selector'}
    if(!source||source.contains(this)||this.contains(source)){this.clearEngine();this.dataset.glassStrategy='blur';this.dataset.glassReason||=source?'invalid-backdrop':'missing-backdrop';show(false)}
    else{
-    const options:WebGLOptions={map:map(),scale:filterScale,dispersion:color,specular:legacy?0:native.specular,classic:legacy,radius,blur,saturation};
+    const options:WebGLOptions={map:map(),scale:filterScale,dispersion:color,specular:legacy?0:native.specular,classic:legacy,radius,blur,saturation,maxScale:attrNum(this,'max-scale',0)};
     if(this.webgl&&this.source===source){this.webgl.update(options);if(previousReason)this.dataset.glassReason=previousReason;show(this.dataset.glassStrategy==='webgl')}
     else{
      this.clearEngine();this.source=source;this.dataset.glassStrategy='pending';show(false);

@@ -1,6 +1,19 @@
 ## Unreleased
 
 - **Canvas backdrops are sampled in place.** A `<canvas>` backdrop is uploaded once per WebGL context per frame (once per version for the canvases `LiquidGlassScene` paints), and every pane over it samples its own region of that texture, as video already did. Before, each pane copied its crop through a 2D canvas and uploaded it, so 48 panes over one live canvas cost 48 copies and 48 uploads per frame; now it is one upload per frame for the shared scene, or one for the shared offscreen context. `optics="liquidgl"` panes share the upload too (each used to upload its own copy every frame). No API change. Panes keep the crop when the canvas exceeds the context's `MAX_TEXTURE_SIZE`, uses `object-fit: none` or `scale-down`, is scaled non-uniformly, or when the pane extends past the canvas. Output matches the crop within 0.41/255 mean on Chromium, WebKit and Firefox, with and without blur (`experiments/canvas-backdrop/test.mjs`, run by `npm run test:webgl`).
+
+  Panes over one animated 2560×1600 canvas (`experiments/canvas-backdrop`, shared scene, Apple M5, headless Playwright: Chromium 153, WebKit 26.6, Firefox 155; 1280×800 at 2×; median of 5 interleaved runs; frame rate · p95 frame interval · uploads per frame):
+
+  | Browser | Panes | Before | After |
+  |---|---|---|---|
+  | Chromium | 5 | 60 fps · 16.8 ms · 5 | 60 fps · 16.8 ms · 1 |
+  | Chromium | 48 | 60 fps · 16.8 ms · 48 | 60 fps · 16.7 ms · 1 |
+  | WebKit | 5 | 54.9 fps · 22 ms · 5 | 58.3 fps · 20 ms · 1 |
+  | WebKit | 48 | 25.1 fps · 55 ms · 48 | **50.0 fps · 23 ms · 1** |
+  | Firefox | 5 | 49.6 fps · 25.7 ms · 5 | 67.6 fps · 17.6 ms · 1 |
+  | Firefox | 48 | 46.9 fps · 25.1 ms · 48 | **76.4 fps · 16.8 ms · 1** |
+
+  Headless Firefox is not capped at 60 Hz. Chromium's main-thread time per frame is unchanged (0.95 → 0.97 ms with 48 panes, 11 runs). Bytes uploaded per frame are those of the whole canvas (16.4 MB here) instead of the panes' crops (13.3 MB for 5 large panes, 18.6 MB for 48), so a few panes over a very large canvas can upload more than before; WebKit spends most of its frame in that one upload.
 - **`maxScale`** (new, optional): `<LiquidGlass maxScale={1.5}>`, `WebGLSurfaceOptions.maxScale` and the `max-scale` attribute of `<liquid-glass>` cap the WebGL drawing scale in device pixels per CSS pixel. A shared scene composites at the largest cap among its panels (uncapped if any panel is). Defaults are unchanged: without it WebGL draws at the device pixel ratio, at most 3 (2 for liquidGL optics). SVG and CSS rendering ignore it.
 - **Page-level stats** (new): `getGlassEngineStats()` from `simple-liquid-glass/webgl` returns the WebGL contexts in use, every glass surface on the page with its strategy (`webgl-scene`, `webgl-single`, `svg`, `css-fallback`, `pending`, `paused`, `off`) and reason, how many are refracting, and for the last engine frame the visible, drawn and missed surfaces, texture uploads and bytes and the frame's main-thread time, plus cumulative totals. Counting starts with the first call; nothing is counted before it. With `window.__benchExpose` set before the entry loads, it is also exposed as `window.__slgEngine.stats()`. New types: `GlassEngineStats`, `GlassEngineFrameStats`, `GlassSurfaceStats`, `GlassSurfaceStrategy`.
 - **Bundle size grows** by about 0.4 KB Brotli (frame counters and surface registration in every entry, `maxScale`, the canvas path): budgets are core 52.2 KB (5.6: 51.8), interactive 54.3 KB (53.9), mirror 52.3 KB (51.9), web component 37.3 KB (36.9), experimental 31.3 KB (31). The stats reader itself ships only in `simple-liquid-glass/webgl`.

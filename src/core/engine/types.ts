@@ -70,8 +70,17 @@ export interface DrawContext {
   readonly settle: boolean;
   readonly backdrop: { box: readonly [number, number, number, number]; live: boolean } | null;
   readonly tier: 'full' | 'lite';
-  /** Cached: values equal to the last call for this name on this program are not resent to the GPU. */
+  /** Cached: values equal to the last call for this name on this program are not resent to the GPU.
+   * The uniform's GLSL type is read once per program (via `getActiveUniform`): a `float`/`vecN` is sent
+   * with `uniformNf`, an `int`/`bool`/`sampler2D`/`samplerCube` with `uniformNi` (rounded) — materials
+   * never need a separate call for integer or sampler uniforms. */
   uniform(name: string, ...values: number[]): void;
+  /** For a GLSL array uniform (e.g. `uniform vec4 uRect[8]`): one call for the whole array instead of
+   * one `uniform()` per slot. `components` is the GLSL type's arity (1 for `float`/`int`/`bool`, up to 4
+   * for `vecN`); `values` is every slot's components flattened in order. Same type detection as
+   * `uniform()`, so an `int[]`/`bool[]` array is sent correctly too. Not value-cached: arrays are
+   * typically whole-buffer data that changes every draw, so caching would cost more than it saves. */
+  uniformArray(name: string, values: Float32Array | readonly number[], components: 1 | 2 | 3 | 4): void;
   bind(sampler: string, texture: WebGLTexture): void;
   /** This context's instance of a resource (G10), created lazily on first use. */
   resource<T>(resource: Resource<T>): T;

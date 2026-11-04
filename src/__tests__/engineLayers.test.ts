@@ -27,14 +27,19 @@ function createMockGl() {
     MAX_FRAGMENT_UNIFORM_VECTORS: 20, MAX_TEXTURE_SIZE: 21,
     UNPACK_FLIP_Y_WEBGL: 22, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 23, RGBA: 24, UNSIGNED_BYTE: 25,
     TEXTURE_MIN_FILTER: 26, TEXTURE_MAG_FILTER: 27, TEXTURE_WRAP_S: 28, TEXTURE_WRAP_T: 29,
-    LINEAR: 30, CLAMP_TO_EDGE: 31, NEAREST: 32,
+    LINEAR: 30, CLAMP_TO_EDGE: 31, NEAREST: 32, ACTIVE_UNIFORMS: 42,
     getParameter: (p: number) => (p === 20 ? 256 : p === 21 ? 4096 : 0),
     createShader: () => ({ serial: ++serial }),
     shaderSource: jest.fn(), compileShader: jest.fn(),
     getShaderParameter: () => true, getShaderInfoLog: () => '', deleteShader: jest.fn(),
     createProgram: () => ({ serial: ++serial }),
     attachShader: jest.fn(), bindAttribLocation: jest.fn(), linkProgram: jest.fn(),
-    getProgramParameter: () => true, getProgramInfoLog: () => '', deleteProgram: jest.fn(),
+    // None of this file's materials use int/bool/sampler/array uniforms, so reporting zero active
+    // uniforms keeps every one of them on the pre-existing float uniformNf path (see engine.ts's
+    // isIntegerUniformType): getProgramParameter(p, LINK_STATUS) still needs to read as truthy.
+    getProgramParameter: (_p: unknown, pname: number) => (pname === 42 ? 0 : true),
+    getActiveUniform: () => null,
+    getProgramInfoLog: () => '', deleteProgram: jest.fn(),
     useProgram: jest.fn(),
     getUniformLocation: (program: { serial: number }, name: string) => {
       const key = `${program.serial}:${name}`;

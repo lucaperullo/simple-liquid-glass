@@ -60,8 +60,21 @@ interface ProgramEntry {
   locations: Map<string, WebGLUniformLocation | null>;
   lastValues: Map<string, readonly number[]>;
   samplerUnits: Map<string, number>;
+  /** A material's own uniforms' GLSL types (by bare name, array suffixes like "[0]" stripped), read
+   * once via getActiveUniform right after linking. Consulted by setUniform/setUniformArray to pick the
+   * int or float GL entry point — an `int`/`bool`/`sampler2D`/`samplerCube` uniform set through
+   * uniformNf would otherwise raise GL_INVALID_OPERATION. */
+  uniformTypes: Map<string, number>;
   nextUnit: number;
   fresh: boolean;
+}
+
+/** GLSL ES 1.00 / WebGL1 uniform types that take the integer uniformNi entry points: int, bool and
+ * both sampler types (a sampler set through `uniform()` directly, rather than `bind()`, still works). */
+function isIntegerUniformType(gl: WebGLRenderingContext, type: number): boolean {
+  return type === gl.INT || type === gl.INT_VEC2 || type === gl.INT_VEC3 || type === gl.INT_VEC4
+    || type === gl.BOOL || type === gl.BOOL_VEC2 || type === gl.BOOL_VEC3 || type === gl.BOOL_VEC4
+    || type === gl.SAMPLER_2D || type === gl.SAMPLER_CUBE;
 }
 
 /** What a draw call samples for `slg_under`: either a layer's live, per-member copy of its own buffer
@@ -174,6 +187,16 @@ function createEngine(): GlassEngine | null {
     const source = PRELUDE + definition.fragment(caps) + EPILOGUE;
     const program = linkProgram(gl!, VERTEX_SHADER, source);
     const location = (name: string) => gl!.getUniformLocation(program, name);
+    const uniformTypes = new Map<string, number>();
+    const activeCount = gl!.getProgramParameter(program, gl!.ACTIVE_UNIFORMS) as number;
+    for (let i = 0; i < activeCount; i++) {
+      const info = gl!.getActiveUniform(program, i);
+      if (!info) continue;
+      // An array uniform ("uRect[8]") is reported as "uRect[0]"; uniform()/uniformArray() are always
+      // called with the bare name, so strip the index to key this map the same way.
+      const name = info.name.endsWith('[0]') ? info.name.slice(0, -3) : info.name;
+      uniformTypes.set(name, info.type);
+    }
     entry = {
       program,
       builtins: {
@@ -185,7 +208,7 @@ function createEngine(): GlassEngine | null {
         hasUnder: location('slg_hasUnderFlag'),
       },
       // Unit 0 is reserved for slg_backdropTex, unit 1 for slg_underTex; a material's own samplers start at 2.
-      locations: new Map(), lastValues: new Map(), samplerUnits: new Map(), nextUnit: 2, fresh: true,
+      locations: new Map(), lastValues: new Map(), samplerUnits: new Map(), uniformTypes, nextUnit: 2, fresh: true,
     };
     programs.set(materialId, entry);
     materialsUsed.add(materialId);
@@ -205,12 +228,48 @@ function createEngine(): GlassEngine | null {
     const previous = entry.lastValues.get(name);
     if (previous && previous.length === values.length && previous.every((v, i) => v === values[i])) return;
     entry.lastValues.set(name, values);
+    const type = entry.uniformTypes.get(name);
+    if (type !== undefined && isIntegerUniformType(gl!, type)) {
+      switch (values.length) {
+        case 1: gl!.uniform1i(location, Math.round(values[0])); break;
+        case 2: gl!.uniform2i(location, Math.round(values[0]), Math.round(values[1])); break;
+        case 3: gl!.uniform3i(location, Math.round(values[0]), Math.round(values[1]), Math.round(values[2])); break;
+        case 4: gl!.uniform4i(location, Math.round(values[0]), Math.round(values[1]), Math.round(values[2]), Math.round(values[3])); break;
+        default: throw new Error('simple-liquid-glass/engine: uniform() takes 1-4 numbers');
+      }
+      return;
+    }
     switch (values.length) {
       case 1: gl!.uniform1f(location, values[0]); break;
       case 2: gl!.uniform2f(location, values[0], values[1]); break;
       case 3: gl!.uniform3f(location, values[0], values[1], values[2]); break;
       case 4: gl!.uniform4f(location, values[0], values[1], values[2], values[3]); break;
       default: throw new Error('simple-liquid-glass/engine: uniform() takes 1-4 numbers');
+    }
+  }
+
+  function setUniformArray(entry: ProgramEntry, name: string, values: Float32Array | readonly number[], components: 1 | 2 | 3 | 4) {
+    const location = uniformLocation(entry, name);
+    if (!location) return;
+    // Not value-cached (see DrawContext.uniformArray's doc): array data is expected to change every
+    // draw, so diffing it would typically cost more than just resending it.
+    const type = entry.uniformTypes.get(name);
+    if (type !== undefined && isIntegerUniformType(gl!, type)) {
+      const ints = values instanceof Float32Array ? Int32Array.from(values) : Int32Array.from(values);
+      switch (components) {
+        case 1: gl!.uniform1iv(location, ints); break;
+        case 2: gl!.uniform2iv(location, ints); break;
+        case 3: gl!.uniform3iv(location, ints); break;
+        case 4: gl!.uniform4iv(location, ints); break;
+      }
+      return;
+    }
+    const floats = values instanceof Float32Array ? values : Float32Array.from(values);
+    switch (components) {
+      case 1: gl!.uniform1fv(location, floats); break;
+      case 2: gl!.uniform2fv(location, floats); break;
+      case 3: gl!.uniform3fv(location, floats); break;
+      case 4: gl!.uniform4fv(location, floats); break;
     }
   }
 
@@ -342,6 +401,7 @@ function createEngine(): GlassEngine | null {
       get backdrop() { bindInputs(); return backdropInfo; },
       tier: caps.tier,
       uniform(name, ...values) { setUniform(entry, name, values); },
+      uniformArray(name, values, components) { setUniformArray(entry, name, values, components); },
       bind(name, texture) {
         const unit = samplerUnit(entry, name);
         gl!.activeTexture(gl!.TEXTURE0 + unit);

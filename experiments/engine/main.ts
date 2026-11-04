@@ -92,10 +92,36 @@ if (engine) {
     host: customSourceHost, material, params: { color: [1, 1, 1, 1], mix: 1 }, backdrop: { source: 'experiments/engine/custom-source@1' },
   });
 
+  // G1 fix: an `int`/sampler-typed GLSL uniform set through plain uniformNf raises
+  // GL_INVALID_OPERATION in a real driver (jsdom's mocked GL never validates this); an array uniform
+  // needs one call per slot without uniformArray(). test.mjs checks gl.getError() after this surface
+  // draws a few frames — the one check that actually proves the real-browser bug is gone.
+  const uniformTypesMaterial = engine.defineMaterial<{ mode: number; rects: readonly number[] }>({
+    id: 'experiments/engine/uniform-types@1',
+    fragment: () => `
+      uniform int uMode;
+      uniform vec4 uRect[2];
+      vec4 slg_shade(vec2 p) { return uRect[0] * step(0.5, float(uMode)); }
+    `,
+    draw(ctx, params) {
+      ctx.uniform('uMode', params.mode);
+      ctx.uniformArray('uRect', params.rects, 4);
+      ctx.draw();
+      return 'drawn';
+    },
+  });
+  const uniformTypesHost = document.querySelector('#uniform-types-host') as HTMLElement;
+  const uniformTypesSurface = engine.createSurface({
+    host: uniformTypesHost, material: uniformTypesMaterial,
+    params: { mode: 1, rects: [0.2, 0.4, 0.6, 1, 0, 0, 0, 0] },
+    onStatus(status) { document.body.dataset.uniformTypesStatus = status.state; },
+  });
+
   (window as unknown as { engineLab: unknown }).engineLab = {
     engine, surface, host, backdrop, paintBackdrop, paintQuadrants, htmlSurface,
     layer, layerMemberA, layerMemberB,
     underLayer, underMemberA, underMemberB,
     customSourceSurface, getCustomPaints: () => customPaints,
+    uniformTypesSurface,
   };
 }

@@ -125,6 +125,22 @@ try {
       assert.ok(Math.abs(customPixel[0] - 242) <= 10 && Math.abs(customPixel[1] - 177) <= 10 && Math.abs(customPixel[2] - 52) <= 10,
         `${name}: custom-source-sampled pixel ${customPixel}, expected ~[242,177,52]`);
 
+      // G1 fix: an `int`/sampler GLSL uniform set through uniformNf raises GL_INVALID_OPERATION on a
+      // real driver (jsdom's mocked GL never validates this — only a real browser can prove the fix),
+      // and an array uniform needs uniformArray() to set the whole array without one call per slot.
+      // gl.getError() is the one check that actually proves no WebGL error occurred.
+      await page.waitForFunction(() => document.body.dataset.uniformTypesStatus === 'active', null, { timeout: 10000 });
+      const glError = await page.evaluate(async () => {
+        const { acquireContextCanvas } = await import('/src/core/webgl/contextPool.ts');
+        const lease = acquireContextCanvas(false);
+        const gl = lease.canvas.getContext('webgl');
+        lease.release();
+        gl.getError(); // clear any pre-existing flag before isolating this surface's draws
+        await new Promise(done => { let i = 0; const tick = () => ++i >= 3 ? done() : requestAnimationFrame(tick); requestAnimationFrame(tick); });
+        return gl.getError();
+      });
+      assert.equal(glError, 0, `${name}: gl.getError() after int/array uniforms, expected NO_ERROR (0), got ${glError}`);
+
       // Context loss and restore: every program/resource is rebuilt, layers' under textures are
       // recreated, and every surface (own-canvas and layer members alike) resumes.
       const lostReason = await page.evaluate(async () => {

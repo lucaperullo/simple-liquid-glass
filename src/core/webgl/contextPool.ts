@@ -1,4 +1,5 @@
 import { sharedValue } from '../shared';
+import { endFrame, stats } from './stats';
 interface Entry { canvas: HTMLCanvasElement | OffscreenCanvas; users: number }
 interface Pool { entry?: Entry; bitmapEntry?: Entry; frames: Set<() => void>; raf: number; ticking: boolean; readers?: Map<()=>void,()=>void> }
 const pool = sharedValue<Pool>('context.v1', () => ({ frames: new Set(), raf: 0, ticking: false }));
@@ -37,8 +38,9 @@ export function frameScroll(): { y: number; max: number } {
 }
 function tick() {
   pool.raf = 0; pool.ticking = true;
+  const start = stats.on ? performance.now() : -1;
   try { const frames=[...pool.frames];for(const frame of frames)if(pool.frames.has(frame))pool.readers?.get(frame)?.();for(const frame of frames)if(pool.frames.has(frame))frame(); }
-  finally { pool.ticking = false; if (pool.frames.size) pool.raf = requestAnimationFrame(tick); }
+  finally { pool.ticking = false; if (start >= 0) endFrame(start); if (pool.frames.size) pool.raf = requestAnimationFrame(tick); }
 }
 export function subscribeFrame(frame: () => void,measure?:()=>void) {
   pool.frames.add(frame);if(measure)(pool.readers??=new Map()).set(frame,measure);

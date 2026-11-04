@@ -10,6 +10,7 @@
 
 import { VS_QUAD, FS_BLIT, FS_BLUR } from './shaders';
 import { BLUR_ITERATIONS, SHADOW_PAD } from './defaults';
+import { countUpload } from '../../core/webgl/stats';
 import type { GlassConfig } from './defaults';
 export type SurfaceConfig = Pick<GlassConfig,'cornerRadius'|'opacity'>;
 
@@ -213,6 +214,7 @@ export class GlassRenderer {
 		gl.bindTexture(gl.TEXTURE_2D, this.bgTex);
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true as unknown as number);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource);
+		countUpload(W * H * 4);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);

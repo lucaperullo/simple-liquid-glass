@@ -1,5 +1,6 @@
 import { sharedValue } from '../shared';
 import { snapshotUpdate, recoverableTextureError } from './snapshotUpdates';
+import { countUpload } from './stats';
 interface Entry { texture: WebGLTexture; users: number; version?: number; snapshotVersion?:number; width:number;height:number;invalid?:boolean;allocated?:boolean }
 const contexts=sharedValue('textures.delta.v1',()=>new WeakMap<WebGLRenderingContext,WeakMap<object,Map<boolean,Entry>>>());
 const limits=new WeakMap<WebGLRenderingContext,number>();
@@ -28,13 +29,13 @@ export function acquireTexture(gl:WebGLRenderingContext,image:TexImageSource,fli
   gl.bindTexture(gl.TEXTURE_2D,entry!.texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,flip?1:0);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,0);
   try{
    if(partial){
-    try{for(const patch of update!.patches!){const y=flip?height-patch.y-patch.canvas.height:patch.y;gl.texSubImage2D(gl.TEXTURE_2D,0,patch.x,y,gl.RGBA,gl.UNSIGNED_BYTE,patch.canvas)}}
-    catch{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image)}
+    try{for(const patch of update!.patches!){const y=flip?height-patch.y-patch.canvas.height:patch.y;gl.texSubImage2D(gl.TEXTURE_2D,0,patch.x,y,gl.RGBA,gl.UNSIGNED_BYTE,patch.canvas);countUpload(patch.canvas.width*patch.canvas.height*4)}}
+    catch{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);countUpload(width*height*4)}
    }else{
     // Only a new aligned allocation pays for synchronous error queries.
     const checked=aligned&&(entry!.width!==width||entry!.height!==height||!entry!.allocated);
     if(checked)for(let i=0;i<8&&gl.getError()!==gl.NO_ERROR;i++);
-    try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image)}catch(error){if(checked)throw reject('LiquidGlass: aligned snapshot upload failed');throw error}
+    try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);countUpload(width*height*4)}catch(error){if(checked)throw reject('LiquidGlass: aligned snapshot upload failed');throw error}
     if(checked){const error=gl.getError();if(error===gl.OUT_OF_MEMORY||error===gl.INVALID_VALUE)throw reject('LiquidGlass: aligned snapshot allocation failed')}
     entry!.allocated=true;
    }

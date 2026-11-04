@@ -36,6 +36,14 @@ const surfaceOptions: WebGLSurfaceOptions = { map: '', scale: 80, dispersion: 1,
   classic: false, additiveDispersion: true, neutralPoint: 128/255, radius: 0, blur: 0, saturation: 100, maxScale: 2 };
 void createWebGLSurface; void surfaceOptions;
 
+import { getGlassEngineStats, type GlassEngineStats, type GlassSurfaceStrategy } from 'simple-liquid-glass/webgl';
+const engineStats: GlassEngineStats = getGlassEngineStats();
+const refracting: number = engineStats.strategies['webgl-scene'] + engineStats.total.uploads + engineStats.frameMs;
+const surfaceStrategy: GlassSurfaceStrategy = engineStats.list[0].strategy;
+// @ts-expect-error unknown strategies are rejected
+const unknownStrategy: GlassSurfaceStrategy = 'canvas';
+void refracting; void surfaceStrategy; void unknownStrategy;
+
 import {LiquidGlassScene,useLiquidGlassBackdrop,createLiquidGlassBackdrop} from 'simple-liquid-glass/backdrop';
 const scene = <LiquidGlassScene maxCacheBytes={64*1024*1024} onCaptureError={(error,section)=>{void error;void section}}><LiquidGlass /></LiquidGlassScene>;
 void scene;void useLiquidGlassBackdrop;void createLiquidGlassBackdrop;

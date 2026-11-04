@@ -755,6 +755,36 @@ map URI, scale, dispersion, radius, blur and saturation; the output holder can b
 `update(options)`, `refresh()` and `destroy()`. This is the canonical engine used by
 `simple-liquid-text`, including overscroll tracking and background capture lifecycle.
 
+### Page-level stats for benchmarks
+
+`getGlassEngineStats()` from `simple-liquid-glass/webgl` reports how every glass surface on the page renders and what
+the WebGL engine did in its last frame. It covers `LiquidGlass`, `<liquid-glass>` and `createWebGLSurface` surfaces from
+any entry on the page.
+
+```ts
+import { getGlassEngineStats } from 'simple-liquid-glass/webgl';
+getGlassEngineStats(); // starts counting
+requestAnimationFrame(() => {
+  const s = getGlassEngineStats();
+  // s.strategies: { 'webgl-scene': 44, 'webgl-single': 0, svg: 0, 'css-fallback': 4, pending: 0, paused: 0, off: 0 }
+  console.log(s.refracting, s.contexts, s.drawn, s.missed, s.uploads, s.uploadBytes, s.frameMs, s.total);
+});
+```
+
+| Field | Meaning |
+|---|---|
+| `contexts` | WebGL contexts used by live surfaces (the shared offscreen context, one per shared scene) |
+| `surfaces`, `webgl`, `refracting` | Glass surfaces on the page; live WebGL surface engines; surfaces refracting through WebGL or SVG |
+| `strategies`, `list` | Count and per-element `{ element, strategy, reason }`, with strategy `webgl-scene`, `webgl-single`, `svg`, `css-fallback`, `pending`, `paused` or `off`, and the diagnostics reason or WebGL status |
+| `visible`, `drawn`, `missed` | In the last engine frame: WebGL surfaces in the viewport, surfaces that rendered, visible surfaces that needed a frame and could not draw one (snapshot or video frame not ready, a fault). Unchanged surfaces skip their frame and are not missed |
+| `uploads`, `uploadBytes` | Texture uploads in the last frame (backdrops, crops, masks, lens maps) |
+| `frameMs` | Main-thread time of the engine's frame callback (measurement, drawing, scene compositing), at `performance.now()` resolution |
+| `frames`, `total` | Engine frames since counting started, and the cumulative frame fields |
+
+Counting starts with the first call; until then the engine counts nothing, and afterwards a frame costs a few counter
+increments. If `window.__benchExpose` is set before the entry loads, it is also available as
+`window.__slgEngine.stats()`.
+
 ### Capture and rendering optimizations (5.5)
 
 HTML snapshots patch only changed opaque, clipped, non-overlapping sections. Relational selectors, masks, rounded roots, filters, overflowing/fixed content and uncertain styles fall back to a complete capture. Manual refresh consumes pending mutation notifications to avoid duplicate captures. Scene captures overlapping sections as one root to preserve section stacking.

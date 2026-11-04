@@ -1,6 +1,7 @@
 import { VS_QUAD } from '../../vendor/ybouane/shaders';
 import { frameRect, subscribeFrame } from './contextPool';
 import { createWebGLEngine } from './runtime';
+import { countUpload } from './stats';
 import type { installLiquidGLOptics } from './liquidGLOptics';
 import type { SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
@@ -163,6 +164,7 @@ class Scene {
     gl.bindTexture(gl.TEXTURE_2D, slot.maskTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0); gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, slot.maskSource);
+    const size = slot.maskSource as { width: number; height: number }; countUpload(size.width * size.height * 4);
     for (const [name, value] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, name, value);
   }
 

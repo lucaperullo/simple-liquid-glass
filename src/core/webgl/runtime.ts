@@ -7,6 +7,7 @@ import { acquireSource } from './source';
 import { acquireContextCanvas, frameRect, frameScroll, subscribeFrame } from './contextPool';
 import { invalidateTextures } from './textureCache';
 import { canvasFrame, liveCanvasFrame } from './canvasFrames';
+import { DRAWN, MISSED, VISIBLE, stats, type SurfaceRecord } from './stats';
 import type { EngineContext, SceneSlot, WebGLEngine, WebGLOptions, WebGLStatus } from './types';
 
 function fixedToViewport(element: HTMLElement): boolean {
@@ -52,7 +53,10 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   const video = source instanceof HTMLVideoElement ? source : undefined;
   const media = video ?? (source instanceof HTMLCanvasElement ? source : undefined);
   let ready = false, faulted = false;
-  const setStatus = (next: WebGLStatus) => { if (!disposed) status(next); };
+  // Listed by getGlassEngineStats(); its frame counters only run once a reader has turned them on.
+  const record: SurfaceRecord = { panel, gl: renderer.gl, scene: !!slot, status: 'pending' };
+  stats.surfaces.add(record);
+  const setStatus = (next: WebGLStatus) => { if (!disposed) { record.status = next; status(next); } };
   const shared = media ? undefined : acquireSource(source, error => {
     changed();
     if (error && !shared?.capture.cache.has(source)) setStatus('capture-failed');
@@ -111,6 +115,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
     const current=measurement;measurement=undefined;
     if (disposed || document.hidden || renderer.contextLost || (faulted && !dirty)) return;
     faulted = false;
+    // A visible panel that needs a new frame and cannot draw one (no snapshot or video frame yet, a fault) misses it.
+    let miss = false;
     try {
       // Older independently bundled entries may own the ticker: retain an inline fallback.
       const geometryRead=current??measure();if(!geometryRead)return;
@@ -120,6 +126,8 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       sourceRect=new DOMRect(measured.left,elastic&&!fixedSource?documentTop-y:measured.top,measured.width,measured.height);
       const rect=new DOMRect(lens.left,lens.top-fixedOffset,lens.width,lens.height);
       if(!width||!height||!sourceRect.width||!sourceRect.height)return;
+      const seen = stats.on && rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
+      if (seen) stats.frame[VISIBLE]++;
       const cap = options.maxScale! > 0 ? options.maxScale! : Infinity;
       if (slot) slot.maxScale = cap;
       const dpr = Math.min(devicePixelRatio || 1, options.optics==='liquidgl'?2:3, cap);
@@ -131,6 +139,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       const canvasVersion = media && !video ? version ?? liveCanvasFrame() : 0;
       const time = videoCallback !== undefined ? videoFrame : video?.currentTime ?? version ?? 0;
       if (!options.liquidGL?.specular && !dirty && sameGeometry && time === lastTime && (!(media instanceof HTMLCanvasElement) || version !== undefined)) return;
+      miss = seen;
       if (video && video.readyState < 2) return;
       const snapshot = media ?? shared?.capture.cache.get(source)?.canvas;
       if (!snapshot) return; // Keep the previous complete output during captures.
@@ -145,7 +154,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
         else{canvas.style.transform=`translate(${rendered.left+pad}px,${rendered.top+pad}px)`;
         canvas.style.width=`${rendered.cssWidth}px`;canvas.style.height=`${rendered.cssHeight}px`;
         present(rendered.w,rendered.h);}
-        dirty=false;keepGeometry();lastTime=time;
+        dirty=false;keepGeometry();lastTime=time;miss=false;if(stats.on)stats.frame[DRAWN]++;
         if(!ready){ready=true;setStatus('active');}
         return;
       }
@@ -197,14 +206,14 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
       if(!slot)renderer.clear(); // a scene slot's target is cleared by prepare()
       renderer.renderGlassPanel({ cornerRadius: options.radius, opacity: DEFAULTS.opacity }, width, height, dpr);
       if(slot)slot.present(-pad*dpr,-pad*dpr,w,h,dpr);else present(w,h);
-      dirty = false; keepGeometry(); lastTime = time;
+      dirty = false; keepGeometry(); lastTime = time; miss = false; if (stats.on) stats.frame[DRAWN]++;
       if (optics.failed) { setStatus('capture-failed'); ready = false; }
       else if (optics.ready && !ready) { ready = true; setStatus('active'); }
     } catch {
       // Tainted videos/canvases and allocation failures must leave a usable CSS surface.
       faulted = true; dirty = false; ready = false;
       setStatus('capture-failed');
-    }
+    } finally { if (miss) stats.frame[MISSED]++; }
   };
   if (shared && !shared.capture.cache.has(source)) void shared.refresh().catch(() => {});
   const stopFrame = subscribeFrame(frame,()=>{measurement=measure();});
@@ -218,7 +227,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
     async refresh() { await shared?.refresh(); changed(); },
     destroy() {
       if (disposed) return;
-      disposed = true; stopFrame();
+      disposed = true; stopFrame(); stats.surfaces.delete(record);
       renderer.canvas.removeEventListener('webglcontextlost', lose);renderer.canvas.removeEventListener('webglcontextrestored', restore);
       video?.removeEventListener('seeked', mediaChanged);video?.removeEventListener('loadeddata', mediaChanged);
       if (videoCallback !== undefined) video?.cancelVideoFrameCallback(videoCallback);

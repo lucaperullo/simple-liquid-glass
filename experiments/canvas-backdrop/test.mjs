@@ -74,6 +74,25 @@ try{for(const [name,type] of Object.entries({chromium,webkit,firefox}).filter(([
    assert.ok(Math.abs(ratios[0]-3)<.02&&Math.abs(ratios[1]-1.5)<.02,`${name} scene=${scene}: drawing scale ${ratios} (expected 3 unset, 1.5 capped)`);
    console.log(name,`scene=${scene} maxScale`,ratios,'passed');
   }
+  // G13: page-level stats report strategy, contexts and per-frame work; nothing is counted before the first read.
+  for(const scene of ['off','auto']){
+   const page=await browser.newPage({viewport:{width:800,height:600},deviceScaleFactor:1});
+   await page.addInitScript(()=>{window.__benchExpose=true});
+   await page.goto(base+`?n=5&scene=${scene}`);
+   await page.waitForFunction(()=>[...document.querySelectorAll('[data-panel]')].every(p=>p.dataset.glassStrategy==='webgl'),null,{timeout:20000});await frames(page,10);
+   assert.equal(await page.evaluate(()=>document[Symbol.for('simple-liquid-glass.stats.v1')].on),false,'No counting before a reader');
+   await page.evaluate(()=>import('/src/webgl/index.ts'));
+   const first=await page.evaluate(()=>window.__slgEngine.stats());assert.equal(first.frames,0);
+   await frames(page,30);
+   const read=await page.evaluate(()=>{const s=window.__slgEngine.stats();return {...s,list:s.list.map(e=>[e.strategy,e.reason])}});
+   const strategy=scene==='auto'?'webgl-scene':'webgl-single';
+   assert.equal(read.contexts,1);assert.equal(read.webgl,5);assert.equal(read.refracting,5);assert.equal(read.strategies[strategy],5);
+   assert.ok(read.frames>=25,`${read.frames} frames`);assert.equal(read.visible,5);assert.equal(read.drawn,5);assert.equal(read.missed,0);
+   assert.ok(read.total.uploads/read.frames<=1.1&&read.total.uploads/read.frames>=.9,`${read.total.uploads} uploads in ${read.frames} frames`);
+   assert.equal(read.uploadBytes,800*600*4);assert.ok(read.total.frameMs>0,"cumulative frame time (Firefox may round a single frame to 0)");
+   console.log(name,`scene=${scene} stats`,{contexts:read.contexts,strategy:read.list[0],uploads:read.uploads,uploadBytes:read.uploadBytes,frameMs:+read.frameMs.toFixed(3)},'passed');
+   await page.close();
+  }
   // liquidGL optics share the upload too (each panel used to upload its own version).
   const lgl=await open(browser,'n=5&optics=liquidgl&scene=off');const u=await perFrame(lgl.page);
   assert.ok(u.uploads<=1.1,`${name} liquidgl: ${u.uploads} uploads per frame`);await lgl.page.close();

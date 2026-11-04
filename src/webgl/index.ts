@@ -7,6 +7,14 @@ export { isIOSDevice, supportsSvgBackdrop } from '../core/renderer';
 export { joinGlassCrowd, CROWD_ON, CROWD_OFF } from '../core/webgl/crowd';
 export type { GlassRenderer } from '../core/renderer';
 export type { WebGLOptions as WebGLSurfaceOptions, WebGLStatus as WebGLSurfaceStatus, WebGLEngine as WebGLSurface } from '../core/webgl/types';
+import { getGlassEngineStats } from './stats';
+export { getGlassEngineStats };
+export type { GlassEngineStats, GlassEngineFrameStats, GlassSurfaceStats, GlassSurfaceStrategy } from './stats';
+
+// A benchmark that sets window.__benchExpose before this entry loads reads window.__slgEngine.stats().
+if (typeof window !== 'undefined' && (window as { __benchExpose?: unknown }).__benchExpose) {
+  (window as { __slgEngine?: unknown }).__slgEngine = { stats: getGlassEngineStats };
+}
 
 /** Opt-in shared canvas: surfaces grouped under `root` (default: the element's parent) draw into one canvas. */
 export interface WebGLSurfaceScene {

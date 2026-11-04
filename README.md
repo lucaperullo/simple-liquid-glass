@@ -595,6 +595,29 @@ off by default; stock `<LiquidGlass>` never turns them on. `registerBackdropSour
 samples it exactly like a `<canvas>` or `{ scene: true }` backdrop, repainted only when `version()` changes or
 the surface's view would read outside the last painted strip.
 
+### Array, integer and sampler uniforms
+
+```ts
+fragment: () => `
+  uniform int uMode;      // ctx.uniform() detects this is an int and sends it with uniformNi, not uniformNf
+  uniform vec4 uRect[8];  // one ctx.uniformArray() call for the whole array, instead of 8 named uniforms
+  vec4 slg_shade(vec2 p) { /* ... */ }
+`,
+draw(ctx, params) {
+  ctx.uniform('uMode', params.mode); // works for float/vecN and int/bool/sampler2D/samplerCube alike
+  ctx.uniformArray('uRect', params.rects, 4); // components: the GLSL type's arity, 1-4
+  ctx.draw();
+  return 'drawn';
+},
+```
+
+`ctx.uniform()` reads each uniform's GLSL type once per program (`getActiveUniform`, right after linking) and
+picks `uniformNf` or `uniformNi` accordingly — an `int`/`bool`/`sampler2D`/`samplerCube` uniform set through the
+float entry point raises `GL_INVALID_OPERATION` on a real driver, so this is not optional plumbing.
+`ctx.uniformArray(name, values, components)` is the array counterpart: one call (with the same per-program
+location cache as `uniform()`) instead of one `uniform()` per slot, for things like a packed `uRect[MAX_SLOTS]`.
+It is not value-diffed the way `uniform()` is — array data is expected to change every draw.
+
 **What this release does not include.** G9 (a frost input) and G11 (pointer input) are not implemented: there is
 no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for
 the full list, every `slg_*` prelude function, and an MIT example material at `tests/engine/tint-material.ts`.

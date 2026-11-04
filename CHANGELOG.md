@@ -51,6 +51,18 @@
     outside the last painted strip (margin 160 CSS px, painted at the surface's own scale × 0.75), not every
     frame. A surface naming an id that registers later is wired up automatically once it appears. `covers()` is
     accepted by the type but not yet consulted — a reasonable optimisation left for later.
+  - **`ctx.uniform()` now detects the GLSL type**, read once per program via `getActiveUniform` right after
+    linking: an `int`/`bool`/`sampler2D`/`samplerCube` uniform is sent with `uniformNi` (values rounded), a
+    `float`/`vecN` one with `uniformNf` as before. Previously `uniform()` always called `uniformNf`, which
+    raises `GL_INVALID_OPERATION` on a real driver for a GLSL `uniform int` (jsdom's mocked WebGL context never
+    validated this, so the bug was invisible to the mocked-GL jest suite — only the real-browser pass, in a
+    fresh test added for this fix, can actually prove a WebGL error is gone).
+  - **`ctx.uniformArray(name, values, components)`**: one call for a whole GLSL array uniform (`uniform vec4
+    uRect[8]`), instead of one `uniform()` per slot — `components` is the GLSL type's arity (1–4), `values` is
+    every slot's components flattened in order (`Float32Array` or a plain array). Same type detection as
+    `uniform()` (an `int[]`/`bool[]` array is sent through `uniformNiv`), and the same per-program location
+    cache. Not value-diffed like `uniform()`: array data is expected to change every draw, so comparing it would
+    typically cost more than just resending it.
   - `capabilities()` reports `webgl`, `maxFragmentUniformVectors`, `maxTextureSize`, `bitmapTransfer` and a
     conservative `tier: 'full' | 'lite'` heuristic (low core count/memory or a small uniform budget) — enough for a
     material to size its own uniform arrays, not the full adaptive-quality proposal.
@@ -74,15 +86,18 @@
   - An MIT example material, `tests/engine/tint-material.ts`, and conformance tests cover: its own canvas, a
     canvas/video/HTML/scene backdrop, context loss and restore, resize-in-frame, `'pending'`, the `material-error`
     fallback, scissored draws, bleed, `active()`'s idle cost, resources, document-order layers (including
-    document-order stacking against real interleaved content), `under`/`snapshots`, and a custom
-    `BackdropSource` (`src/__tests__/engineMaterials.test.ts` and `engineLayers.test.ts`, a mocked WebGL context;
-    `experiments/engine`, real Chromium and WebKit, run by `npm run test:webgl`).
-  - **Size.** The entry itself is a ~100 B re-export shim. The chunk every consumer actually loads (the engine,
+    document-order stacking against real interleaved content), `under`/`snapshots`, a custom `BackdropSource`,
+    and `uniform()`'s int/sampler type detection plus `uniformArray()` (`src/__tests__/engineMaterials.test.ts`
+    and `engineLayers.test.ts`, a mocked WebGL context; `experiments/engine`, real Chromium and WebKit, run by
+    `npm run test:webgl` — the `gl.getError()` check there is the one that actually proves the int-uniform bug
+    is gone, since the mocked GL context never validated uniform types to begin with).
+  - **Size.** The entry itself is a ~90 B re-export shim. The chunk every consumer actually loads (the engine,
     materials, resources, surfaces, layers and canvas/video/scene/custom-source backdrops) measures
-    **≈ 12.5 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 11.2 KB before G7/G8/G12). A
-    surface that uses a plain-HTML backdrop additionally loads the existing HTML-capture pipeline as a separate
-    chunk on demand (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that
-    only ever uses a canvas/video/scene/custom-source backdrop, or none, never pays for it.
+    **≈ 13.4 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 12.5 KB before this fix, ≈ 11.2 KB
+    before G7/G8/G12 — within the existing 13.5 KB budget, not raised). A surface that uses a plain-HTML
+    backdrop additionally loads the existing HTML-capture pipeline as a separate chunk on demand
+    (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that only ever uses a
+    canvas/video/scene/custom-source backdrop, or none, never pays for it.
   - The engine never imports, detects or special-cases any other package. Materials, resources and backdrop
     sources are all plain strings and functions handed in by the caller at runtime.
 

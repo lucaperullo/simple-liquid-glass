@@ -117,11 +117,50 @@ if (engine) {
     onStatus(status) { document.body.dataset.uniformTypesStatus = status.state; },
   });
 
+  // The engine bug reported by the Pro port (seen as a cover-fit <img> backdrop's slg_backdrop()
+  // reading black below a consistent screen y, on tall GlassPanels in a layer with under/snapshots
+  // on): a draw(rects) rect padded past the surface's own box on every side, exactly the
+  // shape proMaterial.ts's clusters(slots, merge + REFRACT_REACH) produces for refraction/soft-rim
+  // reach. A fixed gl.viewport (the surface's own view) plus a scissor can only shrink what a quad
+  // already covers, never grow it past that viewport — so the padded margin was silently lost. Member
+  // of a layer (G7) so the loss would have shown inside the shared buffer, not clipped by the surface's
+  // own small canvas being the whole framebuffer (which is what masked this for an own-canvas surface
+  // in casual testing: there, the canvas IS exactly the view, so nothing outside it could ever be
+  // examined in isolation the way a layer's shared buffer lets this experiment confirm it here).
+  const paddedBackdropId = 'experiments/engine/padded-source@1';
+  engine.registerBackdropSource({
+    id: paddedBackdropId,
+    paint(ctx, region) {
+      ctx.fillStyle = '#ff33cc';
+      ctx.fillRect(region.left, region.top, region.width, region.height);
+      return { drew: true, live: false };
+    },
+    version: () => 1,
+  });
+  const PADDED_BLEED = 20;
+  const paddedMaterial = engine.defineMaterial<Record<string, never>>({
+    id: 'experiments/engine/padded-draw@1',
+    fragment: () => 'vec4 slg_shade(vec2 p) { return vec4(slg_backdrop(slg_toScreen(p)), 1.0); }',
+    inputs: { backdrop: true },
+    draw(ctx) {
+      const { width, height } = ctx.view;
+      ctx.draw([[-PADDED_BLEED, -PADDED_BLEED, width + PADDED_BLEED * 2, height + PADDED_BLEED * 2]]);
+      return 'drawn';
+    },
+  });
+  const paddedLayer = engine.createLayer(document.querySelector('#padded-root') as HTMLElement, { scale: 1 });
+  const paddedMember = engine.createSurface({
+    host: document.querySelector('#padded-member') as HTMLElement, material: paddedMaterial, params: {},
+    backdrop: { source: paddedBackdropId }, layer: paddedLayer,
+    onStatus(status) { document.body.dataset.paddedStatus = status.state; },
+  });
+
   (window as unknown as { engineLab: unknown }).engineLab = {
     engine, surface, host, backdrop, paintBackdrop, paintQuadrants, htmlSurface,
     layer, layerMemberA, layerMemberB,
     underLayer, underMemberA, underMemberB,
     customSourceSurface, getCustomPaints: () => customPaints,
     uniformTypesSurface,
+    paddedLayer, paddedMember,
   };
 }

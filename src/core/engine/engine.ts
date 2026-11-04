@@ -410,16 +410,35 @@ function createEngine(): GlassEngine | null {
       resource(resource) { return getResourceInstance(resource); },
       draw(rects) {
         bindInputs();
-        if (!rects || !rects.length) { gl!.disable(gl!.SCISSOR_TEST); drawQuad(gl!); return; }
-        gl!.enable(gl!.SCISSOR_TEST);
+        const baseX = Math.round(origin.x), baseY = Math.round(origin.y);
+        if (!rects || !rects.length) { drawQuad(gl!); return; }
+        // Each rect gets its own `gl.viewport`, not a `gl.scissor` within one fixed viewport: the
+        // engine draws one full-screen quad per call, and that quad's geometry is confined to
+        // whatever viewport is current, so a FIXED viewport (the surface's own view) can never let a
+        // rect reach past it — a scissor can only shrink what a quad already covers, never grow it.
+        // A material that pads past its own box on purpose (bleed/refraction reach — e.g.
+        // `clusters(slots, merge + REFRACT_REACH)`) silently lost that overflow this way: the fix this
+        // comment replaces re-clamped the rect's near edge to 0 instead of letting it go negative,
+        // which only shifted the loss from one edge to the other without recovering it. A `gl.viewport`
+        // (like `gl.scissor`) takes a signed x/y and is itself clipped to the real framebuffer by
+        // WebGL, so moving the viewport to match each rect draws exactly that rect, anywhere a layer
+        // member's shared buffer (or an own-canvas surface's own canvas) actually has room for it.
+        // `slg_origin` must move with it — it is read every fragment as "the value passed to
+        // gl.viewport for the CURRENT draw" (glsl.ts), so a rect positioned away from the surface's own
+        // origin needs its own value for `slg_point()`/`slg_toScreen` to still resolve the right CSS point.
         for (const [x, y, w, h] of rects) {
-          const sx = Math.max(0, Math.round(x * view.scale)), sw = Math.max(0, Math.round(w * view.scale));
+          const sx = Math.round(x * view.scale), sw = Math.max(0, Math.round(w * view.scale));
           const topPx = Math.round(y * view.scale), sh = Math.max(0, Math.round(h * view.scale));
-          const sy = Math.max(0, canvasH - topPx - sh);
-          gl!.scissor(Math.round(origin.x) + sx, Math.round(origin.y) + sy, sw, sh);
+          const sy = canvasH - topPx - sh;
+          const vx = baseX + sx, vy = baseY + sy;
+          gl!.viewport(vx, vy, sw, sh);
+          if (entry.builtins.origin) gl!.uniform2f(entry.builtins.origin, vx, vy);
           drawQuad(gl!);
         }
-        gl!.disable(gl!.SCISSOR_TEST);
+        // Restore the surface's own nominal viewport/origin: code after this ctx.draw() call (or the
+        // next surface's own draw) must not see the last rect's narrowed viewport.
+        gl!.viewport(baseX, baseY, canvasW, canvasH);
+        if (entry.builtins.origin) gl!.uniform2f(entry.builtins.origin, baseX, baseY);
       },
     };
   }

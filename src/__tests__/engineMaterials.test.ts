@@ -253,24 +253,59 @@ test('bleed and resize-in-frame: a function bleed is re-read on a resized result
   host.remove();
 });
 
-test('scissored draw(rects) clips to device-pixel rects derived from the view scale', async () => {
+test('draw(rects) moves gl.viewport (not gl.scissor) to each device-pixel rect derived from the view scale', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   rect(host, 0, 0, 10, 10);
-  const scissorCalls: number[][] = [];
-  (mockGl as unknown as { scissor: jest.Mock }).scissor.mockImplementation((...args: number[]) => scissorCalls.push(args));
+  const viewportCalls: number[][] = [];
+  (mockGl as unknown as { viewport: jest.Mock }).viewport.mockImplementation((...args: number[]) => viewportCalls.push(args));
   const scissored = engine.defineMaterial<Record<string, never>>({
     id: 'tests/engine/scissor@1',
     fragment: () => 'vec4 slg_shade(vec2 p) { return vec4(0.0); }',
     draw(ctx) { ctx.draw([[0, 0, 5, 5]]); return 'drawn'; },
   });
-  scissorCalls.length = 0;
+  viewportCalls.length = 0;
   const surface = engine.createSurface({ host, material: scissored, params: {}, maxScale: 1 });
   await new Promise(requestAnimationFrame);
-  expect(scissorCalls.length).toBeGreaterThan(0);
-  const [sx, sy, sw, sh] = scissorCalls[scissorCalls.length - 1];
+  // A fixed viewport (the surface's own view) plus a scissor cannot let a quad reach past it — only
+  // shrink it — so a rect is drawn through its own gl.viewport call instead (restored to the surface's
+  // own view afterwards): [initial surface viewport, this rect's viewport, the restored viewport].
+  const rectCall = viewportCalls.find(([, , w, h]) => w === 5 && h === 5);
+  expect(rectCall).toBeDefined();
+  const [sx, sy, sw, sh] = rectCall!;
   expect(sw).toBe(5); expect(sh).toBe(5); expect(sx).toBe(0);
   expect(sy).toBe(5); // bottom-left origin: a 10px-tall canvas, a 5px rect pinned to the top -> y=5
+  expect(viewportCalls[viewportCalls.length - 1]).toEqual([0, 0, 10, 10]); // restored to the surface's own view
+  surface.destroy();
+  host.remove();
+});
+
+test('draw(rects) past the surface\'s own view still draws: gl.viewport moves to reach it, not just gl.scissor within a fixed one', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  rect(host, 0, 0, 10, 10);
+  const viewportCalls: number[][] = [];
+  (mockGl as unknown as { viewport: jest.Mock }).viewport.mockImplementation((...args: number[]) => viewportCalls.push(args));
+  // Mimics clusters(slots, merge + REFRACT_REACH): a rect padded past the surface's own [0,10]x[0,10]
+  // box on every side, the exact shape that used to lose its near-edge bleed (the engine bug this
+  // conformance test is for — see engine.ts's draw(rects) comment).
+  const padded = engine.defineMaterial<Record<string, never>>({
+    id: 'tests/engine/padded-bleed@1',
+    fragment: () => 'vec4 slg_shade(vec2 p) { return vec4(0.0); }',
+    draw(ctx) { ctx.draw([[-4, -4, 18, 18]]); return 'drawn'; },
+  });
+  viewportCalls.length = 0;
+  const surface = engine.createSurface({ host, material: padded, params: {}, maxScale: 1 });
+  await new Promise(requestAnimationFrame);
+  // (maxScale: 1, matching the host's own 10x10 box, so the device-px rect below is exactly the
+  // CSS-px one.) Negative x and a width/height past the 10x10 view: the old, clamped implementation would have
+  // shifted this to start at (0, 0) instead of (-4, -4), silently losing 4px of bleed on the near
+  // edge. The fix lets gl.viewport's x/y go negative (WebGL itself clips it to the real framebuffer).
+  const rectCall = viewportCalls.find(([, , w, h]) => w === 18 && h === 18);
+  expect(rectCall).toBeDefined();
+  const [sx, sy] = rectCall!;
+  expect(sx).toBe(-4);
+  expect(sy).toBe(-4); // y is pre-flip symmetric here: top -4 and height 18 over a 10-tall view -> -4 too
   surface.destroy();
   host.remove();
 });

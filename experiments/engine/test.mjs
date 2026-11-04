@@ -141,6 +141,23 @@ try {
       });
       assert.equal(glError, 0, `${name}: gl.getError() after int/array uniforms, expected NO_ERROR (0), got ${glError}`);
 
+      // The engine bug reported by the Pro port (a cover-fit <img> backdrop's slg_backdrop() reading
+      // black below a consistent screen y, on tall GlassPanels in a layer with under/snapshots on):
+      // a draw(rects) rect padded past the surface's own box on every side (exactly proMaterial.ts's
+      // clusters(slots, merge + REFRACT_REACH) shape) used to lose that padding — gl.scissor within
+      // one fixed gl.viewport (the surface's own view) can only shrink what the engine's one
+      // full-screen quad already covers, never grow it past that viewport. Sampled inside the padding
+      // on two different edges (not the member's own unpadded box, which always worked): both must
+      // show the backdrop's magenta, not the layer's cleared transparent black.
+      await page.waitForFunction(() => document.body.dataset.paddedStatus === 'active', null, { timeout: 10000 });
+      await frames(page, 3);
+      let paddedPixel = await pixelAtLayer(page, 2, 340, 140); // 10px into the left padding, left of the member's own box (x=350)
+      assert.ok(paddedPixel[0] > 200 && paddedPixel[1] < 120 && paddedPixel[2] > 150,
+        `${name}: padded bleed (left edge) must show the backdrop ${paddedPixel}, expected ~[255,51,204]`);
+      paddedPixel = await pixelAtLayer(page, 2, 400, 30); // 10px into the top padding, above the member's own box (y=40)
+      assert.ok(paddedPixel[0] > 200 && paddedPixel[1] < 120 && paddedPixel[2] > 150,
+        `${name}: padded bleed (top edge) must show the backdrop ${paddedPixel}, expected ~[255,51,204]`);
+
       // Context loss and restore: every program/resource is rebuilt, layers' under textures are
       // recreated, and every surface (own-canvas and layer members alike) resumes.
       const lostReason = await page.evaluate(async () => {

@@ -84,7 +84,10 @@ export interface DrawContext {
   bind(sampler: string, texture: WebGLTexture): void;
   /** This context's instance of a resource (G10), created lazily on first use. */
   resource<T>(resource: Resource<T>): T;
-  /** Shade the whole region, or only these view-space CSS px rects (scissored to the surface's view). */
+  /** Shade the whole region, or only these view-space CSS px rects — each gets its own `gl.viewport`
+   * for that one draw, not a `gl.scissor` confined to the surface's own view, so a rect may legally
+   * extend past the view's own edges (bleed/refraction reach, e.g. a soft rim that needs a few extra
+   * px beyond a slot's own box); it is still clipped to the real framebuffer either way. */
   draw(rects?: ReadonlyArray<readonly [number, number, number, number]>): void;
 }
 

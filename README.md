@@ -621,12 +621,16 @@ It is not value-diffed the way `uniform()` is — array data is expected to chan
 ### `ctx.draw(rects)` can draw past the surface's own view
 
 A rect given to `ctx.draw(rects)` may legally extend past `ctx.view`'s own edges — a material's soft rim or
-refraction reach that needs a few extra px beyond its own box, for example. Each rect gets its own `gl.viewport`
-for that one draw (restored to the surface's own view afterwards) instead of a `gl.scissor` confined to one fixed
-viewport, which could only shrink what the engine's one full-screen quad already covered, never grow it past the
-surface's own view — any such overflow used to be silently lost. It is still clipped to the real framebuffer
-either way, so a rect reaching past a layer member's own slice of the shared buffer (or past an own-canvas
-surface's canvas) is clipped there, not drawn into whatever is next to it.
+refraction reach that needs a few extra px beyond its own box, for example. `gl.viewport` widens once for the
+whole call, to the union of the view and every rect, when one of them reaches past it; each rect is then
+scissored inside that union exactly as a rect fully inside the view already was. `slg_origin`/`slg_view`/
+`slg_scale` are never touched by `ctx.draw` itself, so `p` (`slg_point()`) stays identical to the unpadded case
+for every pixel, in the view and in the bleed alike — a shape a material positions in surface coordinates (an
+SDF slot, say) is never shifted or stretched by asking for a rect past the edge. It is still clipped to the real
+framebuffer: how far past the view a rect can actually reach depends on room already there. A layer member's
+shared buffer typically has plenty; an own-canvas surface's canvas is sized to exactly its own (bleed-inclusive)
+view, so `ctx.draw(rects)` can never reach further than that — `bleed` is how to get more room there, not a
+`rects` entry past it.
 
 **What this release does not include.** G9 (a frost input) and G11 (pointer input) are not implemented: there is
 no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for

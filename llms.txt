@@ -208,10 +208,13 @@ params), reset? }) compiles a private fragment shader that defines `vec4 slg_sha
 at view point p, CSS px, y down) behind the stable slg_* prelude: slg_view, slg_scale, slg_origin, slg_viewport,
 slg_time, slg_point(), slg_toScreen(p), slg_hasBackdrop(), slg_backdrop(screen), slg_hasUnder(), slg_under(screen).
 draw(ctx, params) sets ctx.uniform / ctx.uniformArray / ctx.bind / ctx.resource(resource) and calls
-ctx.draw(rects?) (no rects = the whole surface; rects = view-space CSS-px boxes, each drawn through its own
-gl.viewport for that one draw rather than a gl.scissor confined to one fixed viewport, so a rect may legally
-extend past the surface's own view — the G2 bleed gap; a bug where it could not actually do so, found by the Pro
-port, is fixed and covered by a conformance test, see the changelog). ctx.uniform(name, ...values) detects the
+ctx.draw(rects?) (no rects = the whole surface; rects = view-space CSS-px boxes, scissored within one
+gl.viewport widened once for the whole call to the union of the view and every rect when one reaches past it —
+so a rect may legally extend past the surface's own view, the G2 bleed gap, without slg_origin/slg_view/
+slg_scale ever changing, so slg_point() stays identical to the unpadded case everywhere, including a shape a
+material positions in surface coordinates like an SDF slot; a bug where a rect could not actually reach past
+the view, and a regression from its first fix moving slg_origin per rect and shifting such shapes, are both
+fixed and covered by conformance tests, see the changelog). ctx.uniform(name, ...values) detects the
 uniform's GLSL type (getActiveUniform, once per program) and sends
 int/bool/sampler2D/samplerCube through uniformNi, float/vecN through uniformNf — a G1 fix: uniformNf alone raises
 GL_INVALID_OPERATION for a non-float uniform. ctx.uniformArray(name, values, components) sets a whole GLSL array

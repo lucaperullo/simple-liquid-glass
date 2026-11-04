@@ -23,11 +23,11 @@
     captured through the existing HTML-capture pipeline, loaded lazily — see Size, below), `{ scene: true }` for
     the nearest `LiquidGlassScene`, or `{ source: id }` for a registered `BackdropSource` (see below). `bleed`
     draws beyond the host's own box (CSS px, a function is read fresh every frame). `ctx.draw(rects?)` draws one
-    or more view-space CSS-px rects, each through its own `gl.viewport` for that one draw rather than a
-    `gl.scissor` confined to the surface's own view — so a rect may legally extend past the view's own edges, see
-    the bug fix below — or, with no `rects`, shades the whole surface. A surface whose material throws on 3
-    consecutive frames falls back (`status: { state: 'fallback', reason: 'material-error' }`) and stops drawing;
-    every other surface keeps going.
+    or more view-space CSS-px rects, scissored within one `gl.viewport` for the whole call, widened (just once,
+    not per rect) to the union of the view and every rect when one of them reaches past it — so a rect may
+    legally extend past the view's own edges, see the bug fix below — or, with no `rects`, shades the whole
+    surface. A surface whose material throws on 3 consecutive frames falls back (`status: { state: 'fallback',
+    reason: 'material-error' }`) and stops drawing; every other surface keeps going.
   - **`createLayer(root, { scale?, under?, snapshots?, revealMs? })`** (G7): members (any descendant surface
     resolved through `createSurface`'s `'auto'`/`layer`) draw in document order into one shared canvas, inserted
     as `root`'s first child with `z-index: -1` (`root` gets `position: relative` and `isolation: isolate` if it
@@ -76,13 +76,30 @@
     Reported by the Pro port as `slg_backdrop()` reading transparent black below a consistent screen y on tall
     `GlassPanel`s inside a layer (G7) with `under`/`snapshots` on — those were a red herring; it reproduces for
     any material whose `ctx.draw(rects)` rect extends past `ctx.view`, in a layer or on a surface's own canvas
-    alike. Fixed by giving each rect its own `gl.viewport` (and matching `slg_origin` uniform) for that one draw,
-    restored to the surface's own view afterwards, instead of a scissor within a single fixed one — `gl.viewport`
-    takes a signed x/y exactly like `gl.scissor` and is clipped to the real framebuffer by WebGL on its own, so
-    letting it move is sufficient and needs no new clamping. Conformance:
-    `src/__tests__/engineMaterials.test.ts` asserts `gl.viewport` (not `gl.scissor`) moves to a rect including one
-    with a negative origin past the view's own edge; `experiments/engine` reproduces it inside a layer member and
-    samples the backdrop inside the padding on two edges, run by `npm run test:webgl`.
+    alike.
+    - A first fix gave each rect its own `gl.viewport` (and matching `slg_origin` uniform) for that one draw.
+      This drew the padding correctly but was a **regression** found by the Pro port before it shipped: moving
+      `slg_origin` per rect made `slg_point()` return a point relative to *each rect's own corner* instead of
+      the surface's own view, for every fragment that rect drew — any material positioning a shape in surface
+      coordinates (an SDF slot, exactly how Pro's `glass-pro/liquid@1` places its rounded rects/pills) came out
+      shifted or torn apart across rects. A material that only samples the backdrop (this release's own first
+      conformance test) cannot catch that: a uniform-colour backdrop looks the same shifted or not.
+    - **Fixed properly** by widening `gl.viewport` once for the *whole* draw call, to the union of the view and
+      every rect, then scissoring each rect inside that union exactly as before (unclamped, signed x/y) —
+      `slg_origin`/`slg_view`/`slg_scale` are never touched by `ctx.draw` itself, so every fragment's
+      `slg_point()` stays identical to the unpadded case, in the view and in the bleed alike (`gl_FragCoord` is
+      an absolute framebuffer position; widening the viewport only changes which pixels the quad can reach, not
+      what any of them compute). How far a rect can actually reach past the view depends on real room already
+      there: a layer member's shared buffer typically has plenty; an own-canvas surface's canvas is sized to
+      exactly its own (`bleed`-inclusive) view, so `ctx.draw(rects)` cannot reach further than that — `bleed` is
+      the way to get more room there, not a `rects` entry.
+    - Conformance: `src/__tests__/engineMaterials.test.ts` asserts `gl.viewport` widens exactly once for the
+      whole call (not per rect) to the correct union, that `gl.scissor` still gets each rect's own unclamped
+      coordinates, and that `slg_origin` is never written again while `ctx.draw` runs. `experiments/engine` adds
+      two real-browser scenarios run by `npm run test:webgl`: a backdrop-sampling material (reproduces the
+      original report) and, because that alone missed the regression, a fixed rounded-rect SDF material whose
+      straight edges sit exactly on its own view's edges — its pixels inside the view must be bit-identical with
+      and without the extra past-view rect, and the same shape must continue correctly into the bleed.
   - `capabilities()` reports `webgl`, `maxFragmentUniformVectors`, `maxTextureSize`, `bitmapTransfer` and a
     conservative `tier: 'full' | 'lite'` heuristic (low core count/memory or a small uniform budget) — enough for a
     material to size its own uniform arrays, not the full adaptive-quality proposal.
@@ -113,11 +130,15 @@
     is gone, since the mocked GL context never validated uniform types to begin with).
   - **Size.** The entry itself is a ~90 B re-export shim. The chunk every consumer actually loads (the engine,
     materials, resources, surfaces, layers and canvas/video/scene/custom-source backdrops) measures
-    **≈ 13.4 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 12.5 KB before this fix, ≈ 11.2 KB
-    before G7/G8/G12 — within the existing 13.5 KB budget, not raised). A surface that uses a plain-HTML
-    backdrop additionally loads the existing HTML-capture pipeline as a separate chunk on demand
-    (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that only ever uses a
-    canvas/video/scene/custom-source backdrop, or none, never pays for it.
+    **≈ 13.55 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 12.5 KB before this round's
+    fixes, ≈ 11.2 KB before G7/G8/G12). This is **51 B over the existing 13.5 KB budget** — the `ctx.draw(rects)`
+    fix's correct (widen-once, scissor-per-rect) implementation needs a short extra pass over `rects` to find
+    their union that its first, reverted (and wrong) per-rect-viewport attempt did not; shaving it further ran
+    into diminishing returns against clarity, so this is reported rather than chased further, and the budget in
+    `package.json` has not been raised to match — raising it is a call for whoever ships this, not made here. A
+    surface that uses a plain-HTML backdrop additionally loads the existing HTML-capture pipeline as a separate
+    chunk on demand (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that
+    only ever uses a canvas/video/scene/custom-source backdrop, or none, never pays for it.
   - The engine never imports, detects or special-cases any other package. Materials, resources and backdrop
     sources are all plain strings and functions handed in by the caller at runtime.
 

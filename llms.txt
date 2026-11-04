@@ -208,8 +208,11 @@ params), reset? }) compiles a private fragment shader that defines `vec4 slg_sha
 at view point p, CSS px, y down) behind the stable slg_* prelude: slg_view, slg_scale, slg_origin, slg_viewport,
 slg_time, slg_point(), slg_toScreen(p), slg_hasBackdrop(), slg_backdrop(screen), slg_hasUnder(), slg_under(screen).
 draw(ctx, params) sets ctx.uniform / ctx.uniformArray / ctx.bind / ctx.resource(resource) and calls
-ctx.draw(rects?) (no rects = the whole surface; rects = view-space CSS-px boxes, scissored — the G2 bleed/scissor
-gap). ctx.uniform(name, ...values) detects the uniform's GLSL type (getActiveUniform, once per program) and sends
+ctx.draw(rects?) (no rects = the whole surface; rects = view-space CSS-px boxes, each drawn through its own
+gl.viewport for that one draw rather than a gl.scissor confined to one fixed viewport, so a rect may legally
+extend past the surface's own view — the G2 bleed gap; a bug where it could not actually do so, found by the Pro
+port, is fixed and covered by a conformance test, see the changelog). ctx.uniform(name, ...values) detects the
+uniform's GLSL type (getActiveUniform, once per program) and sends
 int/bool/sampler2D/samplerCube through uniformNi, float/vecN through uniformNf — a G1 fix: uniformNf alone raises
 GL_INVALID_OPERATION for a non-float uniform. ctx.uniformArray(name, values, components) sets a whole GLSL array
 uniform (uniform vec4 uRect[8]) in one call, components 1-4 being the GLSL type's arity; same type detection and

@@ -618,6 +618,16 @@ float entry point raises `GL_INVALID_OPERATION` on a real driver, so this is not
 location cache as `uniform()`) instead of one `uniform()` per slot, for things like a packed `uRect[MAX_SLOTS]`.
 It is not value-diffed the way `uniform()` is — array data is expected to change every draw.
 
+### `ctx.draw(rects)` can draw past the surface's own view
+
+A rect given to `ctx.draw(rects)` may legally extend past `ctx.view`'s own edges — a material's soft rim or
+refraction reach that needs a few extra px beyond its own box, for example. Each rect gets its own `gl.viewport`
+for that one draw (restored to the surface's own view afterwards) instead of a `gl.scissor` confined to one fixed
+viewport, which could only shrink what the engine's one full-screen quad already covered, never grow it past the
+surface's own view — any such overflow used to be silently lost. It is still clipped to the real framebuffer
+either way, so a rect reaching past a layer member's own slice of the shared buffer (or past an own-canvas
+surface's canvas) is clipped there, not drawn into whatever is next to it.
+
 **What this release does not include.** G9 (a frost input) and G11 (pointer input) are not implemented: there is
 no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for
 the full list, every `slg_*` prelude function, and an MIT example material at `tests/engine/tint-material.ts`.

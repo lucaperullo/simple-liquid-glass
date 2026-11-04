@@ -22,10 +22,12 @@
     host sits inside one. `backdrop` is an `HTMLElement` (`<video>`/`<canvas>` sampled in place; anything else
     captured through the existing HTML-capture pipeline, loaded lazily — see Size, below), `{ scene: true }` for
     the nearest `LiquidGlassScene`, or `{ source: id }` for a registered `BackdropSource` (see below). `bleed`
-    draws beyond the host's own box (CSS px, a function is read fresh every frame). `ctx.draw(rects?)` scissors
-    to one or more view-space CSS-px rects; with no `rects` it shades the whole surface. A surface whose
-    material throws on 3 consecutive frames falls back (`status: { state: 'fallback', reason: 'material-error' }`)
-    and stops drawing; every other surface keeps going.
+    draws beyond the host's own box (CSS px, a function is read fresh every frame). `ctx.draw(rects?)` draws one
+    or more view-space CSS-px rects, each through its own `gl.viewport` for that one draw rather than a
+    `gl.scissor` confined to the surface's own view — so a rect may legally extend past the view's own edges, see
+    the bug fix below — or, with no `rects`, shades the whole surface. A surface whose material throws on 3
+    consecutive frames falls back (`status: { state: 'fallback', reason: 'material-error' }`) and stops drawing;
+    every other surface keeps going.
   - **`createLayer(root, { scale?, under?, snapshots?, revealMs? })`** (G7): members (any descendant surface
     resolved through `createSurface`'s `'auto'`/`layer`) draw in document order into one shared canvas, inserted
     as `root`'s first child with `z-index: -1` (`root` gets `position: relative` and `isolation: isolate` if it
@@ -63,6 +65,24 @@
     `uniform()` (an `int[]`/`bool[]` array is sent through `uniformNiv`), and the same per-program location
     cache. Not value-diffed like `uniform()`: array data is expected to change every draw, so comparing it would
     typically cost more than just resending it.
+  - **Bug fix: `ctx.draw(rects)` could not actually draw past a surface's own view**, even though a rect was
+    always documented as "view-space CSS px" with no stated bound. The implementation drew one full-screen quad
+    per rect, confined by a `gl.scissor` within one `gl.viewport` fixed to the surface's own view for the whole
+    draw call — a scissor can only shrink what a quad already covers, never grow it past that viewport, so any
+    rect reaching beyond the view (bleed/refraction reach past a material's own box, e.g. Pro's
+    `clusters(slots, merge + REFRACT_REACH)` padding a slot's box for its soft rim) silently lost that overflow.
+    Worse, the near edge was clamped to 0 instead of allowed to go negative, which *shifted* the rect rather than
+    shrinking it: the near-edge overflow was lost while an equal amount was wasted past the far edge instead.
+    Reported by the Pro port as `slg_backdrop()` reading transparent black below a consistent screen y on tall
+    `GlassPanel`s inside a layer (G7) with `under`/`snapshots` on — those were a red herring; it reproduces for
+    any material whose `ctx.draw(rects)` rect extends past `ctx.view`, in a layer or on a surface's own canvas
+    alike. Fixed by giving each rect its own `gl.viewport` (and matching `slg_origin` uniform) for that one draw,
+    restored to the surface's own view afterwards, instead of a scissor within a single fixed one — `gl.viewport`
+    takes a signed x/y exactly like `gl.scissor` and is clipped to the real framebuffer by WebGL on its own, so
+    letting it move is sufficient and needs no new clamping. Conformance:
+    `src/__tests__/engineMaterials.test.ts` asserts `gl.viewport` (not `gl.scissor`) moves to a rect including one
+    with a negative origin past the view's own edge; `experiments/engine` reproduces it inside a layer member and
+    samples the backdrop inside the padding on two edges, run by `npm run test:webgl`.
   - `capabilities()` reports `webgl`, `maxFragmentUniformVectors`, `maxTextureSize`, `bitmapTransfer` and a
     conservative `tier: 'full' | 'lite'` heuristic (low core count/memory or a small uniform budget) — enough for a
     material to size its own uniform arrays, not the full adaptive-quality proposal.

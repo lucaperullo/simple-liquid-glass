@@ -1,4 +1,8 @@
-## Unreleased
+## 5.7.0
+
+This release publishes `simple-liquid-glass/engine` as a public, **experimental** entry point with ESM,
+CommonJS and TypeScript exports. Its types and behaviour may change in a minor release while `ENGINE_API`
+stays `1`; consumers of this API should use `~5.7.0` and review the changelog before upgrading to another minor.
 
 ### Engine API (experimental)
 
@@ -147,11 +151,8 @@
   - **Size.** The entry itself is a ~90 B re-export shim. The chunk every consumer actually loads (the engine,
     materials, resources, surfaces, layers and canvas/video/scene/custom-source backdrops) measures
     **≈ 13.55 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 12.5 KB before this round's
-    fixes, ≈ 11.2 KB before G7/G8/G12). This is **51 B over the existing 13.5 KB budget** — the `ctx.draw(rects)`
-    fix's correct (widen-once, scissor-per-rect) implementation needs a short extra pass over `rects` to find
-    their union that its first, reverted (and wrong) per-rect-viewport attempt did not; shaving it further ran
-    into diminishing returns against clarity, so this is reported rather than chased further, and the budget in
-    `package.json` has not been raised to match — raising it is a call for whoever ships this, not made here. A
+    fixes, ≈ 11.2 KB before G7/G8/G12). The core budget is **13.6 KB** (previously 13.5 KB), accommodating the
+    correct widen-once, scissor-per-rect implementation of `ctx.draw(rects)` with a small margin. A
     surface that uses a plain-HTML backdrop additionally loads the existing HTML-capture pipeline as a separate
     chunk on demand (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that
     only ever uses a canvas/video/scene/custom-source backdrop, or none, never pays for it.
@@ -197,7 +198,16 @@
   Headless Firefox is not capped at 60 Hz. Chromium's main-thread time per frame is unchanged (0.95 → 0.97 ms with 48 panes, 11 runs). Bytes uploaded per frame are those of the whole canvas (16.4 MB here) instead of the panes' crops (13.3 MB for 5 large panes, 18.6 MB for 48), so a few panes over a very large canvas can upload more than before; WebKit spends most of its frame in that one upload.
 - **`maxScale`** (new, optional): `<LiquidGlass maxScale={1.5}>`, `WebGLSurfaceOptions.maxScale` and the `max-scale` attribute of `<liquid-glass>` cap the WebGL drawing scale in device pixels per CSS pixel. A shared scene composites at the largest cap among its panels (uncapped if any panel is). Defaults are unchanged: without it WebGL draws at the device pixel ratio, at most 3 (2 for liquidGL optics). SVG and CSS rendering ignore it.
 - **Page-level stats** (new): `getGlassEngineStats()` from `simple-liquid-glass/webgl` returns the WebGL contexts in use, every glass surface on the page with its strategy (`webgl-scene`, `webgl-single`, `svg`, `css-fallback`, `pending`, `paused`, `off`) and reason, how many are refracting, and for the last engine frame the visible, drawn and missed surfaces, texture uploads and bytes and the frame's main-thread time, plus cumulative totals. Counting starts with the first call; nothing is counted before it. With `window.__benchExpose` set before the entry loads, it is also exposed as `window.__slgEngine.stats()`. New types: `GlassEngineStats`, `GlassEngineFrameStats`, `GlassSurfaceStats`, `GlassSurfaceStrategy`.
-- **Bundle size grows** by about 0.4 KB Brotli (frame counters and surface registration in every entry, `maxScale`, the canvas path), then another ~0.3 KB for the shared-blur pipeline above and its context-loss cleanup: measured core 52.51 KB against a 52.2 KB budget (5.6: 51.8), interactive 54.56 KB / 54.3 KB (53.9), mirror 52.51 KB / 52.3 KB (51.9), web component 37.59 KB / 37.3 KB (36.9), experimental unchanged at 31.18 KB / 31.3 KB. The `size-limit` budgets in `package.json` have not been raised to match — `npm run size` currently fails by 210–312 B on the first four; raising them is a call for whoever ships this, not made here. The stats reader itself ships only in `simple-liquid-glass/webgl`.
+- **Bundle size grows** by about 0.4 KB Brotli (frame counters and surface registration in every entry, `maxScale`, the canvas path), then another ~0.3 KB for the shared-blur pipeline above and its context-loss cleanup: measured core 52.51 KB against a 52.2 KB budget (5.6: 51.8), interactive 54.56 KB / 54.3 KB (53.9), mirror 52.51 KB / 52.3 KB (51.9), web component 37.59 KB / 37.3 KB (36.9), experimental unchanged at 31.18 KB / 31.3 KB. The release budgets are core **52.6 KB**, interactive **54.7 KB**, mirror **52.6 KB**, and web component **37.7 KB**; experimental stays at **31.3 KB**. These budgets account for the measured growth with a small margin. The stats reader itself ships only in `simple-liquid-glass/webgl`.
+
+### Shared scenes and liquid text integration
+
+- Includes the six commits from `feat/5.7.0-glyph-scene`: shared-scene glyph masks and grouping roots,
+  cached-backdrop animation, shared video frames, and scaled-ancestor support. The `/webgl` API exposes
+  `joinGlassCrowd` so non-React integrations can use the same crowd switch.
+- The repository also includes the companion liquid-text typing reveal and soft-edge changes. Those sources
+  live in `packages/simple-liquid-glass-font`; publishing `simple-liquid-glass@5.7.0` does **not** publish a new
+  version of the separate `simple-liquid-text` package.
 
 ## 5.6.0 — one canvas for a crowd of glass
 

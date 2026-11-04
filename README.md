@@ -516,7 +516,11 @@ Switch the Backgrounds toolbar between light/dark to see text color adapt in rea
 
 ## Engine API (experimental)
 
-`simple-liquid-glass/engine` is a framework-agnostic extension API for custom WebGL materials — your own private
+`simple-liquid-glass/engine` is a public package entry point starting in **5.7.0**, with ESM, CommonJS and
+TypeScript exports. Install it with `npm install simple-liquid-glass@~5.7.0` to stay on this experimental minor
+line; review the changelog before upgrading to a new minor. No local build alias is needed.
+
+It is a framework-agnostic extension API for custom WebGL materials — your own private
 GLSL, running on this package's shared WebGL context, frame loop and backdrop leases. It is `@experimental`: its
 types and behaviour may change in a minor release while `ENGINE_API` stays `1` (see the CHANGELOG's "Engine API"
 section for every change). It has no React import and never imports, detects or special-cases any other package.

@@ -27,7 +27,7 @@ Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no Rea
   `LiquidTrigger` (`'always' | 'hover' | 'press'`).
 - `simple-liquid-glass/web-component` → side-effect import; registers the `<liquid-glass>` custom
   element. Also exports `defineLiquidGlass(tag?)` and `LiquidGlassElement`.
-- `simple-liquid-glass/engine` (`@experimental`, `ENGINE_API = 1`) → `getGlassEngine()`, a
+- `simple-liquid-glass/engine` (public since 5.7.0, `@experimental`, `ENGINE_API = 1`) → `getGlassEngine()`, a
   framework-agnostic custom-material API. See "Engine API (experimental)" below.
 
 ## How refraction works — and the #1 thing to get right
@@ -201,6 +201,9 @@ Import LiquidGlassScene from simple-liquid-glass/backdrop and wrap page sections
 Experimental (5.5, unstable API): import { createExperimentalScene } from 'simple-liquid-glass/experimental'; createExperimentalScene(overlay, panels, source, { radius, blur, liquidGL }) renders analytical liquidGL refraction for a fixed list of flat, axis-aligned panels through one shared WebGL canvas composited below all overlay content. Returns { canvas, refresh(), status(), destroy() }. No nested clips, interleaved z-order, rotation or glass-through-glass; recreate it when panels change.
 
 ## Engine API (experimental)
+Public in simple-liquid-glass 5.7.0 with ESM, CommonJS and TypeScript exports. Install
+`simple-liquid-glass@~5.7.0`; no local alias is required. Types and behaviour may change in a minor release
+while ENGINE_API stays 1. Review the changelog before moving to another minor.
 import { getGlassEngine } from 'simple-liquid-glass/engine'. No React import. getGlassEngine() returns the page's
 GlassEngine singleton (null on the server or without WebGL), shared by every bundle of the package through
 ENGINE_API (currently 1). engine.defineMaterial({ id, fragment(caps), uniforms?, samplers?, inputs?, draw(ctx,

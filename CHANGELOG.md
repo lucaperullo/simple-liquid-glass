@@ -10,49 +10,81 @@
     private GLSL fragment that defines `vec4 slg_shade(vec2 p)` (premultiplied colour at the view point `p`, CSS
     px, y down), compiled once per WebGL context behind the stable `slg_*` prelude (`slg_view`, `slg_scale`,
     `slg_origin`, `slg_viewport`, `slg_time`, `slg_point()`, `slg_toScreen(p)`, `slg_hasBackdrop()`,
-    `slg_backdrop(screen)`). `draw()` returns `'drawn' | 'unchanged' | 'pending' | 'resized'`: `'pending'` still
-    presents the frame and asks to be drawn again next frame (a backdrop still loading); `'resized'` redraws the
-    surface at a freshly re-read `bleed()` in the same frame, up to 4 times.
+    `slg_backdrop(screen)`, `slg_hasUnder()`, `slg_under(screen)`). `draw()` returns
+    `'drawn' | 'unchanged' | 'pending' | 'resized'`: `'pending'` still presents the frame and asks to be drawn
+    again next frame (a backdrop still loading); `'resized'` redraws the surface at a freshly re-read `bleed()`
+    in the same frame, up to 4 times.
   - **`defineResource({ id, create(gl), dispose? })`** and **`ctx.resource(resource)`**: one instance per WebGL
     context, created lazily and again (lazily) after a context restore — a shared LUT, noise texture or atlas.
-  - **`createSurface({ host, material, params, backdrop?, backdropVersion?, bleed?, maxScale?, active?, onStatus? })`**:
-    one drawn region, its own presentation canvas sharing the package's one pooled WebGL context (there is no
-    multi-surface shared-canvas "scene" for engine surfaces — see Known limits). `backdrop` is an `HTMLElement`
-    (`<video>`/`<canvas>` sampled in place; anything else captured through the existing HTML-capture pipeline,
-    loaded lazily — see Size, below) or `{ scene: true }` for the nearest `LiquidGlassScene`. `bleed` draws beyond
-    the host's own box (CSS px, a function is read fresh every frame). `ctx.draw(rects?)` scissors to one or more
-    view-space CSS-px rects; with no `rects` it shades the whole surface. A surface whose material throws on 3
-    consecutive frames falls back (`status: { state: 'fallback', reason: 'material-error' }`) and stops drawing;
-    every other surface keeps going.
+  - **`createSurface({ host, material, params, backdrop?, backdropVersion?, bleed?, maxScale?, composition?, layer?, active?, onStatus? })`**:
+    one drawn region, drawn either into its own presentation canvas sharing the package's one pooled WebGL
+    context, or (`composition: 'auto'`, the default) into the nearest enclosing `Layer`'s shared canvas if the
+    host sits inside one. `backdrop` is an `HTMLElement` (`<video>`/`<canvas>` sampled in place; anything else
+    captured through the existing HTML-capture pipeline, loaded lazily — see Size, below), `{ scene: true }` for
+    the nearest `LiquidGlassScene`, or `{ source: id }` for a registered `BackdropSource` (see below). `bleed`
+    draws beyond the host's own box (CSS px, a function is read fresh every frame). `ctx.draw(rects?)` scissors
+    to one or more view-space CSS-px rects; with no `rects` it shades the whole surface. A surface whose
+    material throws on 3 consecutive frames falls back (`status: { state: 'fallback', reason: 'material-error' }`)
+    and stops drawing; every other surface keeps going.
+  - **`createLayer(root, { scale?, under?, snapshots?, revealMs? })`** (G7): members (any descendant surface
+    resolved through `createSurface`'s `'auto'`/`layer`) draw in document order into one shared canvas, inserted
+    as `root`'s first child with `z-index: -1` (`root` gets `position: relative` and `isolation: isolate` if it
+    does not already establish a stacking context, so ordinary sibling content paints over the canvas exactly
+    where the DOM says it should — proven in `experiments/engine` with a real page screenshot, not just the
+    canvas's own bitmap). There is no eligibility filter like `sharedScene.ts`'s `sceneIneligibility`: any
+    descendant qualifies, including a `z-index: -1` host inside an isolated root. A layer with at least one
+    member redraws every frame it has one — there is no fine-grained per-layer dirty tracking in this release
+    (each member's own dirty/active/pendingRedraw bookkeeping still runs and still feeds `stats()`; it just does
+    not gate whether the *layer* redraws). `SurfaceDiagnostics.composition` reports `'layer'` for a member,
+    `'own'` otherwise; destroying a layer returns its members to their own canvas.
+  - **`under`/`snapshots`** (G8, both opt-in and **off by default** — stock `<LiquidGlass>` never turns them on):
+    `LayerOptions.under: true` copies the layer's buffer (`gl.copyTexImage2D`, one extra copy per member) right
+    before each member draws, so a later member's `slg_under(screen)` reads the glass already drawn beneath it
+    in document order — the mechanism behind glass on glass, matching `compositor.ts`'s `copyTexSubImage2D`
+    "under" copy. `LayerOptions.snapshots: true` keeps a downscaled copy of the layer's last *completed* frame;
+    any floating (`composition: 'own'`) surface whose nearest layer has `snapshots` on reads that same way
+    through `slg_under`, automatically.
+  - **`registerBackdropSource({ id, paint(ctx, region, scale, exclude), version(), covers? })`** (G12): a private
+    provider — Pro's `pageScene`, say — paints a CSS-px strip into a 2D canvas the engine owns and uploads
+    through the existing `acquireTexture` lease; `backdrop: { source: id }` on a surface samples it exactly like
+    any other backdrop. The engine repaints only when `version()` changes or the surface's own view would read
+    outside the last painted strip (margin 160 CSS px, painted at the surface's own scale × 0.75), not every
+    frame. A surface naming an id that registers later is wired up automatically once it appears. `covers()` is
+    accepted by the type but not yet consulted — a reasonable optimisation left for later.
   - `capabilities()` reports `webgl`, `maxFragmentUniformVectors`, `maxTextureSize`, `bitmapTransfer` and a
     conservative `tier: 'full' | 'lite'` heuristic (low core count/memory or a small uniform budget) — enough for a
     material to size its own uniform arrays, not the full adaptive-quality proposal.
   - `onFrame(callback, 'measure' | 'before' | 'after')` hooks the shared frame loop; `invalidate(surfaces?)` marks
     one, several or every surface dirty (for example, a colour-scheme change); `stats()` reports
-    `{ contexts, surfaces, visible, drawn, missed, uploads, uploadBytes, frameMs, layers }` for the current engine
-    (`layers` is always 0 — see Known limits).
+    `{ contexts, layers, surfaces, visible, drawn, missed, uploads, uploadBytes, frameMs }` for the current engine.
   - **Context loss and restore**: every cached program is dropped, each material's `reset?.(gl)` runs, resource
-    instances are cleared (recreated lazily on next use) and every surface's backdrop is rebound; surfaces resume
-    once the context restores.
-  - **Known limits (by design, not oversights).** This release implements G1 (custom materials) plus the two
-    items its design bundles with it — G2 (bleed and scissored draws) and G3 (liveness and the draw-result
-    protocol) — and G10 (per-context resources). It does **not** implement G7 (document-order layers), G8 (glass
-    on glass / an `under` input), G9 (a frost input) or G11 (pointer input): there is no `createLayer`, no
-    `slg_under`/`slg_frost`/`slg_pointer`, and `SurfaceOptions.composition` always resolves to `'own'`. A page that
-    wants several surfaces composited into one shared canvas, or a surface refracting the glass already drawn
-    beneath it, needs those gaps filled first; this release is usable without them for any surface that owns its
-    own stacking context.
+    instances are cleared (recreated lazily on next use), every layer's live "under" texture is dropped (also
+    recreated lazily) and every surface's backdrop is rebound; surfaces and layers resume once the context
+    restores.
+  - **Known limits (by design, not oversights).** This release implements G1 (custom materials) with the two
+    items its design bundles with it (G2 bleed/scissored draws, G3 the liveness/draw-result protocol), G10
+    (per-context resources), G7 (document-order layers), G8 (`under`/`snapshots`, opt-in) and G12
+    (backdrop-source providers). It does **not** implement G9 (a frost input) or G11 (pointer input): there is no
+    `slg_frost`/`slg_pointer` and no pointer field anywhere in this API.
+  - `slg_origin`'s meaning changed from the first release of this entry: it is **device px**, the same value
+    passed to `gl.viewport` for the current draw (matching `hudShader.ts`'s `uOrigin`/`ox,oy`), not a CSS-px
+    bleed offset. It was always `(0, 0)` before this change (bleed never needed a nonzero origin for an
+    own-canvas surface), so nothing that shipped depended on the old reading — a layer member's own
+    `gl.viewport` offset inside the shared buffer is the first real use of it.
   - An MIT example material, `tests/engine/tint-material.ts`, and conformance tests cover: its own canvas, a
     canvas/video/HTML/scene backdrop, context loss and restore, resize-in-frame, `'pending'`, the `material-error`
-    fallback, scissored draws, bleed, `active()`'s idle cost and resources (`src/__tests__/engineMaterials.test.ts`,
-    a mocked WebGL context; `experiments/engine`, real Chromium and WebKit, run by `npm run test:webgl`).
+    fallback, scissored draws, bleed, `active()`'s idle cost, resources, document-order layers (including
+    document-order stacking against real interleaved content), `under`/`snapshots`, and a custom
+    `BackdropSource` (`src/__tests__/engineMaterials.test.ts` and `engineLayers.test.ts`, a mocked WebGL context;
+    `experiments/engine`, real Chromium and WebKit, run by `npm run test:webgl`).
   - **Size.** The entry itself is a ~100 B re-export shim. The chunk every consumer actually loads (the engine,
-    materials, resources, surfaces, and canvas/video/scene backdrops) measures **≈ 11.2 KB Brotli**
-    (`dist/engine-index.esm.js`, `npm run size`). A surface that uses a plain-HTML backdrop additionally loads the
-    existing HTML-capture pipeline as a separate chunk on demand (`dist/engine-source.esm.js`, **≈ 18.3 KB
-    Brotli**) — a surface that only ever uses a canvas/video/scene backdrop, or none, never pays for it.
-  - The engine never imports, detects or special-cases any other package. Materials are plain strings and
-    functions handed in by the caller at runtime.
+    materials, resources, surfaces, layers and canvas/video/scene/custom-source backdrops) measures
+    **≈ 12.5 KB Brotli** (`dist/engine-index.esm.js`, `npm run size`; up from ≈ 11.2 KB before G7/G8/G12). A
+    surface that uses a plain-HTML backdrop additionally loads the existing HTML-capture pipeline as a separate
+    chunk on demand (`dist/engine-source.esm.js`, **≈ 18.3 KB Brotli**, unchanged by this work) — a surface that
+    only ever uses a canvas/video/scene/custom-source backdrop, or none, never pays for it.
+  - The engine never imports, detects or special-cases any other package. Materials, resources and backdrop
+    sources are all plain strings and functions handed in by the caller at runtime.
 
 - **A crowd of blurred panes shares one blur.** A playing video or canvas backdrop was already uploaded once per
   frame and sampled in place (see below); panes that also blur it each still ran their own full blit+Gaussian

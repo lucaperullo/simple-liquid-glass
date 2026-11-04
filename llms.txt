@@ -206,24 +206,35 @@ GlassEngine singleton (null on the server or without WebGL), shared by every bun
 ENGINE_API (currently 1). engine.defineMaterial({ id, fragment(caps), uniforms?, samplers?, inputs?, draw(ctx,
 params), reset? }) compiles a private fragment shader that defines `vec4 slg_shade(vec2 p)` (premultiplied colour
 at view point p, CSS px, y down) behind the stable slg_* prelude: slg_view, slg_scale, slg_origin, slg_viewport,
-slg_time, slg_point(), slg_toScreen(p), slg_hasBackdrop(), slg_backdrop(screen). draw(ctx, params) sets ctx.uniform
-/ ctx.bind / ctx.resource(resource) and calls ctx.draw(rects?) (no rects = the whole surface; rects = view-space
-CSS-px boxes, scissored — the G2 bleed/scissor gap). It returns 'drawn' | 'unchanged' | 'pending' | 'resized':
-'pending' still presents the frame and asks again next frame (a backdrop still loading, the G3 liveness/draw-result
-protocol); 'resized' redraws now with bleed() re-read. engine.defineResource({ id, create(gl), dispose? }) plus
-ctx.resource(resource) give one instance per WebGL context, recreated lazily after a context loss — the G10 gap.
-engine.createSurface({ host, material, params, backdrop?, backdropVersion?, bleed?, maxScale?, active?, onStatus? })
-draws one region into its own presentation canvas (sharing the package's one pooled WebGL context); backdrop is an
+slg_time, slg_point(), slg_toScreen(p), slg_hasBackdrop(), slg_backdrop(screen), slg_hasUnder(), slg_under(screen).
+draw(ctx, params) sets ctx.uniform / ctx.bind / ctx.resource(resource) and calls ctx.draw(rects?) (no rects = the
+whole surface; rects = view-space CSS-px boxes, scissored — the G2 bleed/scissor gap). It returns
+'drawn' | 'unchanged' | 'pending' | 'resized': 'pending' still presents the frame and asks again next frame (a
+backdrop still loading, the G3 liveness/draw-result protocol); 'resized' redraws now with bleed() re-read.
+engine.defineResource({ id, create(gl), dispose? }) plus ctx.resource(resource) give one instance per WebGL
+context, recreated lazily after a context loss — the G10 gap.
+engine.createSurface({ host, material, params, backdrop?, backdropVersion?, bleed?, maxScale?, composition?,
+layer?, active?, onStatus? }) draws one region, either into its own presentation canvas (sharing the package's one
+pooled WebGL context) or, by default ('auto'), into the nearest enclosing Layer's shared canvas if `host` sits
+inside one; `layer` names one explicitly, `composition: 'own'` opts out even inside a layer's root. backdrop is an
 HTMLElement (<video>/<canvas> sampled in place, anything else captured through the existing HTML-capture pipeline,
-loaded lazily as a separate chunk) or { scene: true } for the nearest LiquidGlassScene. surface.update(partial)
-marks it dirty; surface.diagnostics() reports composition ('own' — always, see limits below), scale,
-uploadsLastFrame, lastDrawMs, drawnFrames. A material that throws on 3 consecutive frames sets status to
-{ state: 'fallback', reason: 'material-error' } and stops drawing that surface only. engine.capabilities() reports
-webgl, maxFragmentUniformVectors, maxTextureSize, bitmapTransfer, tier ('full' | 'lite', a conservative heuristic).
+loaded lazily as a separate chunk), { scene: true } for the nearest LiquidGlassScene, or { source: id } for a
+registered BackdropSource (G12). surface.update(partial) marks it dirty; surface.diagnostics() reports composition
+('own' | 'layer'), scale, uploadsLastFrame, lastDrawMs, drawnFrames. A material that throws on 3 consecutive
+frames sets status to { state: 'fallback', reason: 'material-error' } and stops drawing that surface only.
+engine.createLayer(root, { scale?, under?, snapshots?, revealMs? }) (G7) draws every member in document order into
+one canvas inserted as root's first child, z-index: -1 (root gets position: relative + isolation: isolate if it
+is not already a stacking context); no eligibility filter, any descendant qualifies. under: true (G8, opt-in, off
+by default) copies the layer's buffer before each member draws, so a later member's slg_under(screen) reads the
+glass already drawn beneath it; snapshots: true (also opt-in) additionally exposes a downscaled last-frame copy
+through slg_under to a floating ('own') surface over the layer. engine.registerBackdropSource({ id, paint(ctx,
+region, scale, exclude), version(), covers? }) (G12) registers a private backdrop provider (e.g. Pro's pageScene),
+referenced by SurfaceOptions.backdrop = { source: id }; repainted only on a version() change or when the surface's
+view would leave the last painted strip, not every frame; a surface naming an id that registers later is wired up
+once it appears. engine.capabilities() reports webgl, maxFragmentUniformVectors, maxTextureSize, bitmapTransfer,
+tier ('full' | 'lite', a conservative heuristic).
 engine.onFrame(callback, 'measure' | 'before' | 'after') hooks the shared frame loop; engine.invalidate(surfaces?)
-marks surfaces dirty; engine.stats() reports { contexts, surfaces, visible, drawn, missed, uploads, uploadBytes,
-frameMs, layers } (layers is always 0).
-Not implemented in this release: document-order layers (no createLayer), glass-on-glass (no slg_under), a frost
-input (no slg_frost), pointer input (no slg_pointer) and backdrop-source providers. SurfaceOptions.composition
-always resolves to 'own' — there is no multi-surface shared canvas for engine surfaces. An MIT example material is
-at tests/engine/tint-material.ts.
+marks surfaces dirty; engine.stats() reports { contexts, layers, surfaces, visible, drawn, missed, uploads,
+uploadBytes, frameMs }.
+Not implemented in this release: a frost input (no slg_frost) and pointer input (no slg_pointer) — there is no
+pointer field anywhere in this API. An MIT example material is at tests/engine/tint-material.ts.

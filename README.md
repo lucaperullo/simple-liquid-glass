@@ -556,20 +556,48 @@ if (engine) {
 
 A fragment defines `vec4 slg_shade(vec2 p)`; the engine supplies the rest of the program (vertex shader, `main()`
 and the `slg_*` prelude: `slg_view`, `slg_scale`, `slg_origin`, `slg_viewport`, `slg_time`, `slg_point()`,
-`slg_toScreen(p)`, `slg_hasBackdrop()`, `slg_backdrop(screen)`). `draw()` returns one of `'drawn'`, `'unchanged'`,
-`'pending'` (present this frame, ask again next frame — a loading backdrop) or `'resized'` (redraw now at a
-freshly re-read `bleed()`). `defineResource()` gives one instance per WebGL context (a shared LUT or atlas,
-re-created lazily after a context loss). `createSurface()`'s `active()` option keeps a surface drawing every
-frame (a spring, say); otherwise it only redraws when its params, geometry or backdrop actually change. A material
-that throws on 3 consecutive frames falls back to `status: { state: 'fallback', reason: 'material-error' }` and
-stops drawing, without affecting any other surface.
+`slg_toScreen(p)`, `slg_hasBackdrop()`, `slg_backdrop(screen)`, `slg_hasUnder()`, `slg_under(screen)`). `draw()`
+returns one of `'drawn'`, `'unchanged'`, `'pending'` (present this frame, ask again next frame — a loading
+backdrop) or `'resized'` (redraw now at a freshly re-read `bleed()`). `defineResource()` gives one instance per
+WebGL context (a shared LUT or atlas, re-created lazily after a context loss). `createSurface()`'s `active()`
+option keeps a surface drawing every frame (a spring, say); otherwise it only redraws when its params, geometry
+or backdrop actually change. A material that throws on 3 consecutive frames falls back to
+`status: { state: 'fallback', reason: 'material-error' }` and stops drawing, without affecting any other surface.
 
-**What this release does not include.** Only G1 (custom materials), the two items its design bundles with it — G2
-bleed/scissored draws and G3 the liveness/draw-result protocol — and G10 (per-context resources) are implemented.
-There is no document-order layer (`createLayer`), no glass-on-glass `under` input, no frost input and no pointer
-input, and every surface composites through its own presentation canvas (sharing the one pooled WebGL context,
-never a multi-surface shared canvas). See the CHANGELOG's "Engine API" entry for the full list and an MIT example
-material at `tests/engine/tint-material.ts`.
+### Layers, glass on glass and custom backdrops
+
+```ts
+const root = document.querySelector('#page')!;
+const layer = engine.createLayer(root, { under: true }); // under/snapshots are opt-in, off by default
+
+// Any descendant surface joins the nearest enclosing layer automatically (composition: 'auto', the default);
+// pass `layer` explicitly, or `composition: 'own'` to opt a surface out even inside a layer's root.
+const back = engine.createSurface({ host: document.querySelector('#card')!, material, params });
+const front = engine.createSurface({ host: document.querySelector('#badge')!, material: underAwareMaterial, params, layer });
+// front's slg_under(screen) now reads back's glass wherever they overlap, in document order.
+
+engine.registerBackdropSource({
+  id: 'my-app/page-model@1',
+  paint(ctx, region, scale, exclude) { /* paint `region` (viewport CSS px) into ctx at `scale`, skipping `exclude` */ return { drew: true, live: false }; },
+  version: () => myPageModelVersion,
+});
+const custom = engine.createSurface({ host: document.querySelector('#hud')!, material, params, backdrop: { source: 'my-app/page-model@1' } });
+```
+
+`createLayer(root, { scale?, under?, snapshots?, revealMs? })` draws its members in document order into one
+shared canvas placed as `root`'s first child, `z-index: -1` — ordinary sibling content still paints over it, so
+glass sits correctly behind whatever the DOM says is in front of it. There is no eligibility filter: any
+descendant qualifies, including a `z-index: -1` host inside an isolated root. `under: true` lets a later member
+refract the glass already drawn beneath it (one extra buffer copy per member); `snapshots: true` also makes that
+available, as a downscaled last-frame copy, to a floating (`composition: 'own'`) surface near the layer. Both are
+off by default; stock `<LiquidGlass>` never turns them on. `registerBackdropSource` lets a private page model
+(Pro's `pageScene`, for example) supply a backdrop without ever living in this MIT engine: `backdrop: { source }`
+samples it exactly like a `<canvas>` or `{ scene: true }` backdrop, repainted only when `version()` changes or
+the surface's view would read outside the last painted strip.
+
+**What this release does not include.** G9 (a frost input) and G11 (pointer input) are not implemented: there is
+no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for
+the full list, every `slg_*` prelude function, and an MIT example material at `tests/engine/tint-material.ts`.
 
 ## License
 

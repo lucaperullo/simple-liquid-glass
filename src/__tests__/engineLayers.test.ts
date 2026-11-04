@@ -139,6 +139,67 @@ test('G7: two members in document order draw into exactly one shared canvas, in 
   a.destroy(); b.destroy(); layer.destroy(); root.remove();
 });
 
+test('G7: two members each padding ctx.draw(rects) past their own view do not leak viewport/scissor/uniform state into each other', async () => {
+  // Investigated from a report that read as a cross-member state leak within one layer ("member A
+  // shows member B's colour"): confirmed to be legitimate G7 document-order compositing (a later
+  // member's own bleed/pad geometrically crossing into an earlier one's area — see the real-browser
+  // conformance in experiments/engine for the geometry and the full write-up in the final report),
+  // not an actual GL-state leak. This test pins the GL-state side of that investigation: two members
+  // far enough apart that neither's pad geometrically reaches the other at all, so every one of the
+  // assertions below is about whether gl.viewport/gl.scissor/the u_color uniform are each correctly
+  // scoped per member — not about whether their padded regions happen to overlap.
+  const root = document.createElement('div');
+  document.body.append(root);
+  const hostA = document.createElement('div'), hostB = document.createElement('div');
+  root.append(hostA, hostB);
+  rect(hostA, 0, 0, 50, 50);
+  rect(hostB, 500, 500, 50, 50); // far from A: no padded reach below could ever cross into it
+  const layer = engine.createLayer(root, { scale: 1 });
+  const viewportCalls: number[][] = [];
+  const scissorCalls: number[][] = [];
+  (mockGl as unknown as { viewport: jest.Mock }).viewport.mockImplementation((...args: number[]) => viewportCalls.push(args));
+  (mockGl as unknown as { scissor: jest.Mock }).scissor.mockImplementation((...args: number[]) => scissorCalls.push(args));
+  const colorCalls: number[][] = [];
+  (mockGl as unknown as { uniform4f: jest.Mock }).uniform4f.mockImplementation((loc: MockLocation, ...v: number[]) => {
+    if (loc.name === 'u_color') colorCalls.push(v);
+  });
+  const material = engine.defineMaterial<{ color: readonly [number, number, number, number] }>({
+    id: 'tests/engine/layers-padded-tint@1',
+    fragment: () => 'uniform vec4 u_color; vec4 slg_shade(vec2 p) { return u_color; }',
+    uniforms: ['u_color'],
+    draw(ctx, params) {
+      ctx.uniform('u_color', ...params.color);
+      const { width, height } = ctx.view;
+      ctx.draw([[-10, -10, width + 20, height + 20]]);
+      return 'drawn';
+    },
+  });
+  viewportCalls.length = 0; scissorCalls.length = 0; colorCalls.length = 0;
+  const a = engine.createSurface({ host: hostA, material, params: { color: [1, 0, 0, 1] }, layer });
+  const b = engine.createSurface({ host: hostB, material, params: { color: [0, 0, 1, 1] }, layer });
+  await new Promise(requestAnimationFrame);
+
+  expect(colorCalls).toEqual([[1, 0, 0, 1], [0, 0, 1, 1]]); // each member's own colour, in document order, neither skipped nor swapped
+
+  // viewportCalls[0] is the layer's own per-frame viewport (drawLayer); each member then contributes
+  // exactly 3: its own [ox,oy,w,h] (set by drawLayerMember, before the material's draw() runs), the
+  // ctx.draw(rects) pad's widened one, and the restore back to that same [ox,oy,w,h].
+  expect(viewportCalls.length).toBe(1 + 3 + 3);
+  const [, aOwn, aWidened, aRestored, bOwn, bWidened, bRestored] = viewportCalls;
+  expect(aRestored).toEqual(aOwn); // A's own restore uses A's own origin, not anything left over from B
+  expect(bRestored).toEqual(bOwn); // ...and the same for B
+  expect(aOwn).not.toEqual(bOwn); // A and B really are at different origins, not sharing one
+  expect(aWidened).toEqual([aOwn[0] - 10, aOwn[1] - 10, aOwn[2] + 20, aOwn[3] + 20]); // widened relative to A's OWN origin
+  expect(bWidened).toEqual([bOwn[0] - 10, bOwn[1] - 10, bOwn[2] + 20, bOwn[3] + 20]); // ...and B's own, not A's
+
+  // One rect each (the whole padded union): gl.scissor ends up at the same coordinates as that
+  // member's own widened gl.viewport call, for each member independently.
+  expect(scissorCalls).toEqual([aWidened, bWidened]);
+
+  a.destroy(); b.destroy(); layer.destroy(); root.remove();
+  (mockGl as unknown as { uniform4f: jest.Mock }).uniform4f.mockImplementation(() => {});
+});
+
 test('G7: an auto-detected layer (no explicit `layer` option) is found by walking ancestors', async () => {
   const root = document.createElement('div');
   document.body.append(root);

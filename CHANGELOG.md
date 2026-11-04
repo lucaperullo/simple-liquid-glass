@@ -39,6 +39,22 @@
     (each member's own dirty/active/pendingRedraw bookkeeping still runs and still feeds `stats()`; it just does
     not gate whether the *layer* redraws). `SurfaceDiagnostics.composition` reports `'layer'` for a member,
     `'own'` otherwise; destroying a layer returns its members to their own canvas.
+    - **Investigated, not a bug: a member's `ctx.draw(rects)` bleed can legitimately paint over a later
+      member's own area.** Reported as a cross-member state leak ("member A shows member B's colour") from a
+      minimal repro: two members in one layer, each padding `ctx.draw(rects)` past its own view. Confirmed to
+      be exactly the documented "draw in document order, glass on glass" compositing, not a GL-state leak — a
+      later member's own bleed/pad geometrically crosses an earlier one's area whenever `bleed + pad` reaches
+      at least `gap + host/2` (the gap to the next member, plus half that member's own width/height), the same
+      way a later DOM sibling with enough negative margin or reach would paint over an earlier one. Verified by
+      sweeping that exact threshold (33 B/px either side of it flips the result) and by checking every member's
+      actual colour across a 20-member layer, which matched "each shows its immediate successor's colour"
+      precisely, not any other pattern a real state leak could produce. `src/__tests__/engineLayers.test.ts`
+      adds a mechanism-level test (two members positioned far enough apart that neither's pad could ever
+      reach the other) pinning that `gl.viewport`/`gl.scissor`/the colour uniform are each correctly scoped per
+      member regardless; `experiments/engine` adds both a safe-geometry scenario (neither member's bleed comes
+      close to the other) and the reported repro's own aggressive one (verifying the later member's bleed
+      legitimately wins in the overlap, and the earlier member's own far-side bleed, outside that overlap,
+      still correctly shows its own colour).
   - **`under`/`snapshots`** (G8, both opt-in and **off by default** — stock `<LiquidGlass>` never turns them on):
     `LayerOptions.under: true` copies the layer's buffer (`gl.copyTexImage2D`, one extra copy per member) right
     before each member draws, so a later member's `slg_under(screen)` reads the glass already drawn beneath it

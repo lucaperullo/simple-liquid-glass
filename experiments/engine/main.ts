@@ -199,6 +199,62 @@ if (engine) {
     onStatus(status) { document.body.dataset.sdfStatus = status.state; },
   });
 
+  // Investigated from a report that looked like a cross-member state leak in one layer ("the first
+  // member shows the second member's colour"): it reproduces from a reported minimal repro, but
+  // turns out to be exactly G7's documented "draw in document order, glass on glass" compositing —
+  // a LATER member's own bleed/pad legitimately painting over an EARLIER member's area wherever the
+  // two geometrically overlap, same as later DOM siblings paint over earlier ones. The repro's
+  // numbers (bleed 24 + pad 20 = 44px reach, hosts 48px wide 8px apart) make that overlap reach past
+  // each host's own centre: reach >= gap + host/2 (44 >= 8 + 24) is exactly the condition for a
+  // neighbour's bleed to cross a host's own centre, verified empirically by sweeping bleed+pad
+  // across that exact threshold (the full write-up is in the final report). Flat colour, no
+  // backdrop, so correctness is trivial to read off a single pixel.
+  const definePaddedTint = (idSuffix: string) => engine.defineMaterial<{ color: readonly [number, number, number, number]; pad: number }>({
+    id: `experiments/engine/frag-tint-${idSuffix}@1`,
+    fragment: () => 'uniform vec4 u_color; vec4 slg_shade(vec2 p) { return u_color; }',
+    uniforms: ['u_color'],
+    draw(ctx, params) {
+      ctx.uniform('u_color', ...params.color);
+      const { width, height } = ctx.view;
+      const pad = params.pad;
+      ctx.draw(pad > 0 ? [[-pad, -pad, width + pad * 2, height + pad * 2]] : undefined);
+      return 'drawn';
+    },
+  });
+  const RED: readonly [number, number, number, number] = [1, 0, 0, 1];
+  const BLUE: readonly [number, number, number, number] = [0, 0, 1, 1];
+
+  // Safe geometry: bleed 6 + pad 6 = 12px reach, hosts 40px wide 40px apart (gap 40 >> reach 12, well
+  // under the gap + host/2 = 60 threshold) — neither member's bleed comes close to the other's own
+  // box, let alone its centre. Both members, including a point well inside each one's own bleed
+  // margin (not just its centre), must show their own colour.
+  const fragSafeMaterial = definePaddedTint('safe');
+  const fragSafeLayer = engine.createLayer(document.querySelector('#frag-safe-root') as HTMLElement, { scale: 1 });
+  const fragSafeA = engine.createSurface({
+    host: document.querySelector('#frag-safe-a') as HTMLElement, material: fragSafeMaterial, params: { color: RED, pad: 6 }, bleed: 6, layer: fragSafeLayer,
+    onStatus(status) { document.body.dataset.fragSafeStatusA = status.state; },
+  });
+  const fragSafeB = engine.createSurface({
+    host: document.querySelector('#frag-safe-b') as HTMLElement, material: fragSafeMaterial, params: { color: BLUE, pad: 6 }, bleed: 6, layer: fragSafeLayer,
+    onStatus(status) { document.body.dataset.fragSafeStatusB = status.state; },
+  });
+
+  // Aggressive geometry, the reported repro's own numbers: bleed 24 + pad 20 = 44px reach, hosts
+  // 48px wide only 8px apart (44 >= 8 + 24 = 32, past the threshold) — B (later in document order)
+  // legitimately bleeds across A's own centre. This is the documented, intended behaviour, not a
+  // bug: it is pinned here so a real regression (B's colour appearing somewhere this geometry does
+  // NOT predict, or A's bleed instead winning despite being earlier) would be caught.
+  const fragOverlapMaterial = definePaddedTint('overlap');
+  const fragOverlapLayer = engine.createLayer(document.querySelector('#frag-overlap-root') as HTMLElement, { scale: 1 });
+  const fragOverlapA = engine.createSurface({
+    host: document.querySelector('#frag-overlap-a') as HTMLElement, material: fragOverlapMaterial, params: { color: RED, pad: 20 }, bleed: 24, layer: fragOverlapLayer,
+    onStatus(status) { document.body.dataset.fragOverlapStatusA = status.state; },
+  });
+  const fragOverlapB = engine.createSurface({
+    host: document.querySelector('#frag-overlap-b') as HTMLElement, material: fragOverlapMaterial, params: { color: BLUE, pad: 20 }, bleed: 24, layer: fragOverlapLayer,
+    onStatus(status) { document.body.dataset.fragOverlapStatusB = status.state; },
+  });
+
   (window as unknown as { engineLab: unknown }).engineLab = {
     engine, surface, host, backdrop, paintBackdrop, paintQuadrants, htmlSurface,
     layer, layerMemberA, layerMemberB,
@@ -207,5 +263,7 @@ if (engine) {
     uniformTypesSurface,
     paddedLayer, paddedMember,
     sdfLayer, sdfSurface,
+    fragSafeLayer, fragSafeA, fragSafeB,
+    fragOverlapLayer, fragOverlapA, fragOverlapB,
   };
 }

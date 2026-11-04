@@ -193,6 +193,32 @@ try {
         `${name}: SDF just past the edge must be a lighter continuation of the same falloff ${paddedBleedNearEdge} (inside was ${paddedInsideNearEdge})`);
       assert.ok(paddedBleedDeep[3] < 50, `${name}: SDF well into the bleed must have mostly faded out ${paddedBleedDeep}`);
 
+      // Investigated from a report that looked like cross-member state leaking within one layer
+      // ("member A shows member B's colour"): turned out to be G7's documented "draw in document
+      // order, glass on glass" compositing, legitimately triggered once bleed/pad reach far enough
+      // to cross into a neighbour's own box. Two scenarios, same two-member layer shape, opposite
+      // geometry: a safe one (neither member's reach gets anywhere near the other) and the reported
+      // repro's own aggressive one (B's reach legitimately crosses past A's own centre).
+      await page.waitForFunction(() => document.body.dataset.fragSafeStatusA === 'active' && document.body.dataset.fragSafeStatusB === 'active', null, { timeout: 10000 });
+      await frames(page, 3);
+      let p = await pixelAtLayer(page, 4, 375, 410); // frag-safe-a centre
+      assert.deepEqual(p, [255, 0, 0, 255], `${name}: frag-safe A centre must stay its own red ${p}`);
+      p = await pixelAtLayer(page, 4, 350, 410); // inside A's own bleed margin, far from B
+      assert.deepEqual(p, [255, 0, 0, 255], `${name}: frag-safe A's own bleed must stay red ${p}`);
+      p = await pixelAtLayer(page, 4, 455, 410); // frag-safe-b centre
+      assert.deepEqual(p, [0, 0, 255, 255], `${name}: frag-safe B centre must stay its own blue ${p}`);
+      p = await pixelAtLayer(page, 4, 480, 410); // inside B's own bleed margin, far from A
+      assert.deepEqual(p, [0, 0, 255, 255], `${name}: frag-safe B's own bleed must stay blue ${p}`);
+
+      await page.waitForFunction(() => document.body.dataset.fragOverlapStatusA === 'active' && document.body.dataset.fragOverlapStatusB === 'active', null, { timeout: 10000 });
+      await frames(page, 3);
+      p = await pixelAtLayer(page, 5, 379, 495); // frag-overlap-a centre: B (later, reach 44 >= gap 8 + A's own half-width 24) legitimately wins here
+      assert.deepEqual(p, [0, 0, 255, 255], `${name}: frag-overlap A's centre is legitimately crossed by B's bleed (document order) ${p}, expected B's blue`);
+      p = await pixelAtLayer(page, 5, 320, 495); // well inside A's own far-side bleed, outside B's 44px reach: still A's own
+      assert.deepEqual(p, [255, 0, 0, 255], `${name}: frag-overlap A's far-side bleed (outside B's reach) must stay red ${p}`);
+      p = await pixelAtLayer(page, 5, 435, 495); // frag-overlap-b centre: nothing drawn after B, must stay its own
+      assert.deepEqual(p, [0, 0, 255, 255], `${name}: frag-overlap B's own centre must stay blue ${p}`);
+
       // Context loss and restore: every program/resource is rebuilt, layers' under textures are
       // recreated, and every surface (own-canvas and layer members alike) resumes.
       const lostReason = await page.evaluate(async () => {

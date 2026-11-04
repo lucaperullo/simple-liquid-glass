@@ -18,6 +18,12 @@
 #padded-member{position:absolute;top:0;left:0;width:100px;height:200px;background:transparent}
 #sdf-root{position:fixed;top:260px;left:350px;width:100px;height:100px;background:#111}
 #sdf-host{position:absolute;top:0;left:0;width:100px;height:100px;background:transparent}
+#frag-safe-root{position:fixed;top:380px;left:350px;width:130px;height:60px;background:#111}
+#frag-safe-a{position:absolute;top:10px;left:5px;width:40px;height:40px;background:transparent}
+#frag-safe-b{position:absolute;top:10px;left:85px;width:40px;height:40px;background:transparent}
+#frag-overlap-root{position:fixed;top:460px;left:350px;width:120px;height:70px;background:#111}
+#frag-overlap-a{position:absolute;top:11px;left:5px;width:48px;height:48px;background:transparent}
+#frag-overlap-b{position:absolute;top:11px;left:61px;width:48px;height:48px;background:transparent}
 </style></head><body>
 <canvas id="backdrop" width="300" height="200"></canvas>
 <div id="host"></div>
@@ -40,6 +46,14 @@
 </div>
 <div id="sdf-root">
   <div id="sdf-host"></div>
+</div>
+<div id="frag-safe-root">
+  <div id="frag-safe-a"></div>
+  <div id="frag-safe-b"></div>
+</div>
+<div id="frag-overlap-root">
+  <div id="frag-overlap-a"></div>
+  <div id="frag-overlap-b"></div>
 </div>
 <script type="module" src="./main.ts"></script>
 </body></html>

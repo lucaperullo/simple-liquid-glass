@@ -1,5 +1,28 @@
 ## Unreleased
 
+- **A crowd of blurred panes shares one blur.** A playing video or canvas backdrop was already uploaded once per
+  frame and sampled in place (see below); panes that also blur it each still ran their own full blit+Gaussian
+  pipeline on their own small crop, so the cost still multiplied by the number of panes. Once at least 8 panes
+  share the same backdrop and blur amount in a frame, the whole backdrop is blurred once and every pane samples a
+  region of that result instead (the unblurred `direct` path already did this; blurred panes now can too). Below 8
+  panes the per-pane pipeline is cheaper (it blurs a buffer sized to one pane, not the whole backdrop) and is kept
+  unchanged — the two pipelines produce the same blur radius (both express the Gaussian spread as a fraction of the
+  buffer they blur, and a pane's region is the same fraction of that buffer either way) but not bit-identical output
+  (0 mean/255 diff below the crossover, since it is the same code path; 3.4 mean/255 at 48 panes, from the different
+  buffer resolution — both still show the glass bending the backdrop). Output with `blur={0}` (webgl's default) is
+  unaffected; this only changes frames that set a nonzero `blur`.
+
+  Samsung Galaxy A54, Chrome 156, Android 16, Mali GPU, DPR 2.625, real device over adb, finger held on screen
+  (Adaptive refresh idles at 60 Hz without touch), `blur={12}`, panes over one moving `<canvas>` backdrop, interleaved
+  runs:
+
+  | Panes | Before (per-pane blur) | After |
+  |---|---|---|
+  | 5 | 44–51 fps | 39–50 fps (same code path, unchanged) |
+  | 48 | 8.7–9.2 fps | 42–43 fps |
+
+  This does not change the `blur={0}` numbers already in this changelog's canvas-backdrop entry (5/48 panes,
+  default blur): that path samples the shared texture in place already and never reaches the new code.
 - **Canvas backdrops are sampled in place.** A `<canvas>` backdrop is uploaded once per WebGL context per frame (once per version for the canvases `LiquidGlassScene` paints), and every pane over it samples its own region of that texture, as video already did. Before, each pane copied its crop through a 2D canvas and uploaded it, so 48 panes over one live canvas cost 48 copies and 48 uploads per frame; now it is one upload per frame for the shared scene, or one for the shared offscreen context. `optics="liquidgl"` panes share the upload too (each used to upload its own copy every frame). No API change. Panes keep the crop when the canvas exceeds the context's `MAX_TEXTURE_SIZE`, uses `object-fit: none` or `scale-down`, is scaled non-uniformly, or when the pane extends past the canvas. Output matches the crop within 0.41/255 mean on Chromium, WebKit and Firefox, with and without blur (`experiments/canvas-backdrop/test.mjs`, run by `npm run test:webgl`).
 
   Panes over one animated 2560×1600 canvas (`experiments/canvas-backdrop`, shared scene, Apple M5, headless Playwright: Chromium 153, WebKit 26.6, Firefox 155; 1280×800 at 2×; median of 5 interleaved runs; frame rate · p95 frame interval · uploads per frame):
@@ -16,7 +39,7 @@
   Headless Firefox is not capped at 60 Hz. Chromium's main-thread time per frame is unchanged (0.95 → 0.97 ms with 48 panes, 11 runs). Bytes uploaded per frame are those of the whole canvas (16.4 MB here) instead of the panes' crops (13.3 MB for 5 large panes, 18.6 MB for 48), so a few panes over a very large canvas can upload more than before; WebKit spends most of its frame in that one upload.
 - **`maxScale`** (new, optional): `<LiquidGlass maxScale={1.5}>`, `WebGLSurfaceOptions.maxScale` and the `max-scale` attribute of `<liquid-glass>` cap the WebGL drawing scale in device pixels per CSS pixel. A shared scene composites at the largest cap among its panels (uncapped if any panel is). Defaults are unchanged: without it WebGL draws at the device pixel ratio, at most 3 (2 for liquidGL optics). SVG and CSS rendering ignore it.
 - **Page-level stats** (new): `getGlassEngineStats()` from `simple-liquid-glass/webgl` returns the WebGL contexts in use, every glass surface on the page with its strategy (`webgl-scene`, `webgl-single`, `svg`, `css-fallback`, `pending`, `paused`, `off`) and reason, how many are refracting, and for the last engine frame the visible, drawn and missed surfaces, texture uploads and bytes and the frame's main-thread time, plus cumulative totals. Counting starts with the first call; nothing is counted before it. With `window.__benchExpose` set before the entry loads, it is also exposed as `window.__slgEngine.stats()`. New types: `GlassEngineStats`, `GlassEngineFrameStats`, `GlassSurfaceStats`, `GlassSurfaceStrategy`.
-- **Bundle size grows** by about 0.4 KB Brotli (frame counters and surface registration in every entry, `maxScale`, the canvas path): budgets are core 52.2 KB (5.6: 51.8), interactive 54.3 KB (53.9), mirror 52.3 KB (51.9), web component 37.3 KB (36.9), experimental 31.3 KB (31). The stats reader itself ships only in `simple-liquid-glass/webgl`.
+- **Bundle size grows** by about 0.4 KB Brotli (frame counters and surface registration in every entry, `maxScale`, the canvas path), then another ~0.3 KB for the shared-blur pipeline above and its context-loss cleanup: measured core 52.51 KB against a 52.2 KB budget (5.6: 51.8), interactive 54.56 KB / 54.3 KB (53.9), mirror 52.51 KB / 52.3 KB (51.9), web component 37.59 KB / 37.3 KB (36.9), experimental unchanged at 31.18 KB / 31.3 KB. The `size-limit` budgets in `package.json` have not been raised to match — `npm run size` currently fails by 210–312 B on the first four; raising them is a call for whoever ships this, not made here. The stats reader itself ships only in `simple-liquid-glass/webgl`.
 
 ## 5.6.0 — one canvas for a crowd of glass
 

@@ -1,6 +1,6 @@
 import { GlassRenderer } from '../../vendor/ybouane/GlassRenderer';
 import { DEFAULTS, SHADOW_PAD } from '../../vendor/ybouane/defaults';
-import { cachedBackground } from './background';
+import { cachedBackground, invalidateSharedBlur } from './background';
 import type { installLiquidGLOptics } from './liquidGLOptics';
 import { installPackageOptics } from './optics';
 import { acquireSource } from './source';
@@ -82,7 +82,7 @@ export function createWebGLEngine(panel: HTMLElement, holder: HTMLElement, sourc
   if(!slot)holder.append(canvas);
   // Numbers, not a joined string: this runs for every panel on every frame.
   const lastGeometry = new Float64Array(9).fill(NaN); let lastTime = -1;
-  const lose = () => { invalidateTextures(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
+  const lose = () => { invalidateTextures(renderer.gl); invalidateSharedBlur(renderer.gl); ready = false; setStatus('webgl-unavailable'); };
   const restore = () => { changed(); setStatus('pending'); };
   renderer.canvas.addEventListener('webglcontextlost', lose);
   renderer.canvas.addEventListener('webglcontextrestored', restore);

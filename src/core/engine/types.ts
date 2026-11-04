@@ -2,15 +2,12 @@
  * simple-liquid-glass/engine — @experimental public types.
  *
  * Scope note: this module implements G1 (custom materials), the two items the design bundles
- * with it (G2 bleed + scissored draws, G3 liveness + the draw-result protocol) and G10
- * (per-context resources). It does NOT implement G7 (document-order layers), G8 (glass on
- * glass / `under`), G9 (a frost input), G11 (pointer input) or G12 (backdrop-source providers) —
- * those were not approved. Where the design's sketch (`docs/engine-migration.md` §4.3) mentions
- * fields or prelude functions that belong to those gaps, they are left out here on purpose; see
- * the README "Engine API" section and the CHANGELOG for exactly what that means for a material
- * author. Composition is always the surface's own canvas, sharing the one pooled WebGL context —
- * there is no multi-surface "scene" canvas for engine surfaces, because that would need the
- * sibling/layer machinery of G7/G8.
+ * with it (G2 bleed + scissored draws, G3 liveness + the draw-result protocol), G10
+ * (per-context resources), G7 (document-order layers), G8 (glass on glass / `under`, opt-in) and
+ * G12 (backdrop-source providers). It does NOT implement G9 (a frost input) or G11 (pointer
+ * input) — those were not approved; there is no `slg_frost`/`slg_pointer` and no pointer field
+ * anywhere in this API. See the README "Engine API" section and the CHANGELOG for exactly what
+ * each gap means for a material author.
  */
 
 /** Integer version of this contract. Bumped only by a breaking change (an engine major). */
@@ -96,8 +93,9 @@ export interface Resource<T> {
 }
 
 /** A surface's backdrop. `{ scene: true }` resolves against the nearest `LiquidGlassScene`
- * (see `simple-liquid-glass/backdrop`); a registered BackdropSource id (G12) is not implemented. */
-export type BackdropInput = HTMLElement | { scene: true } | null;
+ * (see `simple-liquid-glass/backdrop`); `{ source: id }` resolves against a provider registered
+ * with `engine.registerBackdropSource` (G12). */
+export type BackdropInput = HTMLElement | { scene: true } | { source: string } | null;
 
 export interface SurfaceOptions<P> {
   /** Element whose box (plus bleed) is drawn; its canvas follows it. */
@@ -111,12 +109,54 @@ export interface SurfaceOptions<P> {
   bleed?: number | (() => number);
   /** Highest canvas px per CSS px. Default: min(devicePixelRatio, 2), or 1.5 on tier 'lite'. */
   maxScale?: number;
-  /** Reserved for forward compatibility with layers (G7); both values currently resolve to 'own', because this
-   * module does not implement a multi-surface shared-canvas scene. See the module doc comment above. */
+  /** 'auto' (default): the nearest `Layer` whose root contains `host`, else its own canvas (same shared
+   * context). 'own': always its own canvas, even inside a layer's root. */
   composition?: 'auto' | 'own';
+  /** Explicit layer (overrides the 'auto' search); `null` forces 'own' even inside a layer's root. */
+  layer?: Layer | null;
   /** True while moving or interacted with: drawn every frame; otherwise only when dirty. */
   active?(): boolean;
   onStatus?(status: SurfaceStatus): void;
+}
+
+export interface LayerOptions {
+  /** Drawing-buffer scale, canvas px per CSS px. Default: the same default as a surface's `maxScale`. */
+  scale?: number;
+  /** Before each member draws, copy the layer's buffer so far (what lies beneath it) into a texture it can
+   * read through `slg_under(screen)` — the mechanism behind glass on glass. Off by default: it costs one
+   * extra copy per member. An own-canvas ('auto'/'own') surface whose host lies inside this layer's root
+   * reads the *previous frame's* downscaled snapshot the same way, when `snapshots` is also on. */
+  under?: boolean;
+  /** Keep a downscaled snapshot of the layer's last completed frame, for `slg_under` on floating ('own')
+   * surfaces over this layer (see `under`). Off by default. */
+  snapshots?: boolean;
+  /** Reserved for a future fade-in once the layer's first complete frame is ready; not implemented (no-op). */
+  revealMs?: number;
+}
+
+export interface Layer {
+  readonly root: HTMLElement;
+  /** Inserted as `root`'s first child, `z-index: -1`; `root` is given `position: relative` and
+   * `isolation: isolate` if it does not already establish a stacking context. */
+  readonly canvas: HTMLCanvasElement;
+  destroy(): void;
+}
+
+/** A private backdrop provider (G12): lets Pro keep a page model such as `pageScene` out of this MIT
+ * engine while still using its scheduling, upload and `slg_backdrop`/`slg_under`-style sampling. */
+export interface BackdropSource {
+  id: string;
+  /** Paint `region` (viewport CSS px) at `scale` (canvas px per CSS px) into `ctx`, skipping `exclude`d
+   * elements (typically the surface's own host, so a source never captures the glass itself). Return
+   * whether it actually painted (`drew`) and whether it expects to keep changing (`live`: the engine then
+   * treats the surface like a live canvas/video backdrop, redrawing every frame). */
+  paint(ctx: CanvasRenderingContext2D, region: DOMRectReadOnly, scale: number, exclude: readonly Element[]):
+    { drew: boolean; live: boolean };
+  /** Bump whenever a repaint is needed (layout changed, a frame of an internal animation, …). */
+  version(): number;
+  /** Optional: true when nothing paints in `region` (for example, bare page background) — lets the engine
+   * skip the upload. Defaults to "always paints something". */
+  covers?(region: DOMRectReadOnly, exclude: readonly Element[]): boolean;
 }
 
 export interface Surface<P> {
@@ -133,7 +173,7 @@ export type SurfaceStatus =
   | { state: 'fallback'; reason: 'webgl-unavailable' | 'material-error' | 'capture-failed' | 'invalid-backdrop' | 'api-mismatch' };
 
 export interface SurfaceDiagnostics {
-  composition: 'own';
+  composition: 'own' | 'layer';
   scale: number;
   uploadsLastFrame: number;
   lastDrawMs: number;
@@ -142,7 +182,6 @@ export interface SurfaceDiagnostics {
 
 export interface EngineStats {
   contexts: number;
-  /** Always 0: document-order layers (G7) are not implemented. */
   layers: number;
   surfaces: number;
   visible: number;
@@ -160,6 +199,11 @@ export interface GlassEngine {
   defineMaterial<P>(definition: MaterialDefinition<P>): Material<P>;
   defineResource<T>(definition: ResourceDefinition<T>): Resource<T>;
   createSurface<P>(options: SurfaceOptions<P>): Surface<P>;
+  /** Members are any descendant of `root` registered through `createSurface`'s `layer`/'auto' resolution,
+   * drawn into one shared canvas in document order (G7). */
+  createLayer(root: HTMLElement, options?: LayerOptions): Layer;
+  /** Register a private backdrop source (G12), referenced by id in `SurfaceOptions.backdrop: { source }`. */
+  registerBackdropSource(source: BackdropSource): () => void;
   /** Hooks into the shared frame loop. 'measure' runs before any draw (read layout here), 'after' after compositing. */
   onFrame(callback: (frame: FrameInfo) => void, phase?: 'measure' | 'before' | 'after'): () => void;
   /** Mark surfaces dirty (all of them, or some): e.g. a colour-scheme change. */

@@ -1,6 +1,6 @@
 /** GLSL plumbing for `simple-liquid-glass/engine`: the stable `slg_*` prelude, the shared vertex shader and
- * small WebGL helpers. Only the prelude names below are part of the public contract — nothing here reaches for
- * `slg_frost`, `slg_under` or `slg_pointer` (G9/G8/G11), because those gaps were not approved. */
+ * small WebGL helpers. `slg_frost`/`slg_pointer` (G9/G11) are still not implemented — those gaps were not
+ * approved — but `slg_under` (G8) is, below. */
 
 /** One full-screen clip-space quad, shared by every material program. */
 export const VERTEX_SHADER = `attribute vec2 a_pos;
@@ -8,12 +8,14 @@ void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
 
 /**
  * Prepended to every material's fragment source. `slg_view`/`slg_scale` describe the surface's drawn region
- * (CSS px size, device px per CSS px); `slg_origin` is the CSS-px offset from that region's top-left to the
- * host element's own box top-left (non-zero only with `bleed`); `slg_viewport` is the region's top-left in the
- * browser viewport, CSS px (`DrawContext.viewport`). `slg_point()` returns the current fragment's position
- * within the region, CSS px, y down, matching `hudShader.ts`'s `p`. `slg_toScreen` converts a region-local point
- * to viewport CSS px (what a backdrop sample needs). `slg_backdrop` is a no-op (always transparent black) unless
- * `inputs.backdrop` was requested and a backdrop is bound.
+ * (CSS px size, device px per CSS px); `slg_viewport` is the region's top-left in the browser viewport, CSS px
+ * (`DrawContext.viewport`). `slg_origin` is the **device-px** bottom-left corner of this region within the
+ * drawing buffer `gl_FragCoord` is measured against: `(0, 0)` for an own-canvas surface (the buffer *is* the
+ * region), or a layer member's own `gl.viewport` offset within the shared layer canvas (G7) — the same value
+ * passed to `gl.viewport`, matching `hudShader.ts`'s `uOrigin`/`ox,oy`. `slg_point()` returns the current
+ * fragment's position within the region, CSS px, y down, matching `hudShader.ts`'s `p`. `slg_toScreen` converts
+ * a region-local point to viewport CSS px (what a backdrop/under sample needs). `slg_backdrop` is a no-op
+ * (always transparent black) unless `inputs.backdrop` was requested and a backdrop is bound.
  */
 export const PRELUDE = `precision highp float;
 uniform vec2 slg_view;
@@ -25,7 +27,8 @@ uniform sampler2D slg_backdropTex;
 uniform vec4 slg_backdropRegion;
 uniform float slg_hasBackdropFlag;
 vec2 slg_point() {
-  return vec2(gl_FragCoord.x, slg_view.y * slg_scale - gl_FragCoord.y) / slg_scale;
+  vec2 f = gl_FragCoord.xy - slg_origin;
+  return vec2(f.x, slg_view.y * slg_scale - f.y) / slg_scale;
 }
 vec2 slg_toScreen(vec2 p) { return p + slg_viewport; }
 float slg_hasBackdrop() { return slg_hasBackdropFlag; }
@@ -33,6 +36,15 @@ vec3 slg_backdrop(vec2 screen) {
   if (slg_hasBackdropFlag < 0.5) return vec3(0.0);
   vec2 uv = clamp(slg_backdropRegion.xy + screen * slg_backdropRegion.zw, vec2(0.0), vec2(1.0));
   return texture2D(slg_backdropTex, uv).rgb;
+}
+uniform sampler2D slg_underTex;
+uniform vec4 slg_underRegion;
+uniform float slg_hasUnderFlag;
+float slg_hasUnder() { return slg_hasUnderFlag; }
+vec4 slg_under(vec2 screen) {
+  if (slg_hasUnderFlag < 0.5) return vec4(0.0);
+  vec2 uv = clamp(slg_underRegion.xy + screen * slg_underRegion.zw, vec2(0.0), vec2(1.0));
+  return texture2D(slg_underTex, uv);
 }
 `;
 

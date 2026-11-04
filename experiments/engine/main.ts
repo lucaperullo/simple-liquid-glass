@@ -155,6 +155,50 @@ if (engine) {
     onStatus(status) { document.body.dataset.paddedStatus = status.state; },
   });
 
+  // The regression the fix above replaced: moving gl.viewport (and slg_origin with it) per rect
+  // shifted any shape a material positions in surface coordinates — an SDF slot, exactly how
+  // proMaterial.ts positions its rounded-rect/pill glass. A material that only samples the backdrop
+  // (above) cannot catch that: a uniform-colour backdrop looks the same shifted or not. This one
+  // draws a fixed rounded rect whose straight edges land exactly on its own view's edges (so the soft
+  // falloff band straddles the view/bleed boundary, visible on both sides of it), through a `padded`
+  // toggle (one surface, not two): the padded draw must (a) look pixel-identical to the unpadded one
+  // everywhere inside the plain view and (b) correctly continue the same shape into the bleed, not
+  // some other, shifted or stretched one. A wide (12px) falloff, not a crisp 2px edge, keeps the
+  // comparison robust to GPU/driver antialiasing differences while still being clearly sensitive to a
+  // shift of even a few px.
+  const SDF_PAD = 20;
+  const sdfMaterial = engine.defineMaterial<{ padded: boolean }>({
+    id: 'experiments/engine/sdf-rounded-rect@1',
+    fragment: () => `
+      uniform vec4 uShape; // cx, cy, half extent (square, == the view's own), corner radius -- surface CSS px
+      vec4 slg_shade(vec2 p) {
+        vec2 d = abs(p - uShape.xy) - vec2(uShape.z - uShape.w);
+        float dist = length(max(d, 0.0)) - uShape.w;
+        float inside = 1.0 - smoothstep(-6.0, 6.0, dist);
+        return vec4(1.0, 0.0, 0.0, 1.0) * inside;
+      }
+    `,
+    uniforms: ['uShape'],
+    draw(ctx, params) {
+      const { width, height } = ctx.view; // 100x100, see #sdf-host below
+      const half = Math.max(width, height) / 2; // straight edges exactly at the view's own edges
+      ctx.uniform('uShape', width / 2, height / 2, half, 10);
+      ctx.draw(params.padded ? [[-SDF_PAD, -SDF_PAD, width + SDF_PAD * 2, height + SDF_PAD * 2]] : [[0, 0, width, height]]);
+      return 'drawn';
+    },
+  });
+  // A layer member (not an own-canvas surface): the shared buffer has real room around the host's
+  // own box for `ctx.draw(rects)` to reach into, the same way the regression's real GlassPanels did.
+  // An own-canvas surface's canvas is sized to exactly its own (bleed-inclusive) view — ctx.draw(rects)
+  // can only ever reach as far as that already-allocated framebuffer, never past it; reaching further
+  // there is `SurfaceOptions.bleed`'s job, not this one's (see the README's "ctx.draw(rects) can draw
+  // past the surface's own view" section for which applies when).
+  const sdfLayer = engine.createLayer(document.querySelector('#sdf-root') as HTMLElement, { scale: 1 });
+  const sdfSurface = engine.createSurface({
+    host: document.querySelector('#sdf-host') as HTMLElement, material: sdfMaterial, params: { padded: false }, layer: sdfLayer,
+    onStatus(status) { document.body.dataset.sdfStatus = status.state; },
+  });
+
   (window as unknown as { engineLab: unknown }).engineLab = {
     engine, surface, host, backdrop, paintBackdrop, paintQuadrants, htmlSurface,
     layer, layerMemberA, layerMemberB,
@@ -162,5 +206,6 @@ if (engine) {
     customSourceSurface, getCustomPaints: () => customPaints,
     uniformTypesSurface,
     paddedLayer, paddedMember,
+    sdfLayer, sdfSurface,
   };
 }

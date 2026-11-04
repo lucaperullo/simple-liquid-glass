@@ -158,6 +158,41 @@ try {
       assert.ok(paddedPixel[0] > 200 && paddedPixel[1] < 120 && paddedPixel[2] > 150,
         `${name}: padded bleed (top edge) must show the backdrop ${paddedPixel}, expected ~[255,51,204]`);
 
+      // The regression caught by the fix above (reverted): moving gl.viewport (and slg_origin with
+      // it) per rect shifted any shape a material positions in surface coordinates — proven here with
+      // a fixed rounded rect, not a uniform-colour backdrop (which the checks above cannot catch a
+      // shift with). #sdf-host is a 100x100 layer member at screen (350,260); its shape's straight
+      // edges sit exactly on the view's own edges, with a wide (12px) soft falloff straddling the
+      // view/bleed boundary. All five points below are in the SAME surface-local row (y=50, screen
+      // y=310) so only x changes screen-side.
+      await page.waitForFunction(() => document.body.dataset.sdfStatus === 'active', null, { timeout: 10000 });
+      await frames(page, 3);
+      const sdfPoint = (localX) => pixelAtLayer(page, 3, 350 + localX, 310);
+      const unpaddedInsideDeep = await sdfPoint(50); // view centre: fully inside regardless of padding
+      const unpaddedInsideNearEdge = await sdfPoint(3); // 3px in from the left edge, inside the wide falloff band
+      const unpaddedBleedNearEdge = await sdfPoint(-3); // 3px past the left edge: only reachable when padded
+      const unpaddedBleedDeep = await sdfPoint(-15); // well past the edge: only reachable when padded
+      assert.ok(unpaddedInsideDeep[3] > 200, `${name}: SDF centre must be opaque even unpadded ${unpaddedInsideDeep}`);
+      assert.deepEqual(unpaddedBleedNearEdge, [0, 0, 0, 0], `${name}: unpadded draw must not reach the bleed at all ${unpaddedBleedNearEdge}`);
+      assert.deepEqual(unpaddedBleedDeep, [0, 0, 0, 0], `${name}: unpadded draw must not reach the bleed at all ${unpaddedBleedDeep}`);
+
+      await page.evaluate(() => window.engineLab.sdfSurface.update({ padded: true }));
+      await frames(page, 3);
+      const paddedInsideDeep = await sdfPoint(50);
+      const paddedInsideNearEdge = await sdfPoint(3);
+      const paddedBleedNearEdge = await sdfPoint(-3);
+      const paddedBleedDeep = await sdfPoint(-15);
+      // Everywhere inside the plain view, padded must be pixel-identical to unpadded: a per-rect
+      // viewport (the reverted regression) would have shifted slg_point() here and changed these.
+      assert.deepEqual(paddedInsideDeep, unpaddedInsideDeep, `${name}: SDF centre must be unchanged by padding ${paddedInsideDeep} vs ${unpaddedInsideDeep}`);
+      assert.deepEqual(paddedInsideNearEdge, unpaddedInsideNearEdge, `${name}: SDF near the view's own edge must be unchanged by padding ${paddedInsideNearEdge} vs ${unpaddedInsideNearEdge}`);
+      // The bleed must now show the SAME shape continuing correctly, not a shifted or absent one:
+      // partway into the falloff near the edge (neither fully opaque nor fully transparent), and
+      // essentially gone by the time it's well past the edge.
+      assert.ok(paddedBleedNearEdge[3] > 0 && paddedBleedNearEdge[3] < paddedInsideNearEdge[3],
+        `${name}: SDF just past the edge must be a lighter continuation of the same falloff ${paddedBleedNearEdge} (inside was ${paddedInsideNearEdge})`);
+      assert.ok(paddedBleedDeep[3] < 50, `${name}: SDF well into the bleed must have mostly faded out ${paddedBleedDeep}`);
+
       // Context loss and restore: every program/resource is rebuilt, layers' under textures are
       // recreated, and every surface (own-canvas and layer members alike) resumes.
       const lostReason = await page.evaluate(async () => {

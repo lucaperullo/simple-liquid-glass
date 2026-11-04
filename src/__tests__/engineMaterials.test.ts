@@ -253,61 +253,79 @@ test('bleed and resize-in-frame: a function bleed is re-read on a resized result
   host.remove();
 });
 
-test('draw(rects) moves gl.viewport (not gl.scissor) to each device-pixel rect derived from the view scale', async () => {
+test('scissored draw(rects) clips to device-pixel rects derived from the view scale', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   rect(host, 0, 0, 10, 10);
-  const viewportCalls: number[][] = [];
-  (mockGl as unknown as { viewport: jest.Mock }).viewport.mockImplementation((...args: number[]) => viewportCalls.push(args));
+  const scissorCalls: number[][] = [];
+  (mockGl as unknown as { scissor: jest.Mock }).scissor.mockImplementation((...args: number[]) => scissorCalls.push(args));
   const scissored = engine.defineMaterial<Record<string, never>>({
     id: 'tests/engine/scissor@1',
     fragment: () => 'vec4 slg_shade(vec2 p) { return vec4(0.0); }',
     draw(ctx) { ctx.draw([[0, 0, 5, 5]]); return 'drawn'; },
   });
-  viewportCalls.length = 0;
+  scissorCalls.length = 0;
   const surface = engine.createSurface({ host, material: scissored, params: {}, maxScale: 1 });
   await new Promise(requestAnimationFrame);
-  // A fixed viewport (the surface's own view) plus a scissor cannot let a quad reach past it — only
-  // shrink it — so a rect is drawn through its own gl.viewport call instead (restored to the surface's
-  // own view afterwards): [initial surface viewport, this rect's viewport, the restored viewport].
-  const rectCall = viewportCalls.find(([, , w, h]) => w === 5 && h === 5);
-  expect(rectCall).toBeDefined();
-  const [sx, sy, sw, sh] = rectCall!;
+  // A rect entirely within the surface's own view never needs to widen gl.viewport: this stays a
+  // plain scissor within the one viewport the surface's own draw loop already set.
+  expect(scissorCalls.length).toBeGreaterThan(0);
+  const [sx, sy, sw, sh] = scissorCalls[scissorCalls.length - 1];
   expect(sw).toBe(5); expect(sh).toBe(5); expect(sx).toBe(0);
   expect(sy).toBe(5); // bottom-left origin: a 10px-tall canvas, a 5px rect pinned to the top -> y=5
-  expect(viewportCalls[viewportCalls.length - 1]).toEqual([0, 0, 10, 10]); // restored to the surface's own view
   surface.destroy();
   host.remove();
 });
 
-test('draw(rects) past the surface\'s own view still draws: gl.viewport moves to reach it, not just gl.scissor within a fixed one', async () => {
+test('draw(rects) past the surface\'s own view widens gl.viewport once for the whole call, scissors each rect inside it, and never moves slg_origin', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   rect(host, 0, 0, 10, 10);
   const viewportCalls: number[][] = [];
+  const scissorCalls: number[][] = [];
   (mockGl as unknown as { viewport: jest.Mock }).viewport.mockImplementation((...args: number[]) => viewportCalls.push(args));
+  (mockGl as unknown as { scissor: jest.Mock }).scissor.mockImplementation((...args: number[]) => scissorCalls.push(args));
+  const originCalls: number[][] = [];
+  const uniform2f = (mockGl as unknown as { uniform2f: jest.Mock }).uniform2f;
   // Mimics clusters(slots, merge + REFRACT_REACH): a rect padded past the surface's own [0,10]x[0,10]
-  // box on every side, the exact shape that used to lose its near-edge bleed (the engine bug this
-  // conformance test is for — see engine.ts's draw(rects) comment).
+  // box on every side — the exact shape a hard-clamped scissor (the first, reverted version of this
+  // fix) lost the near edge of, and a per-rect gl.viewport (the second, reverted version — see
+  // engine.ts's draw(rects) comment) shifted slg_origin for, moving any shape a material positions in
+  // surface coordinates (an SDF slot, say — see the dedicated SDF test below and the real regression
+  // this was caught from).
   const padded = engine.defineMaterial<Record<string, never>>({
     id: 'tests/engine/padded-bleed@1',
     fragment: () => 'vec4 slg_shade(vec2 p) { return vec4(0.0); }',
     draw(ctx) { ctx.draw([[-4, -4, 18, 18]]); return 'drawn'; },
   });
-  viewportCalls.length = 0;
+  uniform2f.mockImplementation((location: { name?: string }, x: number, y: number) => {
+    if (location?.name === 'slg_origin') originCalls.push([x, y]);
+  });
+  viewportCalls.length = 0; scissorCalls.length = 0; originCalls.length = 0;
   const surface = engine.createSurface({ host, material: padded, params: {}, maxScale: 1 });
   await new Promise(requestAnimationFrame);
   // (maxScale: 1, matching the host's own 10x10 box, so the device-px rect below is exactly the
-  // CSS-px one.) Negative x and a width/height past the 10x10 view: the old, clamped implementation would have
-  // shifted this to start at (0, 0) instead of (-4, -4), silently losing 4px of bleed on the near
-  // edge. The fix lets gl.viewport's x/y go negative (WebGL itself clips it to the real framebuffer).
-  const rectCall = viewportCalls.find(([, , w, h]) => w === 18 && h === 18);
-  expect(rectCall).toBeDefined();
-  const [sx, sy] = rectCall!;
-  expect(sx).toBe(-4);
-  expect(sy).toBe(-4); // y is pre-flip symmetric here: top -4 and height 18 over a 10-tall view -> -4 too
+  // CSS-px one.) slg_origin is set once per draw call, before the material's draw() runs — never
+  // again while ctx.draw(rects) itself runs — so every one of this draw's origin values must be equal.
+  expect(originCalls.length).toBeGreaterThan(0);
+  expect(originCalls.every(([x, y]) => x === originCalls[0][0] && y === originCalls[0][1])).toBe(true);
+  // gl.viewport widens ONCE to the union of the view [0,10]x[0,10] and the rect [-4,-4,18,18] -> a
+  // [-4,-4,18,18] viewport (padded 4 on every side), after the surface's own initial [0,0,10,10] one
+  // — and is restored to that same plain [0,0,10,10] view afterwards; it must never narrow to the
+  // rect's own size *as a scissor replacement* mid-loop and then widen back (the reverted
+  // per-rect-viewport approach would have shown one gl.viewport call per rect instead of exactly one
+  // widen-then-restore pair for the whole call).
+  expect(viewportCalls.slice(-2)).toEqual([[-4, -4, 18, 18], [0, 0, 10, 10]]);
+  expect(viewportCalls.filter(([, , w, h]) => w === 18 && h === 18).length).toBe(1); // widened exactly once, not per rect
+  // The rect is still scissored, at the same absolute framebuffer coordinates as the viewport above
+  // happens to share here (this one rect defines the whole union) — negative x/y allowed, not
+  // clamped to 0 (that would shift the rect: lose the near-edge bleed, waste the far edge instead).
+  const scissorCall = scissorCalls.find(([, , w, h]) => w === 18 && h === 18);
+  expect(scissorCall).toBeDefined();
+  expect(scissorCall).toEqual([-4, -4, 18, 18]);
   surface.destroy();
   host.remove();
+  uniform2f.mockImplementation(() => {});
 });
 
 test('uniform() detects int/sampler GLSL types; uniformArray() sends a whole array with one call (G1 fix)', async () => {

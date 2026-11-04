@@ -84,10 +84,14 @@ export interface DrawContext {
   bind(sampler: string, texture: WebGLTexture): void;
   /** This context's instance of a resource (G10), created lazily on first use. */
   resource<T>(resource: Resource<T>): T;
-  /** Shade the whole region, or only these view-space CSS px rects — each gets its own `gl.viewport`
-   * for that one draw, not a `gl.scissor` confined to the surface's own view, so a rect may legally
-   * extend past the view's own edges (bleed/refraction reach, e.g. a soft rim that needs a few extra
-   * px beyond a slot's own box); it is still clipped to the real framebuffer either way. */
+  /** Shade the whole region, or only these view-space CSS px rects. A rect may legally extend past
+   * the view's own edges (bleed/refraction reach, e.g. a soft rim that needs a few extra px beyond a
+   * slot's own box) — `view`/`p` (`slg_point()`) still describe the surface's own, unpadded view for
+   * every pixel either way, in the bleed exactly as inside it, so a shape positioned in surface
+   * coordinates (an SDF slot, say) is never shifted or stretched by asking for a rect past the edge.
+   * It is still clipped to the real framebuffer: how far past the view a rect can actually reach
+   * depends on room already available there (a layer member's shared buffer, typically; an
+   * own-canvas surface only as far as `bleed` already made its canvas). */
   draw(rects?: ReadonlyArray<readonly [number, number, number, number]>): void;
 }
 

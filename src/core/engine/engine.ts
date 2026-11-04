@@ -411,34 +411,51 @@ function createEngine(): GlassEngine | null {
       draw(rects) {
         bindInputs();
         const baseX = Math.round(origin.x), baseY = Math.round(origin.y);
-        if (!rects || !rects.length) { drawQuad(gl!); return; }
-        // Each rect gets its own `gl.viewport`, not a `gl.scissor` within one fixed viewport: the
-        // engine draws one full-screen quad per call, and that quad's geometry is confined to
-        // whatever viewport is current, so a FIXED viewport (the surface's own view) can never let a
-        // rect reach past it — a scissor can only shrink what a quad already covers, never grow it.
-        // A material that pads past its own box on purpose (bleed/refraction reach — e.g.
-        // `clusters(slots, merge + REFRACT_REACH)`) silently lost that overflow this way: the fix this
-        // comment replaces re-clamped the rect's near edge to 0 instead of letting it go negative,
-        // which only shifted the loss from one edge to the other without recovering it. A `gl.viewport`
-        // (like `gl.scissor`) takes a signed x/y and is itself clipped to the real framebuffer by
-        // WebGL, so moving the viewport to match each rect draws exactly that rect, anywhere a layer
-        // member's shared buffer (or an own-canvas surface's own canvas) actually has room for it.
-        // `slg_origin` must move with it — it is read every fragment as "the value passed to
-        // gl.viewport for the CURRENT draw" (glsl.ts), so a rect positioned away from the surface's own
-        // origin needs its own value for `slg_point()`/`slg_toScreen` to still resolve the right CSS point.
+        if (!rects || !rects.length) { gl!.disable(gl!.SCISSOR_TEST); drawQuad(gl!); return; }
+        // A material may ask to draw past its own view on purpose (bleed/refraction reach — e.g.
+        // `clusters(slots, merge + REFRACT_REACH)` padding a slot's box for its soft rim). The quad's
+        // geometry is confined to whatever `gl.viewport` is current, so a viewport fixed to the
+        // surface's own view can never let a rect reach past it — a scissor can only shrink what the
+        // quad already covers, never grow it. Fixed here by widening `gl.viewport`, ONCE, to the union
+        // of the view and every rect, then scissoring each rect inside that union — NOT by moving the
+        // viewport per rect (reverted: that moved `slg_origin` with it, so `slg_point()` returned a
+        // point relative to each rect's own corner instead of the surface's own view, shifting any
+        // shape a material positions in surface coordinates, e.g. an SDF slot — see the regression
+        // this comment replaces). `gl_FragCoord` is an absolute framebuffer position, independent of
+        // `gl.viewport`; `slg_origin`/`slg_view`/`slg_scale` (set once, before the material's own
+        // `draw()` runs, and never touched here) are what `slg_point()` actually reads, so leaving them
+        // alone keeps every fragment's point identical to the unpadded case, in the view and the bleed
+        // alike — widening the viewport only changes which pixels the quad can reach, not what any of
+        // them compute.
+        let l = 0, t = 0, r = view.width, b = view.height;
+        for (const [x, y, w, h] of rects) { l = Math.min(l, x); t = Math.min(t, y); r = Math.max(r, x + w); b = Math.max(b, y + h); }
+        // l/t can only shrink from 0 and r/b can only grow from view.width/height above, so every pad
+        // below is always >= 0 — never needs its own clamp.
+        if (l < 0 || t < 0 || r > view.width || b > view.height) {
+          const pl = Math.round(-l * view.scale), pt = Math.round(-t * view.scale);
+          const pr = Math.round((r - view.width) * view.scale), pb = Math.round((b - view.height) * view.scale);
+          gl!.viewport(baseX - pl, baseY - pb, canvasW + pl + pr, canvasH + pt + pb);
+        }
+        gl!.enable(gl!.SCISSOR_TEST);
         for (const [x, y, w, h] of rects) {
+          // Scissor coordinates are absolute framebuffer device px — the same space `gl.viewport`'s
+          // x/y are in, independent of whatever the viewport above just widened to — so this is still
+          // relative to the surface's own (unpadded) origin, exactly as the no-pad case already was. A
+          // signed x/y here is legal and clipped to the real framebuffer by WebGL on its own: a rect
+          // whose near edge goes negative must NOT be clamped back to 0 first (that would shift the
+          // whole rect instead of letting it extend past 0, losing the near-edge bleed while wasting an
+          // equal amount past the far edge instead — the bug the per-rect-viewport attempt also carried
+          // over from the very first version of this fix).
           const sx = Math.round(x * view.scale), sw = Math.max(0, Math.round(w * view.scale));
           const topPx = Math.round(y * view.scale), sh = Math.max(0, Math.round(h * view.scale));
           const sy = canvasH - topPx - sh;
-          const vx = baseX + sx, vy = baseY + sy;
-          gl!.viewport(vx, vy, sw, sh);
-          if (entry.builtins.origin) gl!.uniform2f(entry.builtins.origin, vx, vy);
+          gl!.scissor(baseX + sx, baseY + sy, sw, sh);
           drawQuad(gl!);
         }
-        // Restore the surface's own nominal viewport/origin: code after this ctx.draw() call (or the
-        // next surface's own draw) must not see the last rect's narrowed viewport.
+        gl!.disable(gl!.SCISSOR_TEST);
+        // Restore the surface's own nominal viewport: code after this ctx.draw() call (or the next
+        // surface's own draw) must not see this call's widened one.
         gl!.viewport(baseX, baseY, canvasW, canvasH);
-        if (entry.builtins.origin) gl!.uniform2f(entry.builtins.origin, baseX, baseY);
       },
     };
   }

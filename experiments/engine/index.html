@@ -4,10 +4,30 @@
 #host{position:absolute;top:40px;left:40px;width:120px;height:80px;background:transparent}
 #html-source{position:fixed;top:250px;left:0;width:200px;height:120px;background:#2e8f4f}
 #html-host{position:absolute;top:270px;left:20px;width:80px;height:60px;background:transparent}
+#layer-root{position:fixed;top:400px;left:0;width:300px;height:200px;background:#111}
+#layer-member-a{position:absolute;top:10px;left:10px;width:80px;height:80px;background:transparent}
+#interleaved{position:absolute;top:10px;left:10px;width:80px;height:80px;background:#f2b134}
+#layer-member-b{position:absolute;top:10px;left:210px;width:80px;height:80px;background:transparent}
+#under-source{position:fixed;top:650px;left:0;width:200px;height:120px;background:#1d3b8f}
+#under-root{position:fixed;top:650px;left:0;width:200px;height:120px}
+#under-member-a{position:absolute;top:10px;left:10px;width:100px;height:100px;background:transparent}
+#under-member-b{position:absolute;top:10px;left:60px;width:100px;height:100px;background:transparent}
+#custom-source-host{position:fixed;top:800px;left:0;width:60px;height:60px;background:transparent}
 </style></head><body>
 <canvas id="backdrop" width="300" height="200"></canvas>
 <div id="host"></div>
 <div id="html-source"><p>HTML backdrop content</p></div>
 <div id="html-host"></div>
+<div id="layer-root">
+  <div id="layer-member-a"></div>
+  <div id="interleaved"></div>
+  <div id="layer-member-b"></div>
+</div>
+<div id="under-source"></div>
+<div id="under-root">
+  <div id="under-member-a"></div>
+  <div id="under-member-b"></div>
+</div>
+<div id="custom-source-host"></div>
 <script type="module" src="./main.ts"></script>
 </body></html>

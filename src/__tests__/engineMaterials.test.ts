@@ -53,7 +53,7 @@ function createMockGl() {
     viewport: jest.fn(), clearColor: jest.fn(), clear: jest.fn(), enable: jest.fn(), disable: jest.fn(),
     scissor: jest.fn(), activeTexture: jest.fn(), bindTexture: jest.fn(), drawArrays: jest.fn(),
     createTexture: () => ({ serial: ++serial }), deleteTexture: jest.fn(),
-    pixelStorei: jest.fn(), texImage2D: jest.fn(), texParameteri: jest.fn(),
+    pixelStorei: jest.fn(), texImage2D: jest.fn(), texParameteri: jest.fn(), copyTexImage2D: jest.fn(),
     isContextLost: () => false,
   };
   return gl as unknown as WebGLRenderingContext;

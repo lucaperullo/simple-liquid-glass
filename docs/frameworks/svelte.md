@@ -172,6 +172,6 @@ For **WebGL refraction**, use `backdrop-selector` and optionally `renderer="webg
 
 ## Links
 
-- Live demo: https://glass.lucaperullo.it/
+- Live demo: https://simpleliquidglass.xyz/
 - GitHub: https://github.com/lucaperullo/simple-liquid-glass
 - npm: https://www.npmjs.com/package/simple-liquid-glass

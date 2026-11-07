@@ -2,7 +2,7 @@
 
 Selectable liquid-glass text in your own font, with glyph-shaped refraction over live video and scrolling content. React component with real-time Safari, iOS and Firefox refraction through the shared `simple-liquid-glass` WebGL engine. No bundled typeface or font downloads.
 
-[Live showcase](https://text.lucaperullo.it) · [Companion glass surfaces](https://glass.lucaperullo.it)
+[Live showcase](https://text.lucaperullo.it) · [Companion glass surfaces](https://simpleliquidglass.xyz)
 
 ```sh
 npm install simple-liquid-text

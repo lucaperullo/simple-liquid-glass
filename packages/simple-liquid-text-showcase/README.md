@@ -1,6 +1,6 @@
 # Simple Liquid Text showcase
 
-Public companion to [Simple Liquid Glass](https://glass.lucaperullo.it), built around the same Through Glass coastal imagery, typography, paper surfaces, and material atelier.
+Public companion to [Simple Liquid Glass](https://simpleliquidglass.xyz), built around the same Through Glass coastal imagery, typography, paper surfaces, and material atelier.
 
 - Website: https://text.lucaperullo.it
 - Package: https://www.npmjs.com/package/simple-liquid-text

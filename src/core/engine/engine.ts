@@ -38,7 +38,7 @@ import {
 } from './types';
 
 const EPILOGUE = 'void main() { gl_FragColor = slg_shade(slg_point()); }\n';
-const PACKAGE_VERSION = '5.7.0-engine-experimental';
+const PACKAGE_VERSION = '5.7.2';
 
 interface BuiltinLocations {
   view: WebGLUniformLocation | null;

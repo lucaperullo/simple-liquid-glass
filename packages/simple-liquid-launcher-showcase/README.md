@@ -3,7 +3,7 @@
 Official public showcase for the Android launcher, in its own folder. Uses the same Vite/React foundation as the Simple Liquid Text showcase.
 
 - Site: https://launcher.lucaperullo.it/
-- Companion showcases: https://glass.lucaperullo.it/ and https://text.lucaperullo.it/
+- Companion showcases: https://simpleliquidglass.xyz/ and https://text.lucaperullo.it/
 - Run `npm ci`, then `npm run dev` (port 4192). `npm run build` checks TypeScript and produces `dist`.
 - Deploy with `vercel --prod` from this directory after linking the `simple-liquid-launcher` project.
 

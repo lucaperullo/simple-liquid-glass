@@ -122,6 +122,7 @@ export default function App() {
           <div className="cta">
             <CopyInstall />
             <a className="btn ghost" href={REPO} target="_blank" rel="noreferrer">GitHub ★</a>
+            <a className="btn ghost" href="https://simpleliquidglass.xyz/">Glass Pro components</a>
             <a className="btn ghost" href={NPM} target="_blank" rel="noreferrer">npm</a>
           </div>
           <p className="hint">Drag the glass across the grid → the squares bend through it. On a real iPhone, that distortion is live.</p>

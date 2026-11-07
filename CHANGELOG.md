@@ -1,3 +1,11 @@
+## 5.7.2
+
+The official showcase and npm homepage are now https://simpleliquidglass.xyz/. Existing example routes use the interactive demo’s Vercel address.
+
+## 5.7.1
+
+The package README and example gallery now link to the Glass Pro component collection at https://simpleliquidglass.xyz/.
+
 ## 5.7.0
 
 This release publishes `simple-liquid-glass/engine` as a public, **experimental** entry point with ESM,

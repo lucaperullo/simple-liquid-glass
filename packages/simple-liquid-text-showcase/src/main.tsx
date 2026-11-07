@@ -21,7 +21,7 @@ import './journey.css';
 import './style.css';
 import './hero.css';
 
-const glassUrl = 'https://glass.lucaperullo.it/';
+const glassUrl = 'https://simpleliquidglass.xyz/';
 const npmUrl = 'https://www.npmjs.com/package/simple-liquid-text';
 const install = 'npm install simple-liquid-text simple-liquid-glass';
 const usage = `import { LiquidGlassText } from 'simple-liquid-text';

@@ -2,7 +2,7 @@ import { LiquidGLSvgFilter } from './core/LiquidGLSvgFilter';
 import type { LiquidGLOptions } from './core/webgl/types';
 export type { LiquidGLOptions } from './core/webgl/types';
 import { useWebGL } from './core/webgl/useWebGL';
-import { isIOSDevice, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
+import { isIOSDevice, isMobileDevice, resolveRenderer, supportsSvgBackdrop, wantsWebGL, type GlassRenderer } from './core/renderer';
 import { useGlassCrowd } from './core/useGlassCrowd';
 export type { GlassRenderer } from './core/renderer';
 import type { RenderingDiagnostics } from './diagnostics';
@@ -223,8 +223,8 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   /** iOS blur fallback mode. 'auto' forces a minimal blur; 'off' disables it. Default: 'auto' */
   iosBlurMode?: 'auto' | 'off';
   /**
-   * Legacy mobile SVG fallback selection. iOS uses WebGL; renderer="webgl" opts other devices in.
-   * Use 'svg' to force SVG filter on mobile, or 'css-only' to force CSS fallback.
+   * Mobile renderer override. By default every phone refracts through WebGL (with a backdrop source).
+   * 'svg' forces the SVG filter on mobile Chromium, 'css-only' forces the CSS blur fallback.
    */
   mobileFallback?: 'css-only' | 'svg';
   /**
@@ -380,8 +380,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   // detect generic mobile (Android/iOS phones/tablets)
   const isMobile = (() => {
     if (!mounted || typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+    return isMobileDevice(navigator.userAgent || '');
   })();
 
   const supportsSvgBackdropFilter = mounted && typeof navigator !== 'undefined'
@@ -392,7 +391,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
   }, [backdropRef, backdropSelector]);
   const crowded = useGlassCrowd(containerRef, requestedRenderer === 'auto' && effectMode === 'auto' && webglScene !== 'off'
     && supportsSvgBackdropFilter && !isMobile, crowdBackdrop);
-  const renderer: GlassRenderer = crowded ? 'webgl' : requestedRenderer;
+  const renderer: GlassRenderer = crowded ? 'webgl' : resolveRenderer(requestedRenderer, supportsSvgBackdropFilter, isMobile, mobileFallback);
   const svgMaps = !wantsWebGL(renderer, effectMode, supportsSvgBackdropFilter);
 
   // Generate displacement map SVG as data URI
@@ -505,7 +504,7 @@ export const LiquidGlass = forwardRef<LiquidGlassHandle, LiquidGlassProps>(funct
     else if (!mounted || !uniqueId) { strategy = 'pending'; reason = 'initializing'; }
     else if (!isVisible) { strategy = 'paused'; reason = 'offscreen'; }
     else if (effectMode === 'blur') { strategy = 'blur'; reason = 'blur-requested'; }
-    else if (webglReady) { strategy = 'webgl'; reason = supportsSvgBackdropFilter ? 'webgl-requested' : isIOS ? 'ios-webgl' : 'svg-unsupported'; }
+    else if (webglReady) { strategy = 'webgl'; reason = supportsSvgBackdropFilter ? (requestedRenderer === 'auto' && isMobile ? 'mobile-webgl' : 'webgl-requested') : isIOS ? 'ios-webgl' : 'svg-unsupported'; }
     else if (webglRequested) { strategy = webgl.status === 'pending' ? 'pending' : 'blur'; reason = webgl.status === 'pending' || webgl.status === 'active' ? 'initializing' : webgl.status; }
     else if(useSvgFilter&&analyticalSvg&&svgFailed){strategy='blur';reason='capture-failed';}
     else if(useSvgFilter&&analyticalSvg&&!svgReady){strategy='pending';reason='initializing';}

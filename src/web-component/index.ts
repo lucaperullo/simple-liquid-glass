@@ -1,6 +1,6 @@
 import { createWebGLEngine } from '../core/webgl/runtime';
 import type { WebGLEngine, WebGLOptions } from '../core/webgl/types';
-import { isIOSDevice, supportsSvgBackdrop, wantsWebGL } from '../core/renderer';
+import { isIOSDevice, isMobileDevice, resolveRenderer, supportsSvgBackdrop, wantsWebGL } from '../core/renderer';
 import { buildNativeMap, resolveLensOptions, type LensProfile } from '../core/nativeOptics';
 import { buildDisplacementDataUri, normalizeAngle, isLensMode } from '../core/displacementMap';
 import { liquidConfig, liquidBaseFrequency, isLiquidPreset } from '../core/liquid';
@@ -42,9 +42,9 @@ export class LiquidGlassElement extends ElementBase{
   if(this.revealPending===undefined){this.revealPending=!upgradingPage&&this.getAttribute('reveal')!=='immediate';if(this.revealPending)this.revealTimer=setTimeout(()=>this.reveal(),REVEAL_TIMEOUT_MS)}
   const width=this.offsetWidth||300,height=this.offsetHeight||180;this.lastSize=`${this.offsetWidth}:${this.offsetHeight}`;
   const radius=Math.max(0,Math.min(attrNum(this,'radius',50),width/2,height/2)),frost=attrNum(this,'frost',.1),blur=Math.max(0,attrNum(this,'blur',0)),saturation=attrNum(this,'saturation',140),scale=attrNum(this,'scale',160);
-  const rendererAttr=this.getAttribute('renderer'),renderer=rendererAttr==='webgl'||rendererAttr==='svg'?rendererAttr:'auto';
+  const rendererAttr=this.getAttribute('renderer'),requested=rendererAttr==='webgl'||rendererAttr==='svg'?rendererAttr:'auto';
   const effectAttr=this.getAttribute('effect-mode'),effect=effectAttr==='blur'||effectAttr==='off'||effectAttr==='svg'?effectAttr:'auto';
-  const svgBackdrop=supportsSvgBackdrop(navigator.userAgent||'',navigator.maxTouchPoints||0),webgl=wantsWebGL(renderer,effect,svgBackdrop),chromium=svgBackdrop&&!webgl&&effect!=='blur'&&effect!=='off';
+  const svgBackdrop=supportsSvgBackdrop(navigator.userAgent||'',navigator.maxTouchPoints||0),mobile=isMobileDevice(navigator.userAgent||''),renderer=resolveRenderer(requested,svgBackdrop,mobile),webgl=wantsWebGL(renderer,effect,svgBackdrop),chromium=svgBackdrop&&!webgl&&effect!=='blur'&&effect!=='off';
   const profileAttr=this.getAttribute('lens-profile'),profile:LensProfile=profileAttr==='material'||profileAttr==='loupe'||profileAttr==='track'?profileAttr:'player';
   const native=resolveLensOptions(profile,this.hasAttribute('strength')?{strength:attrNum(this,'strength',.16)}:undefined);
   const legacy=['angle','shape-adapt','lens','lens-strength','lens-center'].some(a=>this.hasAttribute(a));
@@ -85,7 +85,7 @@ export class LiquidGlassElement extends ElementBase{
     if(this.webgl&&this.source===source){this.webgl.update(options);if(previousReason)this.dataset.glassReason=previousReason;show(this.dataset.glassStrategy==='webgl')}
     else{
      this.clearEngine();this.source=source;this.dataset.glassStrategy='pending';show(false);
-     try{this.webgl=createWebGLEngine(this,holder,source,options,status=>{const active=status==='active';if(status!=='pending')this.reveal();this.dataset.glassStrategy=active?'webgl':status==='pending'?'pending':'blur';this.dataset.glassReason=active?svgBackdrop?'webgl-requested':isIOSDevice(navigator.userAgent,navigator.maxTouchPoints||0)?'ios-webgl':'svg-unsupported':status;this.showState(active)})}
+     try{this.webgl=createWebGLEngine(this,holder,source,options,status=>{const active=status==='active';if(status!=='pending')this.reveal();this.dataset.glassStrategy=active?'webgl':status==='pending'?'pending':'blur';this.dataset.glassReason=active?svgBackdrop?requested==='auto'&&mobile?'mobile-webgl':'webgl-requested':isIOSDevice(navigator.userAgent,navigator.maxTouchPoints||0)?'ios-webgl':'svg-unsupported':status;this.showState(active)})}
      catch{this.dataset.glassStrategy='blur';this.dataset.glassReason='webgl-unavailable'}
     }
    }

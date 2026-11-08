@@ -1,3 +1,12 @@
+## Unreleased
+
+- **Android refracts by default.** `renderer="auto"` now uses WebGL on Android Chromium, as it already did on iOS,
+  instead of the CSS blur that did not refract. Glass with a `backdropRef`, `backdropSelector` or `LiquidGlassScene`
+  bends its backdrop; without a source it keeps the same frosted CSS as before. On a low-end Android phone (ZTE
+  Z2357N) the WebGL path kept 46 of 48 panels live at 43 fps. Set `mobileFallback="css-only"` (or `"svg"`) to keep
+  the earlier behaviour. Diagnostics report the new reason `mobile-webgl`. Desktop Chromium is unchanged (SVG, or
+  the shared WebGL scene for 16+ panels). The web component follows the same rule.
+
 ## 5.7.2
 
 The official showcase and npm homepage are now https://simpleliquidglass.xyz/. Existing example routes use the interactive demo’s Vercel address.

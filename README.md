@@ -1,6 +1,6 @@
 # Simple Liquid Glass
 
-> **Liquid glass for React 16.8–19, with automatic iOS WebGL refraction, optional Android WebGL, and SVG optics.**
+> **Liquid glass for React 16.8–19, with automatic WebGL refraction on iOS and Android, and SVG optics on desktop.**
 
 An Apple-style glass effect with displacement, chromatic aberration, gradient borders, and automatic text color. Includes an optional interactive component and a framework-agnostic web component. Server-rendering and hydration are tested alongside browser behavior.
 
@@ -13,12 +13,12 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 **[Glass showcase](https://simpleliquidglass.xyz/)** · **[📦 npm](https://www.npmjs.com/package/simple-liquid-glass)** · **[📖 Changelog](CHANGELOG.md)**
 
 > [!IMPORTANT]
-> **For WebGL refraction on iOS (or any platform with `renderer="webgl"`), use `LiquidGlassScene` or pass `backdropRef`** pointing to a sibling background element. Without either source the component uses frosted CSS.
+> **For WebGL refraction on phones (or any platform with `renderer="webgl"`), use `LiquidGlassScene` or pass `backdropRef`** pointing to a sibling background element. Without either source the component uses frosted CSS.
 
 ## Why simple-liquid-glass?
 
 - No additional renderer installation: WebGL and HTML capture are bundled. React is a peer dependency for React entry points.
-- Automatic WebGL refraction on Safari, iOS and Firefox (engines without SVG backdrop filters); opt into it on Chromium with `renderer="webgl"`.
+- Automatic WebGL refraction on iOS, Android, Safari and Firefox; opt into it on desktop Chromium with `renderer="webgl"`.
 - React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
 - A separate web component for other frameworks, with the same iOS WebGL engine.
 - Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
@@ -83,7 +83,7 @@ export function Page() {
 }
 ```
 
-iOS/iPadOS connects automatically. Use `renderer="webgl"` on a surface to opt in on Android or desktop. Existing `backdropRef` and `backdropSelector` props take precedence. SVG-only pages do not start a scene capture.
+Phones (iOS, iPadOS, Android) connect automatically. Use `renderer="webgl"` on a surface to opt in on desktop. Existing `backdropRef` and `backdropSelector` props take precedence. SVG-only pages do not start a scene capture.
 
 The scene shares section snapshots, fonts, mutation tracking, and a capture queue across its surfaces. Each visible lens gets a small moving canvas. Use direct-child sections to divide long pages into practical capture regions. A single large wrapper still works but is captured as one region. Keep sticky/parallax content in a separate explicit backdrop; continuously animated HTML styles cannot be reproduced at video-frame speed by cached snapshots.
 
@@ -167,11 +167,11 @@ function App() {
 }
 ```
 
-### iOS refraction and Android opt-in
+### Phone refraction and desktop opt-in
 
-Pass the background element once. iOS automatically uses the optimized WebGL renderer,
-including native overscroll tracking. For Android or desktop, add `renderer="webgl"`.
-`renderer="auto"` preserves the existing choices on non-iOS devices. iOS uses WebGL even if
+Pass the background element once. iOS and Android automatically use the optimized WebGL renderer,
+including native overscroll tracking on iOS. For desktop Chromium, add `renderer="webgl"`.
+On Android, `mobileFallback="css-only"` or `"svg"` keeps the earlier mobile behaviour. iOS uses WebGL even if
 `renderer="svg"` or legacy `effectMode="svg"` is supplied; `effectMode="blur"` and `"off"`
 still explicitly disable refraction.
 
@@ -185,7 +185,7 @@ export function Page() {
     <div ref={background}>{/* Your page content */}</div>
     <LiquidGlass
       backdropRef={background}
-      renderer="webgl" // Omit to enable WebGL automatically on iOS only.
+      renderer="webgl" // Omit to enable WebGL automatically on phones only.
       lensProfile="player"
       lensOptions={{ strength: 0.16 }}
       radius={36}
@@ -230,7 +230,7 @@ Shared explicit HTML sources also version their immutable snapshots. When safe s
 Long HTML sources use a bounded-resolution snapshot (up to 64 MiB). Keep backdrop regions focused. Visible panels share one offscreen WebGL context; each panel keeps its own composited canvas and local framebuffers. Identical backdrop and lens-map textures share GPU uploads. Avoid unnecessarily large panels because their framebuffers still consume memory.
 
 Without a valid source, WebGL support, or a successful initial capture, the glass remains usable
-with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl` with `ios-webgl`,
+with CSS blur. `onDiagnosticsChange`/`getDiagnostics()` report `webgl` with `ios-webgl`, `mobile-webgl` (Android),
 `svg-unsupported` (desktop Safari/Firefox) or `webgl-requested`, or the fallback reason.
 
 Glass mounted on the client after hydration — toasts, popovers, modals — stays transparent until
@@ -262,7 +262,7 @@ For Vue / Svelte / Angular / Astro / plain HTML (no React):
 </liquid-glass>
 ```
 
-**Per-framework guides:** [Vue 3 / Nuxt](docs/frameworks/vue.md) · [Svelte / SvelteKit](docs/frameworks/svelte.md) · [Astro](docs/frameworks/astro.md) · [plain HTML / vanilla JS / Angular](docs/frameworks/vanilla.md). (The web component uses `backdrop-selector` for automatic iOS WebGL; `renderer="webgl"` enables it on other platforms.)
+**Per-framework guides:** [Vue 3 / Nuxt](docs/frameworks/vue.md) · [Svelte / SvelteKit](docs/frameworks/svelte.md) · [Astro](docs/frameworks/astro.md) · [plain HTML / vanilla JS / Angular](docs/frameworks/vanilla.md). (The web component uses `backdrop-selector` for automatic WebGL on phones; `renderer="webgl"` enables it on desktop.)
 
 ### Advanced Usage with Custom Settings
 
@@ -346,11 +346,11 @@ The `background` prop automatically converts solid colors and gradients to semi-
 | `style` | `CSSProperties` | - | Additional inline styles |
 | `quality` | `'low' \| 'standard' \| 'high' \| 'extreme'` | `'low'` | Rendering quality preset. `'extreme'` matches previous versions' visuals |
 | `autodetectquality` | `boolean` | `false` | Auto-detect device performance and pick a quality preset |
-| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS, Safari and Firefox; on desktop Chromium SVG, or the shared WebGL scene for 16+ sibling panels; force either with svg/webgl |
+| `renderer` | `'auto' \| 'svg' \| 'webgl'` | `'auto'` | WebGL on iOS, Android, Safari and Firefox; on desktop Chromium SVG, or the shared WebGL scene for 16+ sibling panels; force either with svg/webgl |
 | `webglScene` | `'auto' \| 'off'` | `'auto'` | Sibling WebGL panels over one backdrop share one canvas. `'off'` keeps one canvas per panel (and SVG on Chromium) |
 | `backdropVersion` | `string \| number` | — | Change to refresh cached HTML |
 | `maxScale` | `number` | — (device pixel ratio, at most 3; 2 for liquidGL optics) | Upper bound for the WebGL drawing scale in device pixels per CSS pixel, e.g. `1.5` on phones to shade about a third of the pixels of a 2.6× screen. A shared scene composites at the largest `maxScale` of its panels. SVG and CSS rendering are unaffected |
-| `mobileFallback` | `'css-only' \| 'svg'` | CSS-only on mobile | Control mobile rendering strategy |
+| `mobileFallback` | `'css-only' \| 'svg'` | WebGL on mobile | Override the mobile renderer: CSS blur or the SVG filter |
 | `effectMode` | `'auto' \| 'svg' \| 'blur' \| 'off'` | `'auto'` | Control effect: auto, force SVG, force CSS blur, or disable |
 
 ## Examples
@@ -408,7 +408,7 @@ SVG filters inside `backdrop-filter` (`url(#...)`) only work in **Chromium** (Ch
 | Engine | `effectMode="auto"` |
 |--------|--------------------|
 | Chromium desktop | SVG displacement (full effect); 16 or more sibling panels over one backdrop render through the shared WebGL scene |
-| Chromium Android | Layered CSS — opt into WebGL with `renderer="webgl"` or SVG with `renderer="svg"` |
+| Chromium Android | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise (`mobileFallback` selects CSS or SVG) |
 | iOS / iPadOS browsers | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
 | Desktop Safari | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |
 | Firefox | WebGL with `LiquidGlassScene` or `backdropRef`; frosted CSS otherwise |

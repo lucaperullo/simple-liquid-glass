@@ -1,4 +1,4 @@
-## Unreleased
+## 5.7.3
 
 - **Android refracts by default.** `renderer="auto"` now uses WebGL on Android Chromium, as it already did on iOS,
   instead of the CSS blur that did not refract. Glass with a `backdropRef`, `backdropSelector` or `LiquidGlassScene`

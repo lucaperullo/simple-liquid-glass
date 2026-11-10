@@ -34,11 +34,11 @@ export class GlassLayer {
   private paramViews: Float32Array[] = [];
   /** Two triangles around each shape: the only pixels the layer shades. */
   private readonly corners = new Float32Array(MAX_SHAPES * 12);
-  private texture: WebGLTexture | null = null;
+  texture: WebGLTexture | null = null;
   /** Kept after upload so the texture can be rebuilt when a lost context comes back. */
-  private frame: BackdropFrame | null = null;
-  private backdropRect: Rect = { left: 0, top: 0, width: 1, height: 1 };
-  private backdropFixed = true;
+  frame: BackdropFrame | null = null;
+  backdropRect: Rect = { left: 0, top: 0, width: 1, height: 1 };
+  backdropFixed = true;
   private readonly ids = new Uint32Array(MAX_SHAPES);
   private count = 0;
   readonly boxes = new Float32Array(MAX_SHAPES * 4);
@@ -48,7 +48,7 @@ export class GlassLayer {
   /** Draws every frame, for a material that reads `slg_time`. */
   running = false;
   /** The material's own textures by name. Each picture is kept so its texture can be rebuilt after a lost context. */
-  private readonly pictures = new Map<string, { frame: BackdropFrame; texture: WebGLTexture | null }>();
+  readonly pictures = new Map<string, { frame: BackdropFrame; texture: WebGLTexture | null }>();
   /** When the layer was made, ms on the caller's clock: `slg_time` counts from here. */
   private born: number | null = null;
   private usable = false;
@@ -110,7 +110,7 @@ export class GlassLayer {
 
   /** Gives one of the material's own textures its picture. Takes ownership of `frame`. */
   setTexture(name: string, frame: BackdropFrame): void {
-    const picture = this.pictures.get(name);
+    const picture = STACKING ? stacks.ownPicture(this, name) : this.pictures.get(name);
     picture?.frame.close();
     const next = { frame, texture: picture?.texture ?? null };
     this.pictures.set(name, next);
@@ -124,6 +124,7 @@ export class GlassLayer {
     this.backdropFixed = fixed;
     this.dirty = true;
     if (!frame) return;
+    if (STACKING && !this.frame) this.texture = null; // (a stacked layer's may be its base's)
     this.frame?.close();
     this.frame = frame;
     if (this.gl && this.usable) this.texture = fillTexture(this.gl, this.texture, frame);
@@ -296,7 +297,8 @@ export class GlassLayer {
 
   dispose(): void {
     const base = STACKING && stacks.stackOf<GlassLayer>(this).base;
-    if (!base) {
+    if (base) stacks.unlend(this);
+    else {
       this.canvas.removeEventListener('webglcontextlost', this.onLost);
       this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
     }
@@ -330,10 +332,8 @@ export class GlassLayer {
     this.dirty = true;
     this.events.status('drawing', '');
     this.events.wake();
-    if (STACKING) {
-      stacks.forget(stacks.stackOf<GlassLayer>(this));
-      for (const member of stacks.stackOf<GlassLayer>(this).members) member.onRestored();
-    }
+    if (STACKING && !stacks.stackOf<GlassLayer>(this).base)
+      stacks.restore(this, (member) => member.onRestored);
   };
 
   private sizeCanvas(): void {

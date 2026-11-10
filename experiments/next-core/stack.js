@@ -33,6 +33,25 @@ const blue = base.stack({ material: 'solid', params: { colour: [0, 0, 1] }, onSt
 blue.setClip({ left: 240, top: 150, width: 40, height: 30 });
 blue.addShape({ x: 0, y: 0, width: 300, height: 200, radius: 0 }, { spring: null });
 
+// A stacked layer that shows its backdrop: it has none of its own, so it shows the base's (cyan), until it is
+// given one (magenta).
+host.defineMaterial({
+  id: 'shows',
+  shade: 'vec4 slg_shade(vec2 p, vec3 field) { return vec4(slg_backdrop(slg_screen(p)), 1.0); }',
+});
+const flat = (colour) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 8;
+  const pen = canvas.getContext('2d');
+  pen.fillStyle = colour;
+  pen.fillRect(0, 0, 8, 8);
+  return createImageBitmap(canvas);
+};
+base.setBackdrop(await flat('rgb(0, 255, 255)'), { fixed: true });
+const shows = base.stack({ material: 'shows', onStatus: note('shows') });
+shows.setClip({ left: 20, top: 160, width: 50, height: 30 });
+shows.addShape({ x: 0, y: 0, width: 300, height: 200, radius: 0 }, { spring: null });
+
 // A layer of the core has no `stack`.
 const core = createCoreHost({ thread: 'page' });
 const plain = core.addLayer(document.createElement('canvas'));
@@ -43,6 +62,7 @@ window.__stack = {
   coreStacks: typeof plain.stack,
   // The probe springs 60 px to the right (it stays over the red box's edge).
   move: () => probed.set({ x: (probed.at = probed.at === 160 ? 100 : 160) }),
+  own: async () => shows.setBackdrop(await flat('rgb(255, 0, 255)'), { fixed: true }),
   lose: () => base.simulateContextLoss(50),
   // The base's shapes are measured from 60 px lower.
   lower: () => base.setOrigin(0, 60),

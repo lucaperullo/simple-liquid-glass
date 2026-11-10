@@ -3,7 +3,7 @@ import { specOf, type MaterialSpec } from './materials';
 import type { HostMessage, LayerStatus, RendererMessage } from './scene';
 import { ScrollTracker } from './scroll';
 import { GLASS_MATERIAL } from './shader';
-import { stackOf, told } from './stacked';
+import { lend, stackOf, told } from './stacked';
 import { STACKING } from './stacking';
 import { FrameMeter } from './stats';
 
@@ -230,6 +230,11 @@ export function createRenderer(env: RendererEnv): Renderer {
         case 'destroy':
           for (const id of [...layers.keys()]) remove(id);
           return;
+      }
+      if (STACKING && 'layer' in message) {
+        // A stacked layer without a backdrop or a picture of its own draws with its base's.
+        const layer = layers.get(message.layer);
+        if (layer) lend(layer);
       }
       wake();
     },

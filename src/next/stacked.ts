@@ -6,7 +6,7 @@
 import { buildProgram, type Program, type ShapeArrays } from './glProgram';
 import type { MaterialSpec } from './materials';
 import { writeRectangle } from './glHelpers';
-import type { HostMessage, Rect } from './scene';
+import type { BackdropFrame, HostMessage, Rect } from './scene';
 import { ATTRIBUTE_GROUPS, attributeGroups } from './shader';
 
 /** What stacking adds to a layer. `T` is the layer's own type. */
@@ -26,6 +26,8 @@ export interface Stack<T> {
   reach: number | null;
   /** Where the shapes' space starts, CSS px from the canvas's top-left corner. */
   origin: readonly [number, number];
+  /** For a member: the names of its material's pictures that are its base's, not its own. */
+  readonly borrowed: Set<string>;
 }
 
 const stacks = /* @__PURE__ */ new WeakMap<object, Stack<unknown>>();
@@ -42,6 +44,7 @@ export function stackOf<T extends object>(layer: T): Stack<T> {
       compiled: new Map(),
       reach: null,
       origin: [0, 0],
+      borrowed: new Set(),
     };
     stacks.set(layer, stack);
   }
@@ -220,4 +223,60 @@ export function told(message: HostMessage, layers: ReadonlyMap<number, { dirty: 
     layer.dirty = true;
   }
   return true;
+}
+
+/** What of a layer its stacked layers can be lent: its backdrop, and its material's own pictures. */
+export interface Lendable {
+  frame: BackdropFrame | null;
+  texture: WebGLTexture | null;
+  backdropRect: Rect;
+  backdropFixed: boolean;
+  readonly pictures: Map<string, { frame: BackdropFrame; texture: WebGLTexture | null }>;
+}
+
+/**
+ * A base's backdrop and pictures, for each layer stacked over it that has none of its own: ten layers over
+ * one photograph hold it once. Called whenever a layer of the stack was told something.
+ */
+export function lend(layer: Lendable): void {
+  const base = stackOf(layer).base ?? layer;
+  for (const member of stackOf(base).members) {
+    if (!member.frame) {
+      member.texture = base.texture;
+      member.backdropRect = base.backdropRect;
+      member.backdropFixed = base.backdropFixed;
+    }
+    const { borrowed } = stackOf(member);
+    for (const [name, picture] of base.pictures) {
+      if (member.pictures.has(name) && !borrowed.has(name)) continue;
+      borrowed.add(name);
+      member.pictures.set(name, picture);
+    }
+  }
+}
+
+/** A member's own picture for `name`, about to be replaced: not one it was lent, which stays its base's. */
+export function ownPicture(
+  member: Lendable,
+  name: string,
+): { frame: BackdropFrame; texture: WebGLTexture | null } | undefined {
+  return stackOf(member).borrowed.delete(name) ? undefined : member.pictures.get(name);
+}
+
+/** Takes back what a member was lent, before it closes its own pictures. */
+export function unlend(member: Lendable): void {
+  const { borrowed } = stackOf(member);
+  for (const name of borrowed) member.pictures.delete(name);
+  borrowed.clear();
+  if (!member.frame) member.texture = null;
+}
+
+/** A base's context came back: its members get theirs back (what `again` gives is called), and what the base lends. */
+export function restore<T extends Lendable>(base: T, again: (member: T) => () => void): void {
+  forget(stackOf(base));
+  for (const member of stackOf(base).members) {
+    unlend(member);
+    again(member)();
+  }
+  lend(base);
 }

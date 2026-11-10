@@ -1,7 +1,8 @@
 // simple-liquid-glass/next/stack in real browsers (Chromium and WebKit), against the built entry:
 //   npm run build && node experiments/next-core/stack.test.mjs
 // Layers stacked in one canvas draw in order, each over the glass before it; a stacked layer's material reads
-// that glass; a clip keeps a layer to its rectangle; a spring in a stacked layer moves it; a lost context
+// that glass; a clip keeps a layer to its rectangle; a stacked layer draws with its base's backdrop until it
+// has its own; a spring in a stacked layer moves it; a lost context
 // comes back with every layer; removing a layer leaves the others, and removing the base stops them all.
 // The same from a worker and on the page thread.
 import { chromium, webkit } from 'playwright';
@@ -82,9 +83,14 @@ for (const [name, launch] of Object.entries(launchers)) {
     const statuses = await page.evaluate(() => window.__stack.statuses);
     assert.deepEqual(
       statuses,
-      ['base: drawing', 'probe: drawing', 'blue: drawing'],
+      ['base: drawing', 'probe: drawing', 'blue: drawing', 'shows: drawing'],
       `${name} ${mode}: statuses`,
     );
+    // A stacked layer with no backdrop of its own draws with its base's; given one, with that.
+    expect(await pixels(), 40, 175, [0, 255, 255], "a stacked layer shows its base's backdrop");
+    await page.evaluate(() => window.__stack.own());
+    await rest();
+    expect(await pixels(), 40, 175, [255, 0, 255], 'a stacked layer shows its own backdrop');
     assert.equal(
       await page.evaluate(() => window.__stack.coreStacks),
       'undefined',
@@ -107,6 +113,7 @@ for (const [name, launch] of Object.entries(launchers)) {
     expect(picture, 50, 50, RED, 'after a lost context: the base');
     expect(picture, 170, 100, OVER_GLASS, 'after a lost context: the probe over the base');
     expect(picture, 260, 165, BLUE, 'after a lost context: the clipped layer');
+    expect(picture, 40, 175, [255, 0, 255], 'after a lost context: a stacked layer with its own backdrop');
 
     // The base measured from 60 px lower: its box moves, and the probe over it reads the glass where it is now.
     await page.evaluate(() => window.__stack.lower());

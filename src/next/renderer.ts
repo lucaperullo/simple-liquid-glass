@@ -119,7 +119,7 @@ export function createRenderer(env: RendererEnv): Renderer {
         case 'layer-backdrop': {
           const layer = layers.get(message.layer);
           if (layer) layer.setBackdrop(message.frame, message.rect, message.fixed);
-          else message.frame.close();
+          else message.frame?.close();
           break;
         }
         case 'layer-remove':

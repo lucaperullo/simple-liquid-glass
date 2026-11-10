@@ -187,7 +187,8 @@ export type HostMessage =
   | {
       readonly type: 'layer-backdrop';
       readonly layer: number;
-      readonly frame: BackdropFrame;
+      /** The picture, or null to keep the one the layer has and only move it. */
+      readonly frame: BackdropFrame | null;
       readonly rect: Rect;
       readonly fixed: boolean;
     }
@@ -240,7 +241,7 @@ export function transferables(message: HostMessage): Transferable[] {
         ? [message.canvas]
         : [];
     case 'layer-backdrop':
-      return [message.frame];
+      return message.frame ? [message.frame] : [];
     case 'shapes-set':
       return [message.batch.ids.buffer, message.batch.values.buffer, message.batch.springs.buffer];
     case 'shapes-remove':

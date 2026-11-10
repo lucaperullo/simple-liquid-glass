@@ -26,6 +26,8 @@
     edges while the shape changes size, by translations alone: within 0.6 of a frame of the glass's edge on
     that phone. A spring is now where the time says it is: after a long gap it has finished, not
     resumed.
+  - **Moving a backdrop.** `layer.moveBackdrop({ rect, fixed })` says where the picture already given is now,
+    without sending it again, for a backdrop element that moves or grows while its picture stays the same.
   - **Four layers in a worker.** Browsers keep four WebGL contexts alive per worker and silently drop the oldest
     for a fifth. A fifth worker layer now comes back `'unsupported'` with its canvas untouched
     (`MAX_WORKER_LAYERS`), instead of blanking an earlier one.

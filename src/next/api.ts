@@ -94,6 +94,11 @@ export interface GlassLayer {
    * a new picture whenever what is behind the glass changes.
    */
   setBackdrop(frame: BackdropFrame, options?: BackdropOptions): void;
+  /**
+   * Says where the picture already given is now, without sending it again: for a backdrop element that
+   * moved or changed size while its picture stayed the same.
+   */
+  moveBackdrop(options?: BackdropOptions): void;
   /** Uses a playing video as the backdrop, frame by frame. Returns a function that stops following it. */
   streamBackdrop(video: HTMLVideoElement, options?: BackdropOptions): () => void;
   /** Changes some of the material's uniforms. Throws on a name the material does not declare. */

@@ -242,7 +242,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       let scale = layerOptions.scale ?? Math.min(window.devicePixelRatio, 2);
       const fixed = layerOptions.fixed ?? false;
       const streams = new Set<() => void>();
-      const setBackdrop = (frame: BackdropFrame, backdrop: BackdropOptions = {}): void => {
+      const sendBackdrop = (frame: BackdropFrame | null, backdrop: BackdropOptions = {}): void => {
         const rect = backdrop.rect ?? {
           left: 0,
           top: 0,
@@ -257,6 +257,9 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
           rect: place(rect, backdropFixed),
           fixed: backdropFixed,
         });
+      };
+      const setBackdrop = (frame: BackdropFrame, backdrop?: BackdropOptions): void => {
+        sendBackdrop(frame, backdrop);
       };
       layers.set(layer.id, layer);
       run((to) => {
@@ -292,6 +295,9 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
           return layer.status;
         },
         setBackdrop,
+        moveBackdrop(backdrop) {
+          sendBackdrop(null, backdrop);
+        },
         streamBackdrop(video, backdrop) {
           const stop = watchVideo(video, (frame) => {
             if (layers.has(layer.id) && !destroyed) setBackdrop(frame, backdrop);

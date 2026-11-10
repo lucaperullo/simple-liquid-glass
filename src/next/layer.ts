@@ -114,13 +114,15 @@ export class GlassLayer {
   }
 
   /** Takes ownership of `frame`. */
-  setBackdrop(frame: BackdropFrame, rect: Rect, fixed: boolean): void {
-    this.frame?.close();
-    this.frame = frame;
+  /** A new picture and where it is; or, with no picture, a new place for the one already here. */
+  setBackdrop(frame: BackdropFrame | null, rect: Rect, fixed: boolean): void {
     this.backdropRect = rect;
     this.backdropFixed = fixed;
-    if (this.gl && this.usable) this.upload(this.gl, frame);
     this.dirty = true;
+    if (!frame) return;
+    this.frame?.close();
+    this.frame = frame;
+    if (this.gl && this.usable) this.upload(this.gl, frame);
   }
 
   /**

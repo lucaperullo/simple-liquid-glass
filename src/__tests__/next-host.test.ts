@@ -197,6 +197,26 @@ describe('next: host', () => {
     host.destroy();
   });
 
+  it('moves a backdrop without sending its picture again', async () => {
+    installWorkerBrowser();
+    const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });
+    await tick();
+    const worker = FakeWorker.last!;
+    worker.says({ type: 'ready', frames: true });
+    await host.ready;
+    const layer = host.addLayer(fakeCanvas(), { scale: 1 });
+    await tick();
+    worker.sent.length = 0;
+
+    const rect = { left: 4, top: 8, width: 300, height: 200 };
+    layer.moveBackdrop({ rect, fixed: true });
+    expect(worker.sent.map(({ message }) => message)).toEqual([
+      { type: 'layer-backdrop', layer: expect.any(Number) as number, frame: null, rect, fixed: true },
+    ]);
+    expect(worker.sent[0]?.transfer).toEqual([]);
+    host.destroy();
+  });
+
   it('starts no more layers in a worker than a worker can keep alive', async () => {
     installWorkerBrowser();
     const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });

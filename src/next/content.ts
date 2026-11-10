@@ -16,8 +16,21 @@ import { SpringBank, keepInside } from './springs';
 /** Time between keyframes, ms: one per frame of a 120 Hz display. */
 const SAMPLE = 1000 / 120;
 
-/** The longest path handed over, in keyframes: four seconds. */
+/** The longest path handed over, in frames: four seconds. */
 const MAX_KEYFRAMES = 480;
+
+/**
+ * How far the path handed over may be from the springs' own, CSS px. Most frames of a spring's path lie on a
+ * line between their neighbours to within this, and are left out: the browser parses and ships every
+ * keyframe it is given, and while a shape is dragged it is given a new path on every frame.
+ */
+const TOLERANCE = 0.1;
+
+/**
+ * A path already playing is kept when the shape is sent this little further, CSS px: a card tugged along by
+ * a dragged neighbour gets a new place on every pointer event, most of them a fraction of a pixel on.
+ */
+const SAME_PLACE = 0.3;
 
 /** The part of a shape's box that content follows. */
 export interface ContentBox {
@@ -39,6 +52,8 @@ export class ContentFollower {
   private animations: Animation[] = [];
   private placed = false;
   private lead = 0;
+  /** Where the path now playing was planned to end, as the springs' four targets. */
+  private planned: number[] = [];
   /** The window's own size, CSS px. It only grows: it has to hold the largest box the shape has been. */
   private windowWidth = 0;
   private windowHeight = 0;
@@ -67,6 +82,14 @@ export class ContentFollower {
     target.forEach((value, index) => {
       springs.aim(index, value, jump ? 0 : spring.stiffness, jump ? 0 : spring.damping);
     });
+    // The springs always take the new aim (they keep step with the renderer's); the path handed over is only
+    // planned again when the new aim would show.
+    const near =
+      !jump &&
+      this.animations.length > 0 &&
+      target.every((value, index) => Math.abs(value - (this.planned[index] ?? Infinity)) < SAME_PLACE);
+    if (near) return;
+    this.planned = target;
     this.play(time);
   }
 
@@ -130,9 +153,14 @@ export class ContentFollower {
       // `both`: the first keyframe shows until the start time comes round, the last one after the end.
       fill: 'both',
     };
+    const kept = straighten(path);
+    const last = Math.max(path.length - 1, 1);
     const animations: Animation[] = [];
     for (const { element, transform } of this.targets()) {
-      const keyframes = path.map((at) => ({ transform: transform(at) }));
+      const keyframes = kept.map((index) => ({
+        transform: transform(path[index] ?? end),
+        offset: index / last,
+      }));
       const [first] = keyframes;
       // An element that stays where it is the whole way (a window whose corner does not move) needs no animation.
       if (first && keyframes.every((keyframe) => keyframe.transform === first.transform)) {
@@ -148,8 +176,11 @@ export class ContentFollower {
     if (first) {
       first.onfinish = () => {
         if (this.animations !== animations) return;
-        this.put(end);
-        this.stop();
+        // Where the springs are now, not where this path ended: aims too small to plan again may have come since.
+        this.animations = [];
+        for (const animation of animations) animation.cancel();
+        springs.advanceTo(performance.timeOrigin + performance.now());
+        this.play(performance.timeOrigin + performance.now());
       };
     }
     this.stop();
@@ -183,6 +214,43 @@ export class ContentFollower {
     clip.style.width = `${this.windowWidth}px`;
     clip.style.height = `${this.windowHeight}px`;
   }
+}
+
+/**
+ * The frames of a path worth keeping: the first, the last, and enough between them that every frame left out
+ * lies within `TOLERANCE` of the line between its kept neighbours.
+ */
+function straighten(path: readonly ContentBox[]): number[] {
+  const kept = [0];
+  let from = 0;
+  while (from < path.length - 1) {
+    let to = from + 1;
+    while (to + 1 < path.length && straight(path, from, to + 1)) to++;
+    kept.push(to);
+    from = to;
+  }
+  return kept;
+}
+
+/** Whether every frame between `from` and `to` is on the line between them, to within `TOLERANCE`. */
+function straight(path: readonly ContentBox[], from: number, to: number): boolean {
+  const a = path[from];
+  const b = path[to];
+  if (!a || !b) return false;
+  for (let index = from + 1; index < to; index++) {
+    const at = path[index];
+    if (!at) return false;
+    const share = (index - from) / (to - from);
+    if (
+      Math.abs(a.x + (b.x - a.x) * share - at.x) > TOLERANCE ||
+      Math.abs(a.y + (b.y - a.y) * share - at.y) > TOLERANCE ||
+      Math.abs(a.width + (b.width - a.width) * share - at.width) > TOLERANCE ||
+      Math.abs(a.height + (b.height - a.height) * share - at.height) > TOLERANCE
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** A box from the four springs: centre x and y, half width, half height. */

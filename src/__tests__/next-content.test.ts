@@ -2,7 +2,10 @@ import { ContentFollower } from '../next/content';
 import { SpringBank } from '../next/springs';
 
 interface Played {
+  /** One per frame of 1/120 s, read off the keyframes the follower sent (it leaves out the ones on a line). */
   keyframes: { transform: string }[];
+  /** How many it sent. */
+  sent: number;
   options: KeyframeAnimationOptions;
   startTime: number;
   cancelled: boolean;
@@ -18,9 +21,32 @@ function fakeElement(): {
   const style = { transform: '', width: '', height: '' };
   const element = {
     style,
-    animate(keyframes: { transform: string }[], options: KeyframeAnimationOptions) {
+    animate(sent: { transform: string; offset: number }[], options: KeyframeAnimationOptions) {
+      const frames = Math.round(Number(options.duration) / (1000 / 120));
+      const read = (keyframe: { transform: string } | undefined): [number, number] => {
+        const found = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(keyframe?.transform ?? '');
+        return [Number(found?.[1]), Number(found?.[2])];
+      };
+      const keyframes = Array.from({ length: frames + 1 }, (_, frame) => {
+        const offset = frames > 0 ? frame / frames : 0;
+        const next = Math.max(
+          sent.findIndex((keyframe) => keyframe.offset >= offset - 1e-9),
+          0,
+        );
+        const before = sent[Math.max(next - 1, 0)];
+        const after = sent[next];
+        const span = (after?.offset ?? 0) - (before?.offset ?? 0);
+        const share = span > 0 ? (offset - (before?.offset ?? 0)) / span : 1;
+        const [x0, y0] = read(before);
+        const [x1, y1] = read(after);
+        const fixed = (value: number): string => value.toFixed(3);
+        return {
+          transform: `translate(${fixed(x0 + (x1 - x0) * share)}px, ${fixed(y0 + (y1 - y0) * share)}px)`,
+        };
+      });
       const animation = {
         keyframes,
+        sent: sent.length,
         options,
         startTime: 0,
         cancelled: false,
@@ -174,6 +200,21 @@ describe('next: content that follows a shape', () => {
     });
   });
 
+  it('sends far fewer keyframes than frames, and keeps a path playing when the shape is sent a hair further', () => {
+    const { element, played } = fakeElement();
+    const follower = new ContentFollower(element);
+    follower.moveTo(at(0, 0), origin + 1000, null, 0);
+    follower.moveTo(at(0, 300), origin + 2000, spring, 0);
+    expect(played[0]?.keyframes.length).toBeGreaterThan(60);
+    expect(played[0]?.sent).toBeLessThan((played[0]?.keyframes.length ?? 0) / 2);
+
+    follower.moveTo(at(0, 300.2), origin + 2010, spring, 0);
+    expect(played).toHaveLength(1);
+    follower.moveTo(at(0, 300.4), origin + 2020, spring, 0);
+    expect(played).toHaveLength(2);
+    expect(yOf(played[1]?.keyframes.at(-1))).toBe(300.4);
+  });
+
   describe('with walls', () => {
     it('stops at the wall the shape stops at, and plans its path again when the walls move', () => {
       const { element, played } = fakeElement();
@@ -183,7 +224,9 @@ describe('next: content that follows a shape', () => {
       // Loose enough to overshoot 200 px of travel by more than the room left below it.
       follower.moveTo(at(0, 190), origin + 2000, { stiffness: 300, damping: 6 }, 0);
       const lowest = Math.max(...(played[0]?.keyframes ?? []).map(yOf));
-      expect(lowest).toBeCloseTo(200, 2);
+      // (To the tolerance of the path it hands over.)
+      expect(lowest).toBeGreaterThan(199.8);
+      expect(lowest).toBeLessThanOrEqual(200.001);
       expect(yOf(played[0]?.keyframes.at(-1))).toBe(190);
 
       // The room gets 50 px shorter a moment later: the rest of the way is planned again, inside it.

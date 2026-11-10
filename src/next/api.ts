@@ -59,6 +59,16 @@ export interface GlassShapeOptions {
    * top: 0`): the engine sets its `transform`, nothing else.
    */
   readonly content?: HTMLElement;
+  /**
+   * The parent of `content`, to cut the content off at the shape's right and bottom edges while the shape
+   * changes size: lay the content out at the size it is going to (or coming from), and the shape's edges
+   * uncover or cover it at the display's rate. Give it `position: absolute; left: 0; top: 0; overflow:
+   * hidden` at the layer canvas's top-left corner, and the content the same position inside it. The engine
+   * sets its `width`, `height` and `transform`. It is larger than the shape and reaches up and left of it,
+   * so give it `pointer-events: none` and the content `pointer-events: auto`. The cut is square: content
+   * that reaches into the shape's rounded corners shows there.
+   */
+  readonly contentClip?: HTMLElement;
   /** Up to eight free values for the layer's material (a colour, a lift, a flag). Default: zeros. */
   readonly attributes?: readonly number[];
 }

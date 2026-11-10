@@ -133,7 +133,7 @@
     {
       "name": "next — import { createGlassHost } (Brotli, experimental 6.0 core, no React; includes the worker as text)",
       "path": "dist/next.esm.js",
-      "limit": "13 KB"
+      "limit": "13.4 KB"
     }
   ],
   "repository": {

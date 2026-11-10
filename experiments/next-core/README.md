@@ -128,11 +128,46 @@ Raw rows: `results-zte-content-2026-11-10.jsonl`.
 | worker, `contentLead=4` | 6                      | −3.6 to 6.9, median 3.5        |
 | page thread             | 18                     | 6.3–7.5 in 15, 0 in 3          |
 
-From the worker the content sits on its glass in three screenshots of four and is under half a frame (3.6 ms)
-ahead in the rest. With the glass drawn on the page thread the content runs about 7 ms ahead of it.
+That first run flattered it. Four more of 100 screenshots each, back to back on the build above and on the
+one after it (the two do not differ), gave 56 mid-flight readings from the worker:
 
-What this does not show: a card that changes size (the content's box is not animated, only its corner's
-position), a card sent somewhere else mid-flight, several cards starting at different moments, and Safari
+| Content from its glass           | Readings of 56 |
+| -------------------------------- | -------------- |
+| on it (0.3 ms or less)           | 35             |
+| 1.8–5.8 ms, either way           | 12             |
+| a frame (7.0–7.8 ms), either way | 9              |
+
+So from the worker the content is on its glass in about three screenshots of five and within one frame of
+it, ahead or behind, in the rest. With the glass drawn on the page thread the content runs ahead of it:
+about 7 ms in the first run, 3 to 12 ms in the resize run below.
+
+### A card that changes size
+
+The compositor moves elements; it cannot lay them out. With `contentClip: element` (the content's parent, a
+window that hides what overflows it) the engine moves the window so that its bottom-right corner is the
+shape's and moves the content back by as much, so the content keeps its corner and is cut off where the
+glass ends. Both are translations, so nothing is scaled or drawn again; what the content looks like at each
+size is the application's to lay out (once, at the size the card is going to or coming from).
+`resize-lag.py` measures it on the `&content&clip&grow` page: one flat card grows from 150 × 136 CSS px to
+nearly the whole view and back once a second, its content carries two white bands that run on past the card, and
+a screenshot shows where each band is cut and where the glass ends. Raw rows:
+`results-zte-resize-2026-11-10.jsonl`.
+
+    python3 experiments/next-core/resize-lag.py experiments/next-core --shots 140
+
+| Glass drawn | Mid-flight screenshots | The cut ahead of the glass's edge, ms (right and bottom agree)           |
+| ----------- | ---------------------- | ------------------------------------------------------------------------ |
+| worker      | 25 (two runs)          | −5.2 to 4.3: 2.2–4.3 ahead in 12, 2.7–5.2 behind in 10, 1.3 or less in 3 |
+| page thread | 14                     | 1.9 to 11.6: about 3 in 6, 8.5–11.6 in 8                                 |
+
+From the worker the cut is never more than 5.2 ms (0.6 of a frame) from the glass's edge, on either side; in the
+run that recorded distances, at most 9 device px across and 23 down. It is rarely exactly on it, unlike a card
+that only moves, and I do not know why. The glass held 116 fps in this scene (a flat card over most of the
+screen at 1.5×), 120 in the moving one.
+
+What this does not show: content laid out again while its card resizes (text that wraps as the card widens:
+that is a layout, at the page's rate), rounded corners on the cut (it is square), a card sent somewhere
+else mid-flight, several cards starting at different moments, and Safari
 (WebKit under test, with software rendering, showed the content 38 px from its card mid-flight; on a real
 device that is unmeasured). The finger the harness rests on the page to keep the display at 120 Hz also
 raises the page thread's own frames to 120, so the page-thread row is kinder than a page left alone.

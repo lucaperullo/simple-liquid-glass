@@ -669,7 +669,8 @@ display.
 
 Text and pictures that belong on a piece of glass are page content, and the glass is animated elsewhere. Pass
 the element as a shape's `content` and the engine keeps its corner on the shape, moved by the browser's
-compositor along the same spring, at the display's rate.
+compositor along the same spring, at the display's rate. Pass the element's parent as `contentClip` and the
+content is also cut off at the shape's right and bottom edges while the shape changes size.
 
 What glass looks like is a material: GLSL that shades one pixel, plus the uniforms it reads. The built-in `glass`
 has a dark tuning (its defaults) and a light one (`params: GLASS_LIGHT`); `layer.setParams()` changes any of its

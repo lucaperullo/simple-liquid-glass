@@ -8,6 +8,8 @@
 //   &plain (no words in the picture)
 //   &content (an element on every card, kept there by the engine)  &contentLead=0 (ms it starts early)
 //   &slide (one card travelling the height of the view)
+//   &clip (with &content: the content is cut off at its card's right and bottom edges as the card resizes)
+//   &grow (one card that grows from its corner to fill the view)
 //   &quiet (no on-screen readout)  &hold (the page takes touches itself)  &bend=18 (0: the glass does not displace)
 //   &scroll (the picture is three viewports tall and scrolls under the glass)  &at=500 (start scrolled there)
 //   &lead=0 (ms the renderer predicts the scroll ahead)
@@ -101,6 +103,17 @@ if (video !== null) {
 // Where the cards of one view go: `open` 0 = at rest, 1 = the first card open.
 function layout(view, open) {
   // `&slide`: one card that travels the height of its view.
+  if (query.has('grow')) {
+    return [
+      {
+        x: 16,
+        y: 40,
+        width: open ? view.width - 32 : 150,
+        height: open ? view.height - 80 : 136,
+        radius: 22,
+      },
+    ];
+  }
   if (query.has('slide')) {
     return [{ x: 16, y: open ? view.height - 176 : 40, width: view.width - 32, height: 136, radius: 22 }];
   }
@@ -201,14 +214,29 @@ for (let i = 0; i < views; i++) {
   if (board) board.style.cssText = 'position: absolute; inset: 0; pointer-events: none';
   const shapes = layout(canvas.getBoundingClientRect(), open).map((box, index) => {
     let content;
+    let contentClip;
     if (board) {
-      content = board.appendChild(document.createElement('div'));
+      const at = 'position: absolute; left: 0; top: 0; will-change: transform';
+      // `&clip`: the content sits in a window that the engine sizes and moves, and its bands run on past
+      // the card's right and bottom edges, so a screenshot shows whether they are cut where the glass ends.
+      if (query.has('clip')) {
+        contentClip = board.appendChild(document.createElement('div'));
+        contentClip.className = 'card-clip';
+        contentClip.style.cssText = `${at}; overflow: hidden`;
+      }
+      content = (contentClip ?? board).appendChild(document.createElement('div'));
       content.className = 'card-content';
-      content.style.cssText = `position: absolute; left: 0; top: 0; width: ${box.width}px; will-change: transform`;
-      content.innerHTML = `<div style="position: absolute; top: 40px; left: 0; right: 0; height: 2px; background: #fff"></div>
-        <div style="position: absolute; top: 48px; left: 14px; font: 600 15px system-ui">card ${index + 1}</div>`;
+      content.style.cssText = contentClip ? at : `${at}; width: ${box.width}px`;
+      const long = contentClip ? 'width: 3000px' : 'right: 0';
+      content.innerHTML = `<div style="position: absolute; top: 40px; left: 0; ${long}; height: ${contentClip ? 24 : 2}px; background: #fff"></div>
+        ${contentClip ? '<div style="position: absolute; top: 0; left: 40px; width: 24px; height: 3000px; background: #fff"></div>' : ''}
+        <div style="position: absolute; top: 72px; left: 76px; font: 600 15px system-ui; white-space: nowrap">card ${index + 1}</div>`;
     }
-    return layer.addShape(box, { attributes: attributesOf(index), ...(content ? { content } : {}) });
+    return layer.addShape(box, {
+      attributes: attributesOf(index),
+      ...(content ? { content } : {}),
+      ...(contentClip ? { contentClip } : {}),
+    });
   });
   layers.push({ canvas, layer, shapes });
 }
@@ -221,8 +249,9 @@ function toggle() {
 }
 
 // (A touch that scrolls the page is not a tap on the cards.)
-// (Nor is one on the `&slide` page, which a harness keeps a finger on to hold the display at its top rate.)
-if (!scrolls && !query.has('slide')) addEventListener('pointerdown', toggle);
+// (Nor is one on the `&slide` page or a self-running `&grow` page, which a harness keeps a finger on to hold
+// the display at its top rate.)
+if (!scrolls && !query.has('slide') && !(query.has('grow') && auto)) addEventListener('pointerdown', toggle);
 // `&hold`: Chrome on Android runs the page's frames at the display's rate while a finger is down on a page
 // that takes the touch, which shows what the page thread could do without its 60 Hz cap.
 if (query.has('hold')) {

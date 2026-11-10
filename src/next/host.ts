@@ -134,7 +134,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       for (const shape of layer.changed) {
         const spring = shape.jump ? null : shape.spring;
         writeShape(batch, index++, shape.id, shape.box, shape.attributes, spring);
-        shape.content?.moveTo(shape.box.x, shape.box.y, time, reducedMotion() ? null : spring, contentLead);
+        shape.content?.moveTo(shape.box, time, reducedMotion() ? null : spring, contentLead);
         shape.jump = false;
       }
       layer.changed.clear();
@@ -187,7 +187,9 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       id: nextId++,
       box: { ...box },
       attributes: [...(shapeOptions.attributes ?? [])],
-      content: shapeOptions.content ? new ContentFollower(shapeOptions.content) : null,
+      content: shapeOptions.content
+        ? new ContentFollower(shapeOptions.content, shapeOptions.contentClip ?? null)
+        : null,
       spring,
       jump: false,
     };

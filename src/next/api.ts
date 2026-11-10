@@ -189,6 +189,12 @@ export interface GlassHost {
   defineMaterial(material: MaterialDefinition): void;
   /** Brings every moving shape to its target now. */
   settle(): void;
+  /**
+   * Only in `simple-liquid-glass/next/stack`. Draws what has changed now instead of in the next frame. On the
+   * page thread that is before this call returns: for a canvas the page places over the viewport each frame, whose
+   * glass must be where the page is in that same frame. In a worker it only saves the wait for the worker's frame.
+   */
+  draw?(): void;
   /** Frame cadence since the previous call. */
   stats(): Promise<GlassStats>;
   /** Stops the renderer and releases its contexts. Canvases handed to a worker stay blank. */

@@ -1,6 +1,6 @@
 /** Small pieces of host.ts. */
 import { scrollPosition } from './pageSources';
-import type { GlassLayer } from './api';
+import type { GlassHost, GlassLayer } from './api';
 import type { FrameStats, HostMessage, Rect } from './scene';
 
 export const NO_STATS: FrameStats = {
@@ -46,6 +46,14 @@ export const stackedAdd = (
   material,
   params,
   lean,
+});
+
+/** Stacking: the call a host has only there. `flush` sends what the scene has not sent yet. */
+export const hostCalls = (flush: () => void, post: (message: HostMessage) => void): Pick<GlassHost, 'draw'> => ({
+  draw() {
+    flush();
+    post({ type: 'draw' });
+  },
 });
 
 /** Stacking: the calls a layer has only there, apart from `stack()`. */

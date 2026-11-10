@@ -201,6 +201,8 @@ export type HostMessage =
   | { readonly type: 'layer-reach'; readonly layer: number; readonly reach: number | null }
   /** Stacking: where a layer's shapes are measured from, CSS px from the canvas's top-left corner. */
   | { readonly type: 'layer-origin'; readonly layer: number; readonly origin: readonly [number, number] }
+  /** Stacking: draw what has changed now, not in the next frame (see `GlassHost.draw`). */
+  | { readonly type: 'draw' }
   /** Stacking: the least time between two frames of a layer's canvas, ms. 0: none. */
   | { readonly type: 'layer-pace'; readonly layer: number; readonly pace: number }
   | { readonly type: 'material-define'; readonly material: MaterialSpec }

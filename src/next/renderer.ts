@@ -118,6 +118,10 @@ export function createRenderer(env: RendererEnv): Renderer {
   return {
     handle(message) {
       // Stacking: what a layer is told only there (the core's switch below does not know these).
+      if (STACKING && message.type === 'draw') {
+        frame(env.now());
+        return;
+      }
       if (STACKING && told(message, layers)) {
         wake();
         return;

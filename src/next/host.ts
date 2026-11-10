@@ -35,7 +35,7 @@ import type {
   GlassStats,
 } from './api';
 import { ContentFollower } from './content';
-import { NO_STATS, boxOf, place, stackedAdd, stackedCalls } from './hostParts';
+import { NO_STATS, boxOf, hostCalls, place, stackedAdd, stackedCalls } from './hostParts';
 import { packParams, specOf, type MaterialSpec } from './materials';
 import { watchScroll, watchVideo } from './pageSources';
 import { GLASS_MATERIAL } from './shader';
@@ -359,6 +359,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       return transport?.thread ?? 'pending';
     },
     ready,
+    ...(STACKING ? hostCalls(flush, post) : null),
     addLayer,
 
     defineMaterial(definition) {

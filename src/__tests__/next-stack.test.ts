@@ -72,7 +72,7 @@ describe('next/stack: host', () => {
     base.setOrigin?.(48, 32);
     base.setPace?.(24);
     base.setPace?.(null);
-    await tick();
+    host.draw?.();
 
     expect(canvas.transferred).toBe(1);
     const added = worker.sent.flatMap((message) => (message.type === 'layer-add' ? [message] : []));
@@ -92,6 +92,9 @@ describe('next/stack: host', () => {
     expect(worker.sent).toContainEqual({ type: 'layer-origin', layer: root?.layer, origin: [48, 32] });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 24 });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 0 });
+    // `draw` sends what the scene had not sent yet, then asks for the frame.
+    expect(worker.sent[worker.sent.length - 1]).toEqual({ type: 'draw' });
+    expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(true);
     expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(
       true,
     );

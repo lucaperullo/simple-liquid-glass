@@ -55,6 +55,9 @@ interface LayerRecord {
   readonly onStatus: GlassLayerOptions['onStatus'];
   readonly shapes: Set<ShapeRecord>;
   readonly changed: Set<ShapeRecord>;
+  bounds: Rect | null;
+  /** The walls changed since the last flush. */
+  boundsChanged: boolean;
 }
 
 const NO_STATS: FrameStats = {
@@ -126,10 +129,17 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
   const flush = (): void => {
     flushScheduled = false;
     for (const layer of layers.values()) {
-      if (layer.changed.size === 0) continue;
-      const batch = createShapeBatch(layer.changed.size);
+      if (layer.changed.size === 0 && !layer.boundsChanged) continue;
       // One moment for the whole batch: the renderer's springs and the content's start from it together.
       const time = performance.timeOrigin + performance.now();
+      if (layer.boundsChanged) {
+        layer.boundsChanged = false;
+        // Content whose shape also changed plans its path once, when it is moved below.
+        for (const shape of layer.shapes) shape.content?.bound(layer.bounds, time, !layer.changed.has(shape));
+        post({ type: 'layer-bounds', layer: layer.id, bounds: layer.bounds, time });
+      }
+      if (layer.changed.size === 0) continue;
+      const batch = createShapeBatch(layer.changed.size);
       let index = 0;
       for (const shape of layer.changed) {
         const spring = shape.jump ? null : shape.spring;
@@ -193,6 +203,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       spring,
       jump: false,
     };
+    if (layer.bounds) shape.content?.bound(layer.bounds, performance.timeOrigin + performance.now(), false);
     layer.shapes.add(shape);
     layer.changed.add(shape);
     scheduleFlush();
@@ -234,6 +245,8 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
         onStatus: layerOptions.onStatus,
         shapes: new Set(),
         changed: new Set(),
+        bounds: null,
+        boundsChanged: false,
       };
       const material = materials.get(layerOptions.material ?? GLASS_MATERIAL.id);
       if (!material) throw new TypeError(`No material "${layerOptions.material ?? ''}" is defined`);
@@ -312,6 +325,12 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
         setParams(next) {
           params = packParams(material.spec, next, params);
           post({ type: 'layer-material', layer: layer.id, material: material.spec.id, params, lean });
+        },
+        setBounds(bounds) {
+          // Sent with the shapes changed in the same task, as of the same moment.
+          layer.bounds = bounds && { ...bounds };
+          layer.boundsChanged = true;
+          scheduleFlush();
         },
         addShape: (box, shapeOptions = {}) => addShape(layer, box, shapeOptions),
         resize(nextScale = scale) {

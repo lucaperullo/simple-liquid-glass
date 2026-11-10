@@ -11,7 +11,7 @@ import {
   type Rect,
   type ShapeBatch,
 } from './scene';
-import { SpringBank } from './springs';
+import { SpringBank, keepInside } from './springs';
 
 /** Shape counts a program is compiled for; a layer uses the smallest that holds its shapes. */
 const CAPACITIES = [4, 8, MAX_SHAPES] as const;
@@ -123,6 +123,23 @@ export class GlassLayer {
     this.frame?.close();
     this.frame = frame;
     if (this.gl && this.usable) this.upload(this.gl, frame);
+  }
+
+  /** Walls the shapes may not pass while they move, as of `time`. Null: none. */
+  setBounds(bounds: Rect | null, time: number): void {
+    this.springs.advanceTo(time);
+    if (!bounds) {
+      this.springs.constraint = null;
+      return;
+    }
+    const { left, top } = bounds;
+    const right = left + bounds.width;
+    const bottom = top + bounds.height;
+    this.springs.constraint = (position, velocity) => {
+      for (let slot = 0; slot < this.count; slot++) {
+        keepInside(position, velocity, slot * SHAPE_STRIDE, left, top, right, bottom);
+      }
+    };
   }
 
   /**

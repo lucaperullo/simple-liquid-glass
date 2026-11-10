@@ -108,6 +108,9 @@ export function createRenderer(env: RendererEnv): Renderer {
         case 'layer-view':
           layers.get(message.layer)?.setView(message.view, message.fixed, message.scale);
           break;
+        case 'layer-bounds':
+          layers.get(message.layer)?.setBounds(message.bounds, message.time);
+          break;
         case 'material-define':
           materials.set(message.material.id, message.material);
           return;

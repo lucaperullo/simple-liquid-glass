@@ -17,6 +17,48 @@ const MAX_CATCH_UP = 10;
 const REST_DISTANCE = 0.02;
 const REST_SPEED = 0.2;
 
+/**
+ * Something the springs may not do, applied after every sub-step: it moves positions back where they may be
+ * and takes the speed out of what it stopped.
+ */
+export type SpringConstraint = (position: Float64Array, velocity: Float64Array) => void;
+
+/**
+ * Keeps a box inside walls: a constraint for four springs starting at `at` (the box's centre x and y, then
+ * its half width and half height). A box too large for the room shrinks to fit it; one that reaches a wall
+ * stops there and keeps only the speed that takes it away again.
+ */
+export function keepInside(
+  position: Float64Array,
+  velocity: Float64Array,
+  at: number,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+): void {
+  for (let axis = 0; axis < 2; axis++) {
+    const centre = at + axis;
+    const half = at + 2 + axis;
+    const low = axis === 0 ? left : top;
+    const high = axis === 0 ? right : bottom;
+    const room = Math.max(high - low, 0) / 2;
+    if ((position[half] ?? 0) > room) {
+      position[half] = room;
+      velocity[half] = Math.min(velocity[half] ?? 0, 0);
+    }
+    const size = position[half] ?? 0;
+    const middle = position[centre] ?? 0;
+    if (middle - size < low) {
+      position[centre] = low + size;
+      velocity[centre] = Math.max(velocity[centre] ?? 0, 0);
+    } else if (middle + size > high) {
+      position[centre] = high - size;
+      velocity[centre] = Math.min(velocity[centre] ?? 0, 0);
+    }
+  }
+}
+
 /** A fixed number of independent springs, stored as columns so a step touches no objects. */
 export class SpringBank {
   /** What to draw: each position, carried forward by the time that has not filled a sub-step yet. */
@@ -30,6 +72,11 @@ export class SpringBank {
   private readonly live: Uint8Array;
   private liveCount = 0;
   private remainder = 0;
+  /** See `SpringConstraint`. Applied to moving springs; aim inside what it allows. */
+  constraint: SpringConstraint | null = null;
+  /** Speeds nobody keeps, for constraining `value`; and where each spring was when a step began. */
+  private readonly spare: Float64Array;
+  private readonly before: Float64Array;
   /** The time `advanceTo` has brought the springs to, ms. */
   private clock = 0;
 
@@ -41,6 +88,8 @@ export class SpringBank {
     this.stiffness = new Float64Array(size);
     this.damping = new Float64Array(size);
     this.live = new Uint8Array(size);
+    this.spare = new Float64Array(size);
+    this.before = new Float64Array(size);
   }
 
   /** Whether any spring is still on its way. */
@@ -131,6 +180,7 @@ export class SpringBank {
     this.liveCount = other.liveCount;
     this.remainder = other.remainder;
     this.clock = other.clock;
+    this.constraint = other.constraint;
   }
 
   /**
@@ -144,6 +194,7 @@ export class SpringBank {
     const steps = Math.floor(this.remainder / SPRING_STEP + 1e-6);
     this.remainder = Math.max(this.remainder - steps * SPRING_STEP, 0);
 
+    if (this.constraint) return this.stepConstrained(steps, this.constraint);
     for (let i = 0; i < this.size; i++) {
       if (this.live[i] === 0) continue;
       const target = this.target[i] ?? 0;
@@ -162,6 +213,54 @@ export class SpringBank {
         this.position[i] = position;
         this.velocity[i] = velocity;
         this.value[i] = position + velocity * this.remainder;
+      }
+    }
+    if (this.liveCount === 0) this.remainder = 0;
+    return true;
+  }
+
+  /** The same steps with the constraint applied after each: springs can then depend on one another. */
+  private stepConstrained(steps: number, constraint: SpringConstraint): boolean {
+    const { position, velocity, target, stiffness, damping, live, value, spare, before, size } = this;
+    before.set(position);
+    for (let step = 0; step < steps; step++) {
+      for (let i = 0; i < size; i++) {
+        if (live[i] === 0) continue;
+        const speed =
+          (velocity[i] ?? 0) +
+          (((target[i] ?? 0) - (position[i] ?? 0)) * (stiffness[i] ?? 0) -
+            (velocity[i] ?? 0) * (damping[i] ?? 0)) *
+            SPRING_STEP;
+        velocity[i] = speed;
+        position[i] = (position[i] ?? 0) + speed * SPRING_STEP;
+      }
+      constraint(position, velocity);
+    }
+    for (let i = 0; i < size; i++) {
+      if (live[i] === 0) continue;
+      value[i] = (position[i] ?? 0) + (velocity[i] ?? 0) * this.remainder;
+    }
+    // What is drawn is carried a little past the last sub-step: that may not cross what the steps may not.
+    spare.fill(0);
+    constraint(value, spare);
+    let free = 0;
+    for (let i = 0; i < size; i++) {
+      if (live[i] === 0) continue;
+      if (
+        Math.abs((target[i] ?? 0) - (position[i] ?? 0)) < REST_DISTANCE &&
+        Math.abs(velocity[i] ?? 0) < REST_SPEED
+      ) {
+        this.jump(i, target[i] ?? 0);
+      } else if (steps === 0 || velocity[i] !== 0 || position[i] !== before[i]) {
+        free++;
+      }
+    }
+    // Every spring still counted as moving has been held against the constraint for this whole step, with no
+    // speed left (aimed past what it allows), and nothing else moves that could let it go: they stop where
+    // they are, or the bank would count as moving for ever.
+    if (free === 0) {
+      for (let i = 0; i < size; i++) {
+        if (live[i] === 1) this.jump(i, position[i] ?? 0);
       }
     }
     if (this.liveCount === 0) this.remainder = 0;

@@ -1,8 +1,8 @@
 /**
  * Page content that stays on a shape. The glass is animated by the renderer, usually in a worker, on its own
  * frames; an element moved from the page thread would trail it wherever the page's frames are slower than the
- * display's. So the element is moved by the browser's compositor instead: the same spring is run here ahead
- * of time, and its path is handed over as a keyframe animation that starts at the moment the glass's does.
+ * display's. So the element is moved by the browser's compositor instead: the same springs are run here ahead
+ * of time, and their path is handed over as a keyframe animation that starts at the moment the glass's does.
  *
  * A shape that changes size. The compositor moves elements; it does not lay them out. So the content is cut
  * off at the shape's right and bottom edges by a window around it, an element that hides what overflows it,
@@ -10,8 +10,8 @@
  * content back by as much so that its top-left corner is the shape's. Only translations, so nothing is
  * scaled or drawn again; what the content looks like at each size is the application's to lay out.
  */
-import type { SpringConfig } from './scene';
-import { SpringBank } from './springs';
+import type { Rect, SpringConfig } from './scene';
+import { SpringBank, keepInside } from './springs';
 
 /** Time between keyframes, ms: one per frame of a 120 Hz display. */
 const SAMPLE = 1000 / 120;
@@ -30,13 +30,15 @@ export interface ContentBox {
 const place = (x: number, y: number): string => `translate(${x.toFixed(3)}px, ${y.toFixed(3)}px)`;
 
 export class ContentFollower {
-  /** The springs the renderer is running for the shape's box, kept in step with them by time alone. */
-  private readonly springs: SpringBank;
-  private readonly ahead: SpringBank;
-  /** How many of x, y, width, height are followed: the size only matters to a window. */
-  private readonly count: number;
+  /**
+   * The springs the renderer is running for the shape's box, in the renderer's own terms (the centre's x and
+   * y, half the width, half the height), kept in step with them by time alone.
+   */
+  private readonly springs = new SpringBank(4);
+  private readonly ahead = new SpringBank(4);
   private animations: Animation[] = [];
   private placed = false;
+  private lead = 0;
   /** The window's own size, CSS px. It only grows: it has to hold the largest box the shape has been. */
   private windowWidth = 0;
   private windowHeight = 0;
@@ -48,11 +50,7 @@ export class ContentFollower {
   constructor(
     private readonly element: HTMLElement,
     private readonly clip: HTMLElement | null = null,
-  ) {
-    this.count = clip ? 4 : 2;
-    this.springs = new SpringBank(this.count);
-    this.ahead = new SpringBank(this.count);
-  }
+  ) {}
 
   /**
    * Sends the content to `box` as of `time` (ms on the shared clock), the way the shape goes there: by
@@ -60,15 +58,49 @@ export class ContentFollower {
    * pipeline that shows the two a constant time apart.
    */
   moveTo(box: ContentBox, time: number, spring: SpringConfig | null, lead: number): void {
-    const { springs, ahead, count } = this;
-    const target = [box.x, box.y, box.width, box.height];
+    const { springs } = this;
+    const target = [box.x + box.width / 2, box.y + box.height / 2, box.width / 2, box.height / 2];
     const jump = spring === null || !this.placed;
     this.placed = true;
+    this.lead = lead;
     springs.advanceTo(time);
-    for (let index = 0; index < count; index++) {
-      springs.aim(index, target[index] ?? 0, jump ? 0 : spring.stiffness, jump ? 0 : spring.damping);
+    target.forEach((value, index) => {
+      springs.aim(index, value, jump ? 0 : spring.stiffness, jump ? 0 : spring.damping);
+    });
+    this.play(time);
+  }
+
+  /**
+   * The walls the layer's shapes may not pass (see `GlassLayer.setBounds`), as of `time`. `replan: false` when
+   * a `moveTo` for the same moment follows, which plans the path anyway.
+   */
+  bound(bounds: Rect | null, time: number, replan = true): void {
+    const { springs } = this;
+    springs.advanceTo(time);
+    if (bounds) {
+      const { left, top } = bounds;
+      const right = left + bounds.width;
+      const bottom = top + bounds.height;
+      springs.constraint = (position, velocity) => {
+        keepInside(position, velocity, 0, left, top, right, bottom);
+      };
+    } else {
+      springs.constraint = null;
     }
+    // The path already handed over was planned for the old walls.
+    if (replan && springs.moving) this.play(time);
+  }
+
+  stop(): void {
+    for (const animation of this.animations) animation.cancel();
+    this.animations = [];
+  }
+
+  /** Hands the compositor the way from where the springs are at `time` to where they come to rest. */
+  private play(time: number): void {
+    const { springs, ahead } = this;
     if (!springs.moving) {
+      const box = boxOf(springs.value);
       this.stop();
       this.fit(box.width, box.height);
       this.put(box);
@@ -78,18 +110,19 @@ export class ContentFollower {
     // Run the springs to their end on a copy, noting where they are at each frame.
     ahead.copyFrom(springs);
     const path: ContentBox[] = [];
-    let widest = box.width;
-    let tallest = box.height;
+    let widest = 0;
+    let tallest = 0;
     while (ahead.moving && path.length < MAX_KEYFRAMES) {
       ahead.advanceTo(time + path.length * SAMPLE);
-      const [x = box.x, y = box.y, width = box.width, height = box.height] = ahead.value;
-      path.push({ x, y, width, height });
-      widest = Math.max(widest, width);
-      tallest = Math.max(tallest, height);
+      const box = boxOf(ahead.value);
+      path.push(box);
+      widest = Math.max(widest, box.width);
+      tallest = Math.max(tallest, box.height);
     }
-    path.push(box);
+    const end = boxOf(ahead.value);
+    path.push(end);
     // Before the keyframes are written: they are measured from the window's size.
-    this.fit(widest, tallest);
+    this.fit(Math.max(widest, end.width), Math.max(tallest, end.height));
 
     const timing: KeyframeAnimationOptions = {
       duration: (path.length - 1) * SAMPLE,
@@ -97,30 +130,30 @@ export class ContentFollower {
       // `both`: the first keyframe shows until the start time comes round, the last one after the end.
       fill: 'both',
     };
-    const animations = this.targets().map(({ element, transform }) => {
-      const animation = element.animate(
-        path.map((at) => ({ transform: transform(at) })),
-        timing,
-      );
+    const animations: Animation[] = [];
+    for (const { element, transform } of this.targets()) {
+      const keyframes = path.map((at) => ({ transform: transform(at) }));
+      const [first] = keyframes;
+      // An element that stays where it is the whole way (a window whose corner does not move) needs no animation.
+      if (first && keyframes.every((keyframe) => keyframe.transform === first.transform)) {
+        element.style.transform = first.transform;
+        continue;
+      }
+      const animation = element.animate(keyframes, timing);
       // The document's timeline counts from the page's time origin, like `performance.now()`.
-      animation.startTime = time - performance.timeOrigin - lead;
-      return animation;
-    });
+      animation.startTime = time - performance.timeOrigin - this.lead;
+      animations.push(animation);
+    }
     const [first] = animations;
     if (first) {
       first.onfinish = () => {
         if (this.animations !== animations) return;
-        this.put(box);
+        this.put(end);
         this.stop();
       };
     }
     this.stop();
     this.animations = animations;
-  }
-
-  stop(): void {
-    for (const animation of this.animations) animation.cancel();
-    this.animations = [];
   }
 
   /** The elements moved, and where each goes for a box. */
@@ -150,4 +183,10 @@ export class ContentFollower {
     clip.style.width = `${this.windowWidth}px`;
     clip.style.height = `${this.windowHeight}px`;
   }
+}
+
+/** A box from the four springs: centre x and y, half width, half height. */
+function boxOf(values: Float64Array): ContentBox {
+  const [x = 0, y = 0, halfWidth = 0, halfHeight = 0] = values;
+  return { x: x - halfWidth, y: y - halfHeight, width: halfWidth * 2, height: halfHeight * 2 };
 }

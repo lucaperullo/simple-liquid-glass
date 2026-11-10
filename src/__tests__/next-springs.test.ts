@@ -1,4 +1,4 @@
-import { SpringBank } from '../next/springs';
+import { keepInside, SpringBank } from '../next/springs';
 
 /** Runs spring 0 from 0 towards 100 for `seconds` at `hz` frames per second. */
 function run(hz: number, seconds: number): SpringBank {
@@ -137,5 +137,76 @@ describe('next: springs', () => {
     expect(bank.value[2]).toBe(0);
     for (let frame = 0; frame < 600; frame++) bank.step(1 / 120);
     expect(Array.from(bank.value)).toEqual([1, 30, 0]);
+  });
+
+  describe('with walls', () => {
+    /** One box (centre x, y, half width, half height) in a room 300 wide and 200 tall. */
+    const walled = (): SpringBank => {
+      const bank = new SpringBank(4);
+      bank.constraint = (position, velocity) => {
+        keepInside(position, velocity, 0, 0, 0, 300, 200);
+      };
+      [50, 50, 40, 40].forEach((value, index) => {
+        bank.jump(index, value);
+      });
+      return bank;
+    };
+
+    it('stops a box at a wall its spring would carry it through, and lets it come back', () => {
+      const bank = walled();
+      // Loose enough to overshoot 250 by more than the 10 px left before the right wall.
+      bank.aim(0, 250, 300, 6);
+      let furthest = 0;
+      for (let frame = 0; frame < 600 && bank.moving; frame++) {
+        bank.step(1 / 120);
+        furthest = Math.max(furthest, (bank.value[0] ?? 0) + (bank.value[2] ?? 0));
+      }
+      // (Read once a frame: the instant it touches the wall falls between two readings.)
+      expect(furthest).toBeGreaterThan(299.5);
+      expect(furthest).toBeLessThanOrEqual(300);
+      expect(bank.moving).toBe(false);
+      expect(bank.value[0]).toBe(250);
+    });
+
+    it('holds a box to the size of the room', () => {
+      const bank = walled();
+      bank.aim(2, 400, 170, 18);
+      for (let frame = 0; frame < 600 && bank.moving; frame++) bank.step(1 / 120);
+      expect(bank.moving).toBe(false);
+      expect(bank.value[2]).toBe(150);
+      expect(bank.value[0]).toBe(150);
+    });
+
+    it('comes to rest when it is sent past a wall', () => {
+      const bank = walled();
+      bank.aim(1, 500, 170, 18);
+      for (let frame = 0; frame < 600 && bank.moving; frame++) bank.step(1 / 120);
+      expect(bank.moving).toBe(false);
+      expect(bank.value[1]).toBeCloseTo(160, 6);
+    });
+
+    it('moves exactly as without walls while it touches none', () => {
+      const free = new SpringBank(4);
+      const bank = walled();
+      for (const each of [free, bank]) {
+        [50, 100, 40, 40].forEach((value, index) => {
+          each.jump(index, value);
+        });
+        each.aim(0, 150, 170, 18);
+        each.aim(3, 60, 170, 18);
+        for (let frame = 0; frame < 40; frame++) each.step(1 / 90);
+      }
+      expect(Array.from(bank.value)).toEqual(Array.from(free.value));
+    });
+
+    it('gives the same path however the time is cut into frames', () => {
+      const slow = walled();
+      const fast = walled();
+      slow.aim(0, 250, 300, 6);
+      fast.aim(0, 250, 300, 6);
+      for (let frame = 0; frame < 30; frame++) slow.step(1 / 60);
+      for (let frame = 0; frame < 60; frame++) fast.step(1 / 120);
+      expect(fast.value[0]).toBeCloseTo(slow.value[0] ?? 0, 9);
+    });
   });
 });

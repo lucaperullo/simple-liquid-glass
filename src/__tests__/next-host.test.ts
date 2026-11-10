@@ -217,6 +217,38 @@ describe('next: host', () => {
     host.destroy();
   });
 
+  it('sends walls with the shapes changed in the same task, as of the same moment', async () => {
+    installWorkerBrowser();
+    const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });
+    await tick();
+    const worker = FakeWorker.last!;
+    worker.says({ type: 'ready', frames: true });
+    await host.ready;
+    const layer = host.addLayer(fakeCanvas(), { scale: 1 });
+    const shape = layer.addShape({ x: 0, y: 0, width: 10, height: 10, radius: 2 });
+    await tick();
+    worker.sent.length = 0;
+
+    shape.set({ y: 30 });
+    const before = performance.timeOrigin + performance.now();
+    layer.setBounds({ left: 0, top: 0, width: 100, height: 80 });
+    await tick();
+    layer.setBounds(null);
+    await tick();
+
+    const messages = worker.sent.map(({ message }) => message);
+    expect(messages.map((message) => message.type)).toEqual(['layer-bounds', 'shapes-set', 'layer-bounds']);
+    const [walls, moved, none] = messages;
+    if (walls?.type !== 'layer-bounds' || moved?.type !== 'shapes-set' || none?.type !== 'layer-bounds') {
+      throw new Error('expected walls, shapes, walls');
+    }
+    expect(walls.bounds).toEqual({ left: 0, top: 0, width: 100, height: 80 });
+    expect(walls.time).toBeGreaterThanOrEqual(before);
+    expect(moved.time).toBe(walls.time);
+    expect(none.bounds).toBeNull();
+    host.destroy();
+  });
+
   it('starts no more layers in a worker than a worker can keep alive', async () => {
     installWorkerBrowser();
     const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });

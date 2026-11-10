@@ -176,6 +176,16 @@ export type HostMessage =
       readonly fixed: boolean;
       readonly scale: number;
     }
+  /**
+   * Walls the layer's shapes may not pass while they move, in CSS px from the canvas's top-left corner, as of
+   * `time` (the clock of `shapes-set`). Null: none.
+   */
+  | {
+      readonly type: 'layer-bounds';
+      readonly layer: number;
+      readonly bounds: Rect | null;
+      readonly time: number;
+    }
   | { readonly type: 'material-define'; readonly material: MaterialSpec }
   | {
       readonly type: 'layer-material';

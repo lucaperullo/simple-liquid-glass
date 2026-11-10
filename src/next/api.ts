@@ -103,6 +103,13 @@ export interface GlassLayer {
   streamBackdrop(video: HTMLVideoElement, options?: BackdropOptions): () => void;
   /** Changes some of the material's uniforms. Throws on a name the material does not declare. */
   setParams(params: Readonly<Record<string, UniformValue>>): void;
+  /**
+   * Walls the layer's shapes may not pass while they move: a rectangle in CSS pixels from the canvas's
+   * top-left corner, or null for none. A spring that would carry a shape through one stops it there, and a
+   * shape wider or taller than the room is held to the room's size. Content given to a shape keeps to the
+   * same walls. Aim shapes inside them: one sent past a wall stops at it.
+   */
+  setBounds(bounds: Rect | null): void;
   /** Adds a rounded box, in CSS pixels from the canvas's top-left corner. At most `MAX_SHAPES` per layer. */
   addShape(box: ShapeBox, options?: GlassShapeOptions): GlassShape;
   /** Re-reads the canvas's box. Call it when the canvas is resized or moved by anything but a scroll. */

@@ -173,4 +173,25 @@ describe('next: content that follows a shape', () => {
       expect(content.played[0]?.cancelled).toBe(true);
     });
   });
+
+  describe('with walls', () => {
+    it('stops at the wall the shape stops at, and plans its path again when the walls move', () => {
+      const { element, played } = fakeElement();
+      const follower = new ContentFollower(element);
+      follower.bound({ left: 0, top: 0, width: 400, height: 300 }, origin + 500);
+      follower.moveTo(at(0, 0), origin + 1000, null, 0);
+      // Loose enough to overshoot 200 px of travel by more than the room left below it.
+      follower.moveTo(at(0, 190), origin + 2000, { stiffness: 300, damping: 6 }, 0);
+      const lowest = Math.max(...(played[0]?.keyframes ?? []).map(yOf));
+      expect(lowest).toBeCloseTo(200, 2);
+      expect(yOf(played[0]?.keyframes.at(-1))).toBe(190);
+
+      // The room gets 50 px shorter a moment later: the rest of the way is planned again, inside it.
+      follower.bound({ left: 0, top: 0, width: 400, height: 250 }, origin + 2050);
+      expect(played).toHaveLength(2);
+      expect(played[0]?.cancelled).toBe(true);
+      expect(played[1]?.startTime).toBeCloseTo(2050, 6);
+      expect(Math.max(...(played[1]?.keyframes ?? []).map(yOf))).toBeLessThanOrEqual(150.001);
+    });
+  });
 });

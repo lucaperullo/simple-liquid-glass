@@ -28,6 +28,8 @@
     resumed.
   - **Moving a backdrop.** `layer.moveBackdrop({ rect, fixed })` says where the picture already given is now,
     without sending it again, for a backdrop element that moves or grows while its picture stays the same.
+  - **Walls.** `layer.setBounds(rect)` gives a layer walls its shapes may not pass while they move: a spring that
+    would carry a shape through one stops it there, and content given to the shape keeps to the same walls.
   - **Four layers in a worker.** Browsers keep four WebGL contexts alive per worker and silently drop the oldest
     for a fifth. A fifth worker layer now comes back `'unsupported'` with its canvas untouched
     (`MAX_WORKER_LAYERS`), instead of blanking an earlier one.

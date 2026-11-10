@@ -3,6 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import babel from '@rollup/plugin-babel';
 import terser from '@rollup/plugin-terser';
 import peerDepsExternal from 'rollup-plugin-peer-deps-external';
+import { rollup } from 'rollup';
 
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -22,6 +23,23 @@ const jsPlugins = () => [
   }),
   terser({compress:{passes:2}})
 ];
+
+// The 6.0 worker (./next). src/next/workerSource.ts is replaced by the bundled worker as text, so the
+// entry can start it from a Blob URL with nothing for the consumer's bundler or server to find. The same
+// text is also written to dist/next-worker.js for sites whose Content-Security-Policy forbids blob:
+// workers and host the file themselves.
+const nextWorkerSource = () => ({
+  name: 'next-worker-source',
+  async load(id) {
+    if (!id.replace(/\\/g, '/').endsWith('/src/next/workerSource.ts')) return null;
+    const bundle = await rollup({ input: 'src/next/worker.ts', plugins: jsPlugins() });
+    const { output } = await bundle.generate({ format: 'iife' });
+    await bundle.close();
+    const code = output[0].code;
+    this.emitFile({ type: 'asset', fileName: 'next-worker.js', source: code });
+    return `export const WORKER_SOURCE = ${JSON.stringify(code)};`;
+  }
+});
 
 export default [
   {
@@ -101,6 +119,15 @@ export default [
       { dir: 'dist', entryFileNames: 'engine.cjs', chunkFileNames: 'engine-[name].cjs', format: 'cjs', sourcemap: true, exports: 'named' }
     ],
     plugins: jsPlugins()
+  },
+  // @experimental 6.0 renderer core (./next) — scene as data, drawn from a worker. No React import.
+  {
+    input: 'src/next/index.ts',
+    output: [
+      { file: 'dist/next.esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { file: 'dist/next.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: [nextWorkerSource(), ...jsPlugins()]
   }
   // Public types are generated from source and bundled by rollup.types.config.js.
 ];

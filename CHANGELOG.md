@@ -1,5 +1,30 @@
 ## Unreleased
 
+- **`simple-liquid-glass/next`** (new, experimental): the first slice of the 6.0 renderer core. `createGlassHost()`
+  takes a scene as data (layers, rounded-box shapes, a material and a backdrop picture per layer) and a renderer
+  draws it: from a worker on canvases handed over with `transferControlToOffscreen` where the browser supports
+  WebGL there, on the page thread otherwise, with the same code and the same picture. Springs run on the
+  renderer's clock in fixed sub-steps, so motion is the same at 60 and 120 Hz and does not wait for the page
+  thread. Each layer canvas has its own WebGL context and is drawn only when something in it changed; a scene at
+  rest requests no frames. The worker ships inside the entry and starts from a Blob URL; `workerUrl` (with
+  `simple-liquid-glass/next/worker`) covers sites that forbid `blob:` workers. No 5.x entry point changes.
+  - **Materials.** A material is GLSL defining `slg_shade` (and optionally `slg_combine`, how two shapes' fields
+    become one) plus its uniforms; `host.defineMaterial()` adds one, `layer.setParams()` changes its uniforms, and
+    `lean: true` compiles a cheaper variant (`SLG_LEAN`). The built-in `glass` (`GLASS_MATERIAL`) is defined the
+    same way, with a dark tuning (default) and `GLASS_LIGHT`. The engine shades two triangles around each shape
+    and clears the rest: on a 120 Hz Android phone at 3× resolution that holds 116–118 fps where shading the whole
+    canvas gives 88–91.
+  - **Scroll.** A layer and its backdrop are each placed in the document (default) or in the viewport
+    (`fixed: true`). When the two move against each other (a fixed bar over a scrolling page), the host reports
+    the window's scroll position once per page frame and the renderer predicts it in between, so the glass is
+    redrawn at the display's rate. On a 120 Hz Android phone the glass stays within 1–3 device px of the page from
+    the worker, against 9–36 px behind when drawn on the page thread. `scrollLead` shifts the prediction.
+  - **Changing backdrops.** `setBackdrop()` takes an `ImageBitmap` or a `VideoFrame` and refills the layer's one
+    texture; `streamBackdrop(video)` follows a playing video frame by frame without copying. A 720p 60 fps video
+    behind animating glass is presented at 118–120 fps on the same phone.
+- New code under `src/next` is linted (ESLint, `typescript-eslint` strict, type-checked) and formatted
+  (Prettier) in CI, and compiled with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
+
 - **Android refracts by default.** `renderer="auto"` now uses WebGL on Android Chromium, as it already did on iOS,
   instead of the CSS blur that did not refract. Glass with a `backdropRef`, `backdropSelector` or `LiquidGlassScene`
   bends its backdrop; without a source it keeps the same frosted CSS as before. On a low-end Android phone (ZTE

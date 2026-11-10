@@ -66,6 +66,9 @@ Desktop.ini
 playwright-report/
 test-results/
 
+# The built entry, copied in to serve the 6.0 demo from a plain static server
+experiments/next-core/lib/
+
 # Local brainstorming and verification scratch
 .superpowers/
 verify/

@@ -640,6 +640,39 @@ view, so `ctx.draw(rects)` can never reach further than that — `bleed` is how 
 no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for
 the full list, every `slg_*` prelude function, and an MIT example material at `tests/engine/tint-material.ts`.
 
+## Experimental: `simple-liquid-glass/next`
+
+The renderer core of the coming 6.0, to try out. The page describes a scene as data; a renderer draws it from a
+worker when the browser can (and on the page thread otherwise), and animates it with springs on its own clock, so
+glass keeps the display's full frame rate where the page's own frames are capped or busy. Everything in this entry
+may change before 6.0, and it does not replace any 5.x API yet.
+
+```ts
+import { createGlassHost } from 'simple-liquid-glass/next';
+
+const host = createGlassHost();                       // { thread: 'page' } keeps it off a worker
+const layer = host.addLayer(canvas, { scale: 2 });    // the canvas's box is the layer; size it with CSS
+layer.setBackdrop(await createImageBitmap(picture));  // what the glass bends; covers the viewport by default
+// layer.streamBackdrop(video);                       // ...or a playing video, frame by frame
+const card = layer.addShape({ x: 16, y: 16, width: 240, height: 120, radius: 22 });
+card.set({ height: 320 });                            // animated by a spring, in the renderer
+```
+
+`layer.status` (or `onStatus`) says when a canvas cannot show glass (`'unsupported'`): keep a CSS fallback for
+that case. A site whose Content-Security-Policy forbids `blob:` workers hosts `simple-liquid-glass/next/worker`
+itself and passes its address as `workerUrl`.
+
+A layer and its backdrop each either move with the document (the default) or stay put in the viewport
+(`fixed: true`). Glass fixed over a scrolling page follows the window's scroll by itself: the page thread reports
+the position once per frame and the renderer carries it forward, so the glass is redrawn for every frame of the
+display.
+
+What glass looks like is a material: GLSL that shades one pixel, plus the uniforms it reads. The built-in `glass`
+has a dark tuning (its defaults) and a light one (`params: GLASS_LIGHT`); `layer.setParams()` changes any of its
+uniforms, and `lean: true` compiles its cheaper variant. `host.defineMaterial()` adds your own, or one derived
+from `GLASS_MATERIAL`. The engine shades only a rectangle around each shape, so empty canvas costs nothing. So far
+shapes are rounded boxes, and a layer holds up to 16.
+
 ## License
 
 MIT © [lucaperullo]

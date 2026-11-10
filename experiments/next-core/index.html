@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>6.0 engine core: simple-liquid-glass/next</title>
+<style>
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    background: #0b0d12;
+    color: #dfe6f0;
+    font:
+      12px/1.4 ui-monospace,
+      monospace;
+    overflow: hidden;
+  }
+  #backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+  #stage {
+    position: fixed;
+    left: 6px;
+    top: 8px;
+    right: 6px;
+    bottom: 56px;
+    display: flex;
+    flex-direction: column;
+  }
+  #stage canvas {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    display: block;
+  }
+  #hud {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    white-space: pre;
+  }
+</style>
+<canvas id="backdrop"></canvas>
+<div id="stage"></div>
+<div id="hud">starting…</div>
+<script type="module" src="./main.js"></script>

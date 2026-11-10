@@ -45,7 +45,11 @@ export interface GlassLayerOptions extends Placement {
   readonly params?: Readonly<Record<string, UniformValue>>;
   /** Compile the material's cheaper variant (for `glass`: no dispersion). Default `false`. */
   readonly lean?: boolean;
-  /** Called when the layer starts drawing, loses or regains its context, or turns out to be unsupported. */
+  /**
+   * Called when the layer starts drawing, loses or regains its context, or turns out to be unsupported. In
+   * `simple-liquid-glass/next/stack` also with `'drawing'` each time a material has been compiled for it (the
+   * detail names it): its glass shows from then, which can be a moment after the layer was made.
+   */
   readonly onStatus?: (status: LayerStatus, detail: string) => void;
 }
 

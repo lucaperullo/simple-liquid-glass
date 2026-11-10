@@ -390,6 +390,7 @@ export class GlassLayer {
         return null;
       }
       this.programs.set(key, program);
+      if (STACKING) this.events.status('drawing', key); // (its glass shows from this frame: a material takes a while to compile)
     }
     gl.useProgram(program.handle);
     gl.uniform1i(program.uniforms.uBackdrop, 0);

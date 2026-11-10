@@ -81,9 +81,19 @@ for (const [name, launch] of Object.entries(launchers)) {
     await rest();
     whole(await pixels(), 'at first');
     const statuses = await page.evaluate(() => window.__stack.statuses);
+    // Each layer says it is drawing when it is made, and again once its material is compiled and its glass shows.
     assert.deepEqual(
-      statuses,
-      ['base: drawing', 'probe: drawing', 'blue: drawing', 'shows: drawing'],
+      [...statuses].sort(),
+      [
+        'base: drawing',
+        'base: drawing solid/4/full',
+        'blue: drawing',
+        'blue: drawing solid/4/full',
+        'probe: drawing',
+        'probe: drawing probe/4/full',
+        'shows: drawing',
+        'shows: drawing shows/4/full',
+      ],
       `${name} ${mode}: statuses`,
     );
     // A stacked layer with no backdrop of its own draws with its base's; given one, with that.

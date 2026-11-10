@@ -72,6 +72,7 @@ uniform float uRadius[${capacity}];
 uniform float uTime;    // seconds since the layer was made
 ${attributes}
 #define slg_time uTime
+#define slg_scale uScale
 #define SLG_CAPACITY ${capacity}
 #define slg_count uCount
 #define slg_boxes uBox

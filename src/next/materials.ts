@@ -16,6 +16,7 @@
  *   four to a `vec4`: `slg_attributesA[i]` to `slg_attributesF[i]` (only the ones the material names exist in
  *   its program). GLSL ES 1.00 only lets a loop index them:
  *   `for (int i = 0; i < SLG_CAPACITY; i++) { if (i >= slg_count) break; ... }`.
+ * - `float slg_scale`: device px per CSS px in this layer, for antialiasing an edge of the material's own.
  * - `float slg_time`: seconds since the layer was made. It only moves on while the layer is running
  *   (`layer.setRunning(true)`): a layer otherwise draws when something changes, not every frame.
  * - its own textures, declared for it from `textures` as `sampler2D`s and filled by `layer.setTexture()`.

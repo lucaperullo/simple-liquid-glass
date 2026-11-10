@@ -20,6 +20,13 @@ export type BackdropFrame = ImageBitmap | VideoFrame;
 /** A canvas a renderer can draw into: the page's own, or one handed to a worker. */
 export type GlassCanvas = HTMLCanvasElement | OffscreenCanvas;
 
+/**
+ * The most layers a worker can draw. Browsers keep only four WebGL contexts alive in one worker (measured in
+ * Chromium 156 on desktop and Android and in WebKit): a fifth silently kills the oldest. The page thread's own
+ * limit is higher (8 on Android, 16 on desktop) and is left to the browser.
+ */
+export const MAX_WORKER_LAYERS = 4;
+
 /** The most shapes one layer can hold. The shader's loop bound; see `shader/glass.ts`. */
 export const MAX_SHAPES = 16;
 

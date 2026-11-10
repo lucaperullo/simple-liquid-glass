@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { createGlassHost, MAX_SHAPES, type LayerStatus } from '../next';
+import { createGlassHost, MAX_SHAPES, MAX_WORKER_LAYERS, type LayerStatus } from '../next';
 import { readShape, type HostMessage, type RendererMessage } from '../next/scene';
 
 /** As much of a canvas element as the host and a renderer without WebGL touch. */
@@ -194,6 +194,27 @@ describe('next: host', () => {
     const [moved] = worker.sent.map(({ message }) => message);
     if (moved?.type !== 'shapes-set') throw new Error('expected a shapes-set message');
     expect(readShape(moved.batch, 0)).toMatchObject({ box: { y: 30 }, spring: null });
+    host.destroy();
+  });
+
+  it('starts no more layers in a worker than a worker can keep alive', async () => {
+    installWorkerBrowser();
+    const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });
+    await tick();
+    FakeWorker.last!.says({ type: 'ready', frames: true });
+    await host.ready;
+    const canvases = Array.from({ length: MAX_WORKER_LAYERS + 1 }, fakeCanvas);
+    const layers = canvases.map((canvas) => host.addLayer(canvas, { scale: 1 }));
+    const extra = layers.at(-1)!;
+    expect(extra.status).toBe('unsupported');
+    expect(canvases.at(-1)!.transferred).toBe(0);
+    expect(canvases.slice(0, -1).map((canvas) => canvas.transferred)).toEqual([1, 1, 1, 1]);
+
+    // A removed layer makes room for another.
+    layers[0]!.remove();
+    const replacement = fakeCanvas();
+    host.addLayer(replacement, { scale: 1 });
+    expect(replacement.transferred).toBe(1);
     host.destroy();
   });
 

@@ -20,6 +20,7 @@ export type { MaterialDefinition, UniformValue } from './materials';
 export {
   DEFAULT_SPRING,
   MAX_SHAPES,
+  MAX_WORKER_LAYERS,
   type BackdropFrame,
   type FrameStats,
   type LayerStatus,

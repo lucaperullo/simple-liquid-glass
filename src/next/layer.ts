@@ -337,6 +337,8 @@ export class GlassLayer {
       try {
         program = buildProgram(gl, material, capacity, lean, this);
       } catch (error) {
+        // A context lost mid-build fails the same way; that is reported, and recovered from, by its own event.
+        if (gl.isContextLost()) return null;
         this.usable = false;
         this.events.status('unsupported', error instanceof Error ? error.message : String(error));
         return null;

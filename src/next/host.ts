@@ -13,6 +13,7 @@
 import {
   DEFAULT_SPRING,
   MAX_SHAPES,
+  MAX_WORKER_LAYERS,
   createShapeBatch,
   writeShape,
   type BackdropFrame,
@@ -86,6 +87,8 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
   let destroyed = false;
   let nextId = 1;
   let flushScheduled = false;
+  /** The layers whose canvases a worker holds. */
+  const workerLayers = new Set<number>();
   /** Every material layers can name, with its uniforms' default values. The renderer has `glass` built in too. */
   const materials = new Map<string, { spec: MaterialSpec; defaults: Float32Array }>();
   const glass = specOf(GLASS_MATERIAL);
@@ -245,6 +248,11 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       };
       layers.set(layer.id, layer);
       run((to) => {
+        if (to.thread === 'worker' && workerLayers.size >= MAX_WORKER_LAYERS) {
+          // Handing it over would cost an earlier layer its context. The canvas stays the application's.
+          setStatus(layer, 'unsupported', `A worker draws at most ${MAX_WORKER_LAYERS} layers`);
+          return;
+        }
         let target;
         try {
           target = to.canvas(canvas);
@@ -264,6 +272,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
           params,
           lean,
         });
+        if (to.thread === 'worker') workerLayers.add(layer.id);
       });
 
       return {
@@ -296,6 +305,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
         },
         remove() {
           if (!layers.delete(layer.id)) return;
+          workerLayers.delete(layer.id);
           for (const stop of streams) stop();
           layer.shapes.clear();
           layer.changed.clear();

@@ -18,6 +18,9 @@
     the material as two `vec4`s, and a material may define the whole field itself (`field`) instead of a pairwise
     `combine`. A layer draws before it has a backdrop (`slg_hasBackdrop()`); the built-in glass stays invisible
     until then.
+  - **Four layers in a worker.** Browsers keep four WebGL contexts alive per worker and silently drop the oldest
+    for a fifth. A fifth worker layer now comes back `'unsupported'` with its canvas untouched
+    (`MAX_WORKER_LAYERS`), instead of blanking an earlier one.
   - **Scroll.** A layer and its backdrop are each placed in the document (default) or in the viewport
     (`fixed: true`). When the two move against each other (a fixed bar over a scrolling page), the host reports
     the window's scroll position once per page frame and the renderer predicts it in between, so the glass is

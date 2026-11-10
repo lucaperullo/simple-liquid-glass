@@ -91,7 +91,8 @@ export interface GlassHost {
   /** Resolves with the thread once the renderer has started. Calls made before that are queued. */
   readonly ready: Promise<Thread>;
   /**
-   * Makes `canvas` a layer covering its own box. The canvas must not have a context yet. In a worker it is
+   * Makes `canvas` a layer covering its own box. A worker draws at most `MAX_WORKER_LAYERS` layers: one more
+   * comes back `'unsupported'` with its canvas untouched, so let several pieces of glass share a layer. The canvas must not have a context yet. In a worker it is
    * handed over for good: size it with CSS, not its `width` and `height`.
    */
   addLayer(canvas: HTMLCanvasElement, options?: GlassLayerOptions): GlassLayer;

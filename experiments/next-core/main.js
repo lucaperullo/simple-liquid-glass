@@ -158,7 +158,9 @@ if (custom === 'field') {
   });
 }
 // For `field`: the first card red (in its first four attributes), the others blue (in its last four).
-const attributesOf = (index) => (index === 0 ? [1, 0, 0] : [0, 0, 0, 0, 0, 0, 1]);
+// (A bench outside this repository can say what its material's shapes carry: `window.__benchAttributes`.)
+const attributesOf =
+  window.__benchAttributes ?? ((index) => (index === 0 ? [1, 0, 0] : [0, 0, 0, 0, 0, 0, 1]));
 
 // `&material=<id>`: one of the materials a page put in `window.__benchMaterials` before this script ran, for
 // benches that live outside this repository.

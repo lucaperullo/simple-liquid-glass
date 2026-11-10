@@ -11,7 +11,7 @@ committed):
 
     npm run build && mkdir -p experiments/next-core/lib && cp dist/next.esm.js experiments/next-core/lib/
     python3 experiments/next-core/phone.py experiments/next-core --runs 3 \
-      --configs "mode=main&scale=1.5" "mode=worker&scale=1.5" "mode=worker&scale=2" "mode=worker&scale=1.5&views=6"
+      --configs "mode=main&scale=1.5" "mode=worker&scale=1.5" "mode=worker&scale=2" "mode=worker&scale=1.5&views=4"
 
 `phone.py` needs `websocket-client`, one authorised adb device with Chrome in front, and a screen bright
 enough for its top refresh rate. The query parameters are listed at the top of `main.js`. `golden/` holds the
@@ -25,20 +25,28 @@ material; the frame rates were measured again with the current one (see "Materia
 Tapped every 0.35 s, 3 runs × 6 s each, display at 120 Hz. "Presented" is what SurfaceFlinger showed for
 Chrome's surface. Raw rows: `results-zte-2026-11-10.jsonl`.
 
-| Where it draws                   | Canvas           | Glass fps   | Presented fps | Page's own frames |
-| -------------------------------- | ---------------- | ----------- | ------------- | ----------------- |
-| page thread                      | 1.5× (522 × 955) | 61.1        | 61.0–61.2     | 61.1              |
-| worker                           | 1× (348 × 637)   | 120         | 119.1–120     | 61.2              |
-| worker                           | 1.5× (522 × 955) | 120         | 118.1–120     | 61.2              |
-| worker                           | 2× (696 × 1273)  | 119.4–120   | 118.1–118.2   | 61.1–61.2         |
-| worker, 6 layers of 2 cards      | 1.5×             | 116.4–117.9 | 105.0–107.3   | 60.7–60.9         |
-| worker, 6 layers of 2 cards      | 2×               | 116.3–116.7 | 107.3–112.9   | 60.9–61.1         |
-| page thread, 6 layers of 2 cards | 1.5×             | 58.2–59.3   | 59.1–59.8     | 58.2–59.3         |
+| Where it draws | Canvas           | Glass fps | Presented fps | Page's own frames |
+| -------------- | ---------------- | --------- | ------------- | ----------------- |
+| page thread    | 1.5× (522 × 955) | 61.1      | 61.0–61.2     | 61.1              |
+| worker         | 1× (348 × 637)   | 120       | 119.1–120     | 61.2              |
+| worker         | 1.5× (522 × 955) | 120       | 118.1–120     | 61.2              |
+| worker         | 2× (696 × 1273)  | 119.4–120 | 118.1–118.2   | 61.1–61.2         |
 
-One layer holds the display's rate (≥ 115 fps presented at 1.5× and at 2×). Six layers moving at once are
-presented at 105–113: a canvas costs frames at presentation
-however little is drawn in it, so a page should use few layers. Stepping the springs and issuing the draw
-calls takes 0.11 ms a frame for one layer and 0.17 ms for six. Battery temperature was 21.7–22.5 °C.
+One layer holds the display's rate (≥ 115 fps presented at 1.5× and at 2×).
+
+**Correction.** This table first had rows for "6 layers": 105–113 fps presented. They were wrong about what
+they measured. A worker keeps only four WebGL contexts alive, so two of the six canvases had lost theirs and
+were blank. The engine now refuses a fifth worker layer (`MAX_WORKER_LAYERS`), and the rows were measured
+again with four (raw rows: `results-zte-layers-2026-11-10.jsonl`):
+
+| Where it draws              | Canvas | Glass fps   | Presented fps |
+| --------------------------- | ------ | ----------- | ------------- |
+| worker, 4 layers of 2 cards | 1.5×   | 117.9–118.3 | 108.7–112.0   |
+| worker, 4 layers of 2 cards | 2×     | 117.3–117.7 | 108.0–108.8   |
+
+Four layers moving at once fall short of one layer's 118–120: a canvas costs frames at presentation however
+little is drawn in it, so a page should use few layers. Stepping the springs and issuing the draw calls takes
+0.11 ms a frame for one layer. Battery temperature was 21.7–26 °C.
 
 ## Scroll and video backdrops: ZTE Z2357N, Chrome 156, 2026-11-10
 

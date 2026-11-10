@@ -81,7 +81,10 @@ export interface GlassStats extends FrameStats {
 export interface GlassShape {
   /** Moves the shape to a new box: animated by its spring, or at once with `{ jump: true }`. */
   set(box: Partial<ShapeBox>, options?: { readonly jump?: boolean }): void;
-  /** Changes the shape's attributes, from the first: animated by its spring, or at once with `{ jump: true }`. */
+  /**
+   * Changes the shape's attributes, from the first: animated by its spring, or at once with `{ jump: true }`,
+   * which leaves the box to its spring (values a page works out each frame, on a shape the engine moves).
+   */
   setAttributes(values: readonly number[], options?: { readonly jump?: boolean }): void;
   remove(): void;
 }

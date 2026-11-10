@@ -197,6 +197,40 @@ describe('next: host', () => {
     host.destroy();
   });
 
+  it("jumps a shape's attributes and leaves its box to its spring, and the other way round", async () => {
+    installWorkerBrowser();
+    const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });
+    await tick();
+    const worker = FakeWorker.last!;
+    worker.says({ type: 'ready', frames: true });
+    await host.ready;
+    const layer = host.addLayer(fakeCanvas(), { scale: 1 });
+    const shape = layer.addShape(
+      { x: 0, y: 0, width: 10, height: 10, radius: 2 },
+      { spring: { stiffness: 300, damping: 20 } },
+    );
+    await tick();
+    const springs = async (): Promise<number[]> => {
+      worker.sent.length = 0;
+      await tick();
+      const [moved] = worker.sent.map(({ message }) => message);
+      if (moved?.type !== 'shapes-set') throw new Error('expected a shapes-set message');
+      return Array.from(moved.batch.springs);
+    };
+
+    // The box's stiffness, the damping, the attributes' stiffness.
+    shape.set({ x: 40 });
+    shape.setAttributes([1, 2], { jump: true });
+    expect(await springs()).toEqual([300, 20, 0]);
+    shape.set({ x: 80 }, { jump: true });
+    shape.setAttributes([3]);
+    expect(await springs()).toEqual([0, 20, 300]);
+    // Neither is left jumping for the next change.
+    shape.set({ x: 0 });
+    expect(await springs()).toEqual([300, 20, 300]);
+    host.destroy();
+  });
+
   it('moves a backdrop without sending its picture again', async () => {
     installWorkerBrowser();
     const host = createGlassHost({ workerUrl: 'https://example.test/next-worker.js' });

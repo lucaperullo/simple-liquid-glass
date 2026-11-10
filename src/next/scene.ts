@@ -42,8 +42,8 @@ export const SHAPE_ATTRIBUTES = 24;
 /** Values per shape on the wire: its box, then its attributes. */
 export const SHAPE_STRIDE = SHAPE_BOX + SHAPE_ATTRIBUTES;
 
-/** Values per shape in `ShapeBatch.springs`: stiffness, damping. */
-export const SPRING_STRIDE = 2;
+/** Values per shape in `ShapeBatch.springs`: the box's stiffness, damping, the attributes' stiffness. */
+export const SPRING_STRIDE = 3;
 
 /** A rounded box, in CSS pixels from the top-left corner of its layer. */
 export interface ShapeBox {
@@ -83,7 +83,10 @@ export function createShapeBatch(count: number): ShapeBatch {
   };
 }
 
-/** Writes shape `index` of a batch. Missing attributes are 0. `spring: null` sets the shape directly. */
+/**
+ * Writes shape `index` of a batch. Missing attributes are 0. `spring: null` sets the box directly, and
+ * `attributeSpring: null` the attributes.
+ */
 export function writeShape(
   batch: ShapeBatch,
   index: number,
@@ -91,6 +94,7 @@ export function writeShape(
   box: Readonly<ShapeBox>,
   attributes: ArrayLike<number>,
   spring: SpringConfig | null,
+  attributeSpring: SpringConfig | null = spring,
 ): void {
   const halfWidth = box.width / 2;
   const halfHeight = box.height / 2;
@@ -100,7 +104,10 @@ export function writeShape(
     index * SHAPE_STRIDE,
   );
   batch.values.set(Array.from(attributes).slice(0, SHAPE_ATTRIBUTES), index * SHAPE_STRIDE + SHAPE_BOX);
-  batch.springs.set([spring?.stiffness ?? 0, spring?.damping ?? 0], index * SPRING_STRIDE);
+  batch.springs.set(
+    [spring?.stiffness ?? 0, (spring ?? attributeSpring)?.damping ?? 0, attributeSpring?.stiffness ?? 0],
+    index * SPRING_STRIDE,
+  );
 }
 
 /** Reads shape `index` of a batch back: the inverse of `writeShape`, to single precision. */

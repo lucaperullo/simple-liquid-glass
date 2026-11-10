@@ -47,6 +47,7 @@ interface ShapeRecord {
   readonly spring: SpringConfig | null;
   readonly content: ContentFollower | null;
   jump: boolean;
+  jumpAttributes: boolean;
 }
 
 interface LayerRecord {
@@ -143,9 +144,10 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       let index = 0;
       for (const shape of layer.changed) {
         const spring = shape.jump ? null : shape.spring;
-        writeShape(batch, index++, shape.id, shape.box, shape.attributes, spring);
+        const loose = shape.jumpAttributes ? null : shape.spring;
+        writeShape(batch, index++, shape.id, shape.box, shape.attributes, spring, loose);
         shape.content?.moveTo(shape.box, time, reducedMotion() ? null : spring, contentLead);
-        shape.jump = false;
+        shape.jump = shape.jumpAttributes = false;
       }
       layer.changed.clear();
       post({ type: 'shapes-set', layer: layer.id, batch, time });
@@ -202,6 +204,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
         : null,
       spring,
       jump: false,
+      jumpAttributes: false,
     };
     if (layer.bounds) shape.content?.bound(layer.bounds, performance.timeOrigin + performance.now(), false);
     layer.shapes.add(shape);
@@ -218,7 +221,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       setAttributes(values, setOptions) {
         if (!layer.shapes.has(shape)) return;
         values.forEach((value, index) => (shape.attributes[index] = value));
-        if (setOptions?.jump === true) shape.jump = true;
+        if (setOptions?.jump === true) shape.jumpAttributes = true;
         layer.changed.add(shape);
         scheduleFlush();
       },

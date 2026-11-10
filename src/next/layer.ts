@@ -175,15 +175,12 @@ export class GlassLayer {
         slot = this.count++;
         this.ids[slot] = id;
       }
-      const stiffness = isNew || reducedMotion ? 0 : (batch.springs[i * SPRING_STRIDE] ?? 0);
-      const damping = batch.springs[i * SPRING_STRIDE + 1] ?? 0;
+      // The box's stiffness, the damping, the attributes' stiffness: either can be 0, to go there at once.
+      const [box = 0, damping = 0, rest = 0] =
+        isNew || reducedMotion ? [] : batch.springs.subarray(i * SPRING_STRIDE);
       for (let k = 0; k < SHAPE_STRIDE; k++) {
-        this.springs.aim(
-          slot * SHAPE_STRIDE + k,
-          batch.values[i * SHAPE_STRIDE + k] ?? 0,
-          stiffness,
-          damping,
-        );
+        const to = batch.values[i * SHAPE_STRIDE + k] ?? 0;
+        this.springs.aim(slot * SHAPE_STRIDE + k, to, k < SHAPE_BOX ? box : rest, damping);
       }
     }
     this.dirty = true;

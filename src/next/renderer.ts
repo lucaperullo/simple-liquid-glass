@@ -1,8 +1,10 @@
 import { GlassLayer } from './layer';
 import { specOf, type MaterialSpec } from './materials';
-import type { HostMessage, RendererMessage } from './scene';
+import type { HostMessage, LayerStatus, RendererMessage } from './scene';
 import { ScrollTracker } from './scroll';
 import { GLASS_MATERIAL } from './shader';
+import { stackOf } from './stacked';
+import { STACKING } from './stacking';
 import { FrameMeter } from './stats';
 
 /** What a renderer needs from the thread it runs on. */
@@ -61,14 +63,28 @@ export function createRenderer(env: RendererEnv): Renderer {
     drawnY = scroll.y;
     let drew = false;
     let moving = false;
-    for (const layer of order) {
-      const changed = layer.springs.advanceTo(now + env.origin);
-      if (changed || layer.dirty || layer.running || (scrolled && layer.followsScroll)) {
-        layer.draw(scroll.x, scroll.y, now + env.origin);
-        drew = true;
+    if (STACKING) {
+      // A canvas is drawn whole: its layer, then those stacked over it, whenever any of them changed.
+      for (const base of order) {
+        const all = [base, ...stackOf(base).members];
+        let due = false;
+        for (const layer of all) {
+          const changed = layer.springs.advanceTo(now + env.origin);
+          if (changed || layer.dirty || layer.running || (scrolled && layer.followsScroll)) due = true;
+          if (layer.springs.moving || layer.running || (scrolling && layer.followsScroll)) moving = true;
+        }
+        if (due) for (const layer of all) layer.draw(scroll.x, scroll.y, now + env.origin);
+        drew ||= due;
       }
-      if (layer.springs.moving || layer.running || (scrolling && layer.followsScroll)) moving = true;
-    }
+    } else
+      for (const layer of order) {
+        const changed = layer.springs.advanceTo(now + env.origin);
+        if (changed || layer.dirty || layer.running || (scrolled && layer.followsScroll)) {
+          layer.draw(scroll.x, scroll.y, now + env.origin);
+          drew = true;
+        }
+        if (layer.springs.moving || layer.running || (scrolling && layer.followsScroll)) moving = true;
+      }
     if (drew) {
       meter.record(now - drawnAt < REST_GAP ? now - drawnAt : 0, env.now() - started);
       drawnAt = now;
@@ -79,9 +95,19 @@ export function createRenderer(env: RendererEnv): Renderer {
   const remove = (id: number): void => {
     const layer = layers.get(id);
     if (!layer) return;
+    if (STACKING) {
+      // Its canvas is drawn again without it.
+      const base = stackOf(layer).base;
+      if (base) base.dirty = true;
+      // The layers stacked over it go with its canvas.
+      for (const member of [...stackOf(layer).members]) {
+        member.dispose();
+        for (const [other, each] of layers) if (each === member) layers.delete(other);
+      }
+    }
     layer.dispose();
     layers.delete(id);
-    order.splice(order.indexOf(layer), 1);
+    if (!STACKING || order.includes(layer)) order.splice(order.indexOf(layer), 1);
   };
 
   return {
@@ -95,19 +121,57 @@ export function createRenderer(env: RendererEnv): Renderer {
             env.post({ type: 'layer-status', layer: id, status: 'unsupported', detail: 'Unknown material' });
             break;
           }
-          const layer = new GlassLayer(canvas, view, fixed, scale, material, params, lean, {
-            status: (status, detail) => {
+          const events = {
+            status: (status: Exclude<LayerStatus, 'pending'>, detail: string): void => {
               env.post({ type: 'layer-status', layer: id, status, detail });
             },
             wake,
-          });
+          };
+          if (STACKING && !canvas) {
+            // A layer drawn into the canvas of the one it is stacked over.
+            const over = layers.get(message.over ?? 0);
+            const base = over && (stackOf(over).base ?? over);
+            if (base) {
+              layers.set(
+                id,
+                new GlassLayer(base.canvas, view, fixed, scale, material, params, lean, events, base),
+              );
+            }
+            break;
+          }
+          const layer = new GlassLayer(
+            // (Only a stacked layer comes without a canvas.)
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            canvas!,
+            view,
+            fixed,
+            scale,
+            material,
+            params,
+            lean,
+            events,
+          );
           layers.set(id, layer);
           order.push(layer);
           break;
         }
-        case 'layer-view':
-          layers.get(message.layer)?.setView(message.view, message.fixed, message.scale);
+        case 'layer-view': {
+          const layer = layers.get(message.layer);
+          layer?.setView(message.view, message.fixed, message.scale);
+          // The layers stacked over it are in the same canvas.
+          if (STACKING && layer)
+            for (const member of stackOf(layer).members)
+              member.setView(message.view, message.fixed, message.scale);
           break;
+        }
+        case 'layer-clip': {
+          const layer = STACKING && layers.get(message.layer);
+          if (layer) {
+            stackOf(layer).clip = message.clip;
+            layer.dirty = true;
+          }
+          break;
+        }
         case 'layer-texture': {
           const layer = layers.get(message.layer);
           if (layer) layer.setTexture(message.name, message.frame);
@@ -155,10 +219,10 @@ export function createRenderer(env: RendererEnv): Renderer {
         }
         case 'motion':
           reducedMotion = message.reduced;
-          if (reducedMotion) settle(order);
+          if (reducedMotion) settle(STACKING ? [...layers.values()] : order);
           break;
         case 'settle':
-          settle(order);
+          settle(STACKING ? [...layers.values()] : order);
           break;
         case 'stats':
           env.post({ type: 'stats', request: message.request, stats: meter.read() });

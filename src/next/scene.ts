@@ -165,7 +165,9 @@ export type HostMessage =
   | {
       readonly type: 'layer-add';
       readonly layer: number;
-      readonly canvas: GlassCanvas;
+      /** Null for a layer stacked `over` another (see stacking.ts): it draws into that layer's canvas. */
+      readonly canvas: GlassCanvas | null;
+      readonly over?: number;
       readonly view: Rect;
       readonly fixed: boolean;
       readonly scale: number;
@@ -193,6 +195,8 @@ export type HostMessage =
       readonly bounds: Rect | null;
       readonly time: number;
     }
+  /** Stacking: where a stacked layer may draw, CSS px from the canvas's top-left corner. Null: anywhere. */
+  | { readonly type: 'layer-clip'; readonly layer: number; readonly clip: Rect | null }
   | { readonly type: 'material-define'; readonly material: MaterialSpec }
   | {
       readonly type: 'layer-material';

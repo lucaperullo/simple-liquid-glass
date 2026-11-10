@@ -28,15 +28,23 @@ const jsPlugins = () => [
 // entry can start it from a Blob URL with nothing for the consumer's bundler or server to find. The same
 // text is also written to dist/next-worker.js for sites whose Content-Security-Policy forbids blob:
 // workers and host the file themselves.
-const nextWorkerSource = () => ({
+// `simple-liquid-glass/next/stack` is the same engine with src/next/stacking.ts saying `true`: layers stacked in
+// one canvas. The core (./next) is built with it `false`, and carries none of that code.
+const stackingOn = () => ({
+  name: 'next-stacking-on',
+  load(id) {
+    return id.replace(/\\/g, '/').endsWith('/src/next/stacking.ts') ? 'export const STACKING = true;' : null;
+  }
+});
+const nextWorkerSource = (stacking = false) => ({
   name: 'next-worker-source',
   async load(id) {
     if (!id.replace(/\\/g, '/').endsWith('/src/next/workerSource.ts')) return null;
-    const bundle = await rollup({ input: 'src/next/worker.ts', plugins: jsPlugins() });
+    const bundle = await rollup({ input: 'src/next/worker.ts', plugins: [...(stacking ? [stackingOn()] : []), ...jsPlugins()] });
     const { output } = await bundle.generate({ format: 'iife' });
     await bundle.close();
     const code = output[0].code;
-    this.emitFile({ type: 'asset', fileName: 'next-worker.js', source: code });
+    this.emitFile({ type: 'asset', fileName: stacking ? 'next-stack-worker.js' : 'next-worker.js', source: code });
     return `export const WORKER_SOURCE = ${JSON.stringify(code)};`;
   }
 });
@@ -128,6 +136,15 @@ export default [
       { file: 'dist/next.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
     ],
     plugins: [nextWorkerSource(), ...jsPlugins()]
+  },
+  // The same, with layers stacked in one canvas (./next/stack).
+  {
+    input: 'src/next/index.ts',
+    output: [
+      { file: 'dist/next-stack.esm.js', format: 'esm', sourcemap: true, exports: 'named' },
+      { file: 'dist/next-stack.cjs', format: 'cjs', sourcemap: true, exports: 'named' }
+    ],
+    plugins: [stackingOn(), nextWorkerSource(true), ...jsPlugins()]
   }
   // Public types are generated from source and bundled by rollup.types.config.js.
 ];

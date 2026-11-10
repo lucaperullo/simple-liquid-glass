@@ -127,6 +127,20 @@ export interface GlassLayer {
   addShape(box: ShapeBox, options?: GlassShapeOptions): GlassShape;
   /** Re-reads the canvas's box. Call it when the canvas is resized or moved by anything but a scroll. */
   resize(scale?: number): void;
+  /**
+   * Only in `simple-liquid-glass/next/stack`. Another layer in this layer's canvas, drawn after it and after
+   * the layers stacked before: its own shapes, material, uniforms, textures and backdrop, at this layer's
+   * scale and place. Its pixels go over the glass already in the canvas, and its material can read that glass
+   * at a viewport point with `vec4 slg_below(vec2 screen)` (premultiplied), to bend it as it bends the
+   * backdrop. Give it a clip: what it reads is only current inside it. Removing a layer removes the layers
+   * stacked over it.
+   */
+  stack?(options?: Omit<GlassLayerOptions, 'scale' | 'fixed'>): GlassLayer;
+  /**
+   * Only in `simple-liquid-glass/next/stack`, for a stacked layer: the rectangle it may draw in, in CSS pixels
+   * from the canvas's top-left corner, or null for the whole canvas.
+   */
+  setClip?(clip: Rect | null): void;
   /** Test aid: loses the layer's WebGL context and restores it after `restoreAfter` ms. */
   simulateContextLoss(restoreAfter?: number): void;
   remove(): void;

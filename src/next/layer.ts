@@ -9,35 +9,13 @@ import {
   SPRING_STRIDE,
   type BackdropFrame,
   type GlassCanvas,
-  type LayerStatus,
   type Rect,
   type ShapeBatch,
 } from './scene';
+import { CAPACITIES, CONTEXT_OPTIONS, type ContextSource, type LayerEvents } from './layerParts';
 import { SpringBank, keepInside } from './springs';
-
-/** Shape counts a program is compiled for; a layer uses the smallest that holds its shapes. */
-const CAPACITIES = [4, 8, 16, MAX_SHAPES] as const;
-
-const CONTEXT_OPTIONS: WebGLContextAttributes = {
-  alpha: true,
-  premultipliedAlpha: true,
-  antialias: false,
-  depth: false,
-  stencil: false,
-  powerPreference: 'high-performance',
-};
-
-/** `getContext` as both kinds of canvas offer it; their overloads do not unify on the union. */
-interface ContextSource {
-  getContext(kind: 'webgl', options: WebGLContextAttributes): WebGLRenderingContext | null;
-}
-
-/** What a layer tells its renderer. */
-export interface LayerEvents {
-  status(status: Exclude<LayerStatus, 'pending'>, detail: string): void;
-  /** Something changed outside a message (a restored context): draw again. */
-  wake(): void;
-}
+import { beginOver, endOver, forget, leave, sharedProgram, stackOf, writeAround } from './stacked';
+import { STACKING } from './stacking';
 
 /**
  * One canvas and everything drawn into it. The layer owns the canvas's WebGL context and draws straight
@@ -76,7 +54,7 @@ export class GlassLayer {
   private usable = false;
 
   constructor(
-    private readonly canvas: GlassCanvas,
+    readonly canvas: GlassCanvas,
     private view: Rect,
     private fixed: boolean,
     private scale: number,
@@ -84,8 +62,18 @@ export class GlassLayer {
     private params: Float32Array,
     private lean: boolean,
     private readonly events: LayerEvents,
+    /** Stacking: the layer whose canvas (`canvas`) and context this one draws into, after it. */
+    base?: GlassLayer,
   ) {
     this.cutParams();
+    if (STACKING && base) {
+      stackOf<GlassLayer>(this).base = base;
+      stackOf(base).members.push(this);
+      this.gl = base.gl;
+      this.usable = true;
+      events.status('drawing', '');
+      return;
+    }
     this.sizeCanvas();
     this.gl = (canvas as ContextSource).getContext('webgl', CONTEXT_OPTIONS);
     if (!this.gl) {
@@ -120,7 +108,6 @@ export class GlassLayer {
     this.dirty = true;
   }
 
-  /** Takes ownership of `frame`. */
   /** Gives one of the material's own textures its picture. Takes ownership of `frame`. */
   setTexture(name: string, frame: BackdropFrame): void {
     const picture = this.pictures.get(name);
@@ -204,10 +191,14 @@ export class GlassLayer {
     this.born ??= time;
     const gl = this.gl;
     if (!gl || !this.usable) return;
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    // Everything outside the shapes' rectangles is empty: cleared here, never shaded.
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    // Stacking: a layer drawn into another's canvas leaves what is there.
+    const over = STACKING && stackOf<GlassLayer>(this).base;
+    if (!over) {
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      // Everything outside the shapes' rectangles is empty: cleared here, never shaded.
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
     const program = this.count > 0 ? this.program(gl) : null;
     if (!program) return;
 
@@ -235,9 +226,20 @@ export class GlassLayer {
 
       writeRectangle(corners, slot, x, y, halfWidth + reach, halfHeight + reach, view);
     }
+    const { uniforms } = program;
+    if (STACKING && over) {
+      writeAround(corners, boxes, this.count, reach, view);
+      beginOver(
+        gl,
+        stackOf(over),
+        stackOf<GlassLayer>(this).clip,
+        this.scale,
+        program.below ?? null,
+        material.textures.length + 1,
+      );
+    }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, corners);
 
-    const { uniforms } = program;
     gl.uniform2f(uniforms.uPixels, this.canvas.width, this.canvas.height);
     gl.uniform4f(
       uniforms.uView,
@@ -278,7 +280,8 @@ export class GlassLayer {
       else if (value.length === 3) gl.uniform3fv(location, value);
       else gl.uniform4fv(location, value);
     }
-    gl.drawArrays(gl.TRIANGLES, 0, this.count * 6);
+    gl.drawArrays(gl.TRIANGLES, 0, STACKING && over ? 6 : this.count * 6);
+    if (STACKING && over) endOver(gl);
   }
 
   /** Test aid: loses the context, and restores it `restoreAfter` ms later. */
@@ -292,15 +295,20 @@ export class GlassLayer {
   }
 
   dispose(): void {
-    this.canvas.removeEventListener('webglcontextlost', this.onLost);
-    this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
+    const base = STACKING && stackOf<GlassLayer>(this).base;
+    if (!base) {
+      this.canvas.removeEventListener('webglcontextlost', this.onLost);
+      this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
+    }
     this.usable = false;
     this.frame?.close();
     this.frame = null;
     for (const { frame } of this.pictures.values()) frame.close();
     this.pictures.clear();
+    // Stacking: the canvas and its context are the base's.
+    if (base) leave(stackOf(base), this);
     // Frees the GPU memory now instead of when the canvas is collected.
-    this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    else this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
 
   private readonly onLost = (event: Event): void => {
@@ -322,9 +330,14 @@ export class GlassLayer {
     this.dirty = true;
     this.events.status('drawing', '');
     this.events.wake();
+    if (STACKING) {
+      forget(stackOf<GlassLayer>(this));
+      for (const member of stackOf<GlassLayer>(this).members) member.onRestored();
+    }
   };
 
   private sizeCanvas(): void {
+    if (STACKING && stackOf<GlassLayer>(this).base) return;
     this.canvas.width = Math.max(Math.round(this.view.width * this.scale), 1);
     this.canvas.height = Math.max(Math.round(this.view.height * this.scale), 1);
   }
@@ -349,14 +362,27 @@ export class GlassLayer {
   private program(gl: WebGLRenderingContext): Program | null {
     const capacity = CAPACITIES.find((size) => size >= this.count) ?? MAX_SHAPES;
     const { material, lean, current } = this;
-    if (current?.material === material && current.capacity === capacity && current.lean === lean)
+    if (current?.material === material && current.capacity === capacity && current.lean === lean) {
+      // Stacking: another layer of this canvas may have left its own program in use.
+      if (STACKING) gl.useProgram(current.handle);
       return current;
+    }
 
     const key = `${material.id}/${capacity}/${lean ? 'lean' : 'full'}`;
     let program = this.programs.get(key);
     if (!program) {
       try {
-        program = buildProgram(gl, material, capacity, lean, this);
+        program = STACKING
+          ? sharedProgram(
+              gl,
+              stackOf(stackOf<GlassLayer>(this).base ?? this).compiled,
+              key,
+              material,
+              capacity,
+              lean,
+              this,
+            )
+          : buildProgram(gl, material, capacity, lean, this);
       } catch (error) {
         // A context lost mid-build fails the same way; that is reported, and recovered from, by its own event.
         if (gl.isContextLost()) return null;

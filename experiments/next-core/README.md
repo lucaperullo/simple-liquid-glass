@@ -171,3 +171,11 @@ else mid-flight, several cards starting at different moments, and Safari
 (WebKit under test, with software rendering, showed the content 38 px from its card mid-flight; on a real
 device that is unmeasured). The finger the harness rests on the page to keep the display at 120 Hz also
 raises the page thread's own frames to 120, so the page-thread row is kinder than a page left alone.
+
+## Layers stacked in one canvas
+
+`simple-liquid-glass/next/stack` is the same engine built with `src/next/stacking.ts` saying `true`: a layer can
+have others stacked over it (`layer.stack()`), drawn into its canvas in order, each over the glass before it,
+which its material can read with `slg_below(screen)`; `setClip()` keeps a stacked layer to a rectangle. The core
+entry carries none of it. `stack.html` is its scene and `node experiments/next-core/stack.test.mjs` checks it
+in Chromium and WebKit, from a worker and on the page thread.

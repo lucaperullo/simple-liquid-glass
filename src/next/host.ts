@@ -17,7 +17,6 @@ import {
   createShapeBatch,
   writeShape,
   type BackdropFrame,
-  type FrameStats,
   type HostMessage,
   type LayerStatus,
   type Rect,
@@ -29,15 +28,18 @@ import type {
   BackdropOptions,
   GlassHost,
   GlassHostOptions,
+  GlassLayer,
   GlassLayerOptions,
   GlassShape,
   GlassShapeOptions,
   GlassStats,
 } from './api';
 import { ContentFollower } from './content';
+import { NO_STATS, boxOf, place, stackedAdd } from './hostParts';
 import { packParams, specOf, type MaterialSpec } from './materials';
-import { scrollPosition, watchScroll, watchVideo } from './pageSources';
+import { watchScroll, watchVideo } from './pageSources';
 import { GLASS_MATERIAL } from './shader';
+import { STACKING } from './stacking';
 import { connect, type Transport } from './transport';
 
 interface ShapeRecord {
@@ -60,28 +62,6 @@ interface LayerRecord {
   /** The walls changed since the last flush. */
   boundsChanged: boolean;
 }
-
-const NO_STATS: FrameStats = {
-  frames: 0,
-  fps: 0,
-  p50: 0,
-  p95: 0,
-  drawMs: 0,
-  scrollError: 0,
-  scrollErrorMax: 0,
-};
-
-/** A rectangle measured in the viewport now, as the protocol wants it (see `HostMessage`). */
-const place = (rect: Rect, fixed: boolean): Rect => {
-  if (fixed) return rect;
-  const { x, y } = scrollPosition();
-  return { left: rect.left + x, top: rect.top + y, width: rect.width, height: rect.height };
-};
-
-const boxOf = (canvas: HTMLCanvasElement): Rect => {
-  const { left, top, width, height } = canvas.getBoundingClientRect();
-  return { left, top, width, height };
-};
 
 /** Creates a host: the scene's owner on the page thread. It describes; a renderer draws. */
 export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
@@ -235,133 +215,152 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
     };
   };
 
+  /** `over`: stacking, the layer whose canvas this one is drawn into. */
+  function addLayer(
+    canvas: HTMLCanvasElement,
+    layerOptions: GlassLayerOptions = {},
+    over?: LayerRecord,
+  ): GlassLayer {
+    const layer: LayerRecord = {
+      id: nextId++,
+      status: 'pending',
+      onStatus: layerOptions.onStatus,
+      shapes: new Set(),
+      changed: new Set(),
+      bounds: null,
+      boundsChanged: false,
+    };
+    const material = materials.get(layerOptions.material ?? GLASS_MATERIAL.id);
+    if (!material) throw new TypeError(`No material "${layerOptions.material ?? ''}" is defined`);
+    const lean = layerOptions.lean ?? false;
+    let params = packParams(material.spec, layerOptions.params ?? {}, material.defaults);
+    let scale = layerOptions.scale ?? Math.min(window.devicePixelRatio, 2);
+    const fixed = layerOptions.fixed ?? false;
+    const streams = new Set<() => void>();
+    const sendBackdrop = (frame: BackdropFrame | null, backdrop: BackdropOptions = {}): void => {
+      const rect = backdrop.rect ?? {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+      const backdropFixed = backdrop.fixed ?? false;
+      post({
+        type: 'layer-backdrop',
+        layer: layer.id,
+        frame,
+        rect: place(rect, backdropFixed),
+        fixed: backdropFixed,
+      });
+    };
+    const setBackdrop = (frame: BackdropFrame, backdrop?: BackdropOptions): void => {
+      sendBackdrop(frame, backdrop);
+    };
+    layers.set(layer.id, layer);
+    run((to) => {
+      if (STACKING && over) {
+        const view = place(boxOf(canvas), fixed);
+        to.send(stackedAdd(layer.id, over.id, view, fixed, scale, material.spec.id, params, lean));
+        return;
+      }
+      if (to.thread === 'worker' && workerLayers.size >= MAX_WORKER_LAYERS) {
+        // Handing it over would cost an earlier layer its context. The canvas stays the application's.
+        setStatus(layer, 'unsupported', `A worker draws at most ${MAX_WORKER_LAYERS} layers`);
+        return;
+      }
+      let target;
+      try {
+        target = to.canvas(canvas);
+      } catch (error) {
+        // The canvas already has a context, or was handed over before.
+        setStatus(layer, 'unsupported', error instanceof Error ? error.message : String(error));
+        return;
+      }
+      to.send({
+        type: 'layer-add',
+        layer: layer.id,
+        canvas: target,
+        view: place(boxOf(canvas), fixed),
+        fixed,
+        scale,
+        material: material.spec.id,
+        params,
+        lean,
+      });
+      if (to.thread === 'worker') workerLayers.add(layer.id);
+    });
+
+    const api: GlassLayer = {
+      get status() {
+        return layer.status;
+      },
+      setBackdrop,
+      setTexture(name, frame) {
+        if (!material.spec.textures.includes(name)) {
+          throw new TypeError(`Material "${material.spec.id}" has no texture "${name}"`);
+        }
+        post({ type: 'layer-texture', layer: layer.id, name, frame });
+      },
+      setRunning(running) {
+        post({ type: 'layer-running', layer: layer.id, running });
+      },
+      moveBackdrop(backdrop) {
+        sendBackdrop(null, backdrop);
+      },
+      streamBackdrop(video, backdrop) {
+        const stop = watchVideo(video, (frame) => {
+          if (layers.has(layer.id) && !destroyed) setBackdrop(frame, backdrop);
+          else frame.close();
+        });
+        streams.add(stop);
+        return () => {
+          streams.delete(stop);
+          stop();
+        };
+      },
+      setParams(next) {
+        params = packParams(material.spec, next, params);
+        post({ type: 'layer-material', layer: layer.id, material: material.spec.id, params, lean });
+      },
+      setBounds(bounds) {
+        // Sent with the shapes changed in the same task, as of the same moment.
+        layer.bounds = bounds && { ...bounds };
+        layer.boundsChanged = true;
+        scheduleFlush();
+      },
+      addShape: (box, shapeOptions = {}) => addShape(layer, box, shapeOptions),
+      resize(nextScale = scale) {
+        scale = nextScale;
+        post({ type: 'layer-view', layer: layer.id, view: place(boxOf(canvas), fixed), fixed, scale });
+      },
+      simulateContextLoss(restoreAfter = 0) {
+        post({ type: 'context-loss', layer: layer.id, restoreAfter });
+      },
+      remove() {
+        if (!layers.delete(layer.id)) return;
+        workerLayers.delete(layer.id);
+        for (const stop of streams) stop();
+        layer.shapes.clear();
+        layer.changed.clear();
+        post({ type: 'layer-remove', layer: layer.id });
+      },
+    };
+    if (STACKING) {
+      // One canvas, one scale, one place: a stacked layer takes them from the layer it is over.
+      api.stack = (stacked = {}) => addLayer(canvas, { ...stacked, fixed, scale }, over ?? layer);
+      api.setClip = (clip) => {
+        post({ type: 'layer-clip', layer: layer.id, clip });
+      };
+    }
+    return api;
+  }
+
   return {
     get thread() {
       return transport?.thread ?? 'pending';
     },
     ready,
-
-    addLayer(canvas, layerOptions = {}) {
-      const layer: LayerRecord = {
-        id: nextId++,
-        status: 'pending',
-        onStatus: layerOptions.onStatus,
-        shapes: new Set(),
-        changed: new Set(),
-        bounds: null,
-        boundsChanged: false,
-      };
-      const material = materials.get(layerOptions.material ?? GLASS_MATERIAL.id);
-      if (!material) throw new TypeError(`No material "${layerOptions.material ?? ''}" is defined`);
-      const lean = layerOptions.lean ?? false;
-      let params = packParams(material.spec, layerOptions.params ?? {}, material.defaults);
-      let scale = layerOptions.scale ?? Math.min(window.devicePixelRatio, 2);
-      const fixed = layerOptions.fixed ?? false;
-      const streams = new Set<() => void>();
-      const sendBackdrop = (frame: BackdropFrame | null, backdrop: BackdropOptions = {}): void => {
-        const rect = backdrop.rect ?? {
-          left: 0,
-          top: 0,
-          width: window.innerWidth,
-          height: window.innerHeight,
-        };
-        const backdropFixed = backdrop.fixed ?? false;
-        post({
-          type: 'layer-backdrop',
-          layer: layer.id,
-          frame,
-          rect: place(rect, backdropFixed),
-          fixed: backdropFixed,
-        });
-      };
-      const setBackdrop = (frame: BackdropFrame, backdrop?: BackdropOptions): void => {
-        sendBackdrop(frame, backdrop);
-      };
-      layers.set(layer.id, layer);
-      run((to) => {
-        if (to.thread === 'worker' && workerLayers.size >= MAX_WORKER_LAYERS) {
-          // Handing it over would cost an earlier layer its context. The canvas stays the application's.
-          setStatus(layer, 'unsupported', `A worker draws at most ${MAX_WORKER_LAYERS} layers`);
-          return;
-        }
-        let target;
-        try {
-          target = to.canvas(canvas);
-        } catch (error) {
-          // The canvas already has a context, or was handed over before.
-          setStatus(layer, 'unsupported', error instanceof Error ? error.message : String(error));
-          return;
-        }
-        to.send({
-          type: 'layer-add',
-          layer: layer.id,
-          canvas: target,
-          view: place(boxOf(canvas), fixed),
-          fixed,
-          scale,
-          material: material.spec.id,
-          params,
-          lean,
-        });
-        if (to.thread === 'worker') workerLayers.add(layer.id);
-      });
-
-      return {
-        get status() {
-          return layer.status;
-        },
-        setBackdrop,
-        setTexture(name, frame) {
-          if (!material.spec.textures.includes(name)) {
-            throw new TypeError(`Material "${material.spec.id}" has no texture "${name}"`);
-          }
-          post({ type: 'layer-texture', layer: layer.id, name, frame });
-        },
-        setRunning(running) {
-          post({ type: 'layer-running', layer: layer.id, running });
-        },
-        moveBackdrop(backdrop) {
-          sendBackdrop(null, backdrop);
-        },
-        streamBackdrop(video, backdrop) {
-          const stop = watchVideo(video, (frame) => {
-            if (layers.has(layer.id) && !destroyed) setBackdrop(frame, backdrop);
-            else frame.close();
-          });
-          streams.add(stop);
-          return () => {
-            streams.delete(stop);
-            stop();
-          };
-        },
-        setParams(next) {
-          params = packParams(material.spec, next, params);
-          post({ type: 'layer-material', layer: layer.id, material: material.spec.id, params, lean });
-        },
-        setBounds(bounds) {
-          // Sent with the shapes changed in the same task, as of the same moment.
-          layer.bounds = bounds && { ...bounds };
-          layer.boundsChanged = true;
-          scheduleFlush();
-        },
-        addShape: (box, shapeOptions = {}) => addShape(layer, box, shapeOptions),
-        resize(nextScale = scale) {
-          scale = nextScale;
-          post({ type: 'layer-view', layer: layer.id, view: place(boxOf(canvas), fixed), fixed, scale });
-        },
-        simulateContextLoss(restoreAfter = 0) {
-          post({ type: 'context-loss', layer: layer.id, restoreAfter });
-        },
-        remove() {
-          if (!layers.delete(layer.id)) return;
-          workerLayers.delete(layer.id);
-          for (const stop of streams) stop();
-          layer.shapes.clear();
-          layer.changed.clear();
-          post({ type: 'layer-remove', layer: layer.id });
-        },
-      };
-    },
+    addLayer,
 
     defineMaterial(definition) {
       if (materials.has(definition.id)) throw new TypeError(`Material "${definition.id}" is already defined`);

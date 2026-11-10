@@ -1,5 +1,16 @@
 import type { MaterialSpec } from '../materials';
+import { STACKING } from '../stacking';
 import { BACKDROP, DOME, LIGHTING, PRECISION, ROUNDED_BOX, UNION } from './chunks';
+
+/**
+ * Stacking: the glass already drawn in the canvas at a viewport point, premultiplied, for a layer drawn over
+ * it. Current only inside the layer's clip.
+ */
+const BELOW = `uniform sampler2D uBelow;
+vec4 slg_below(vec2 screen) {
+  vec2 at = (screen - uView.xy) / uView.zw;
+  return texture2D(uBelow, vec2(at.x, 1.0 - at.y));
+}`;
 
 /** Positions arrive in clip space: the layer builds a rectangle around each shape. */
 export const VERTEX = `attribute vec2 aCorner;
@@ -80,6 +91,7 @@ ${attributes}
 ${uniforms}
 
 vec2 slg_screen(vec2 p) { return uView.xy + p; }
+${STACKING ? BELOW : ''}
 ${ROUNDED_BOX}
 ${DOME}
 ${BACKDROP}

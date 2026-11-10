@@ -28,6 +28,8 @@ export interface Program {
   }[];
   /** Where the material's own textures are, in the order its spec lists them. */
   readonly textures: readonly (WebGLUniformLocation | null)[];
+  /** Stacking: where the glass beneath goes, if the material reads it (`slg_below`). */
+  readonly below?: WebGLUniformLocation | null;
 }
 
 /** A layer's per-shape arrays, each sized for the most shapes a layer can hold. */

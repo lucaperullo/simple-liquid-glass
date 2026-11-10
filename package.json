@@ -52,7 +52,13 @@
       "import": "./dist/next.esm.js",
       "require": "./dist/next.cjs"
     },
-    "./next/worker": "./dist/next-worker.js"
+    "./next/worker": "./dist/next-worker.js",
+    "./next/stack": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next-stack.esm.js",
+      "require": "./dist/next-stack.cjs"
+    },
+    "./next/stack/worker": "./dist/next-stack-worker.js"
   },
   "files": [
     "dist",
@@ -76,7 +82,7 @@
     "test:browser": "playwright test",
     "test:compat": "node scripts/check-compat.cjs",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs && node experiments/engine/test.mjs && node experiments/next-core/test.mjs",
+    "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs && node experiments/engine/test.mjs && node experiments/next-core/test.mjs && node experiments/next-core/stack.test.mjs",
     "test:scene": "node experiments/scene/test.mjs"
   },
   "size-limit": [
@@ -134,6 +140,11 @@
       "name": "next — import { createGlassHost } (Brotli, experimental 6.0 core, no React; includes the worker as text)",
       "path": "dist/next.esm.js",
       "limit": "15.8 KB"
+    },
+    {
+      "name": "next/stack — the same, with layers stacked in one canvas (Brotli; an entry of its own, so the core does not carry it)",
+      "path": "dist/next-stack.esm.js",
+      "limit": "17.9 KB"
     }
   ],
   "repository": {

@@ -47,6 +47,8 @@ export const DOME = `float slg_domeSlope(float d, float rim) {
  */
 export const BACKDROP = `uniform sampler2D uBackdrop;
 uniform vec4 uBackdropRect;
+uniform float uHasBackdrop;
+float slg_hasBackdrop() { return uHasBackdrop; }
 vec3 slg_backdrop(vec2 screen) {
   return texture2D(uBackdrop, clamp((screen - uBackdropRect.xy) / uBackdropRect.zw, 0.001, 0.999)).rgb;
 }`;

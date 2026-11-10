@@ -128,8 +128,25 @@ const params = {
 
 // `&custom`: materials an application could define, for test.mjs.
 //   flat: one colour, set by a uniform.  last: a `combine` that keeps only the last shape.  broken: bad GLSL.
+//   field: its own field loop; each card takes the colour in its attributes.
 const custom = query.get('custom');
-if (custom) {
+const FIELD = `vec3 nearestColour;
+vec3 slg_field(vec2 p) {
+  vec3 f = vec3(0.0, 0.0, 1e5);
+  for (int i = 0; i < SLG_CAPACITY; i++) {
+    if (i >= slg_count) break;
+    vec3 shape = slg_roundedBox(p - slg_boxes[i].xy, slg_boxes[i].zw, slg_radii[i]);
+    if (shape.z < f.z) { f = shape; nearestColour = slg_attributesA[i].rgb + slg_attributesB[i].rgb; }
+  }
+  return f;
+}`;
+if (custom === 'field') {
+  host.defineMaterial({
+    id: custom,
+    field: FIELD,
+    shade: 'vec4 slg_shade(vec2 p, vec3 field) { return vec4(nearestColour, 1.0); }',
+  });
+} else if (custom) {
   host.defineMaterial({
     id: custom,
     uniforms: { colour: [1, 0, 0] },
@@ -140,6 +157,9 @@ if (custom) {
     ...(custom === 'last' ? { combine: 'vec3 slg_combine(vec3 a, vec3 b) { return b; }' } : {}),
   });
 }
+// For `field`: the first card red (in its first four attributes), the others blue (in its last four).
+const attributesOf = (index) => (index === 0 ? [1, 0, 0] : [0, 0, 0, 0, 0, 0, 1]);
+
 // `&material=<id>`: one of the materials a page put in `window.__benchMaterials` before this script ran, for
 // benches that live outside this repository.
 for (const definition of window.__benchMaterials ?? []) host.defineMaterial(definition);
@@ -166,7 +186,9 @@ for (let i = 0; i < views; i++) {
   else if (scrolls)
     layer.setBackdrop(await createImageBitmap(backdrop), { rect: backdrop.getBoundingClientRect() });
   else layer.setBackdrop(await createImageBitmap(backdrop), { fixed: true });
-  const shapes = layout(canvas.getBoundingClientRect(), open).map((box) => layer.addShape(box));
+  const shapes = layout(canvas.getBoundingClientRect(), open).map((box, index) =>
+    layer.addShape(box, { attributes: attributesOf(index) }),
+  );
   layers.push({ canvas, layer, shapes });
 }
 

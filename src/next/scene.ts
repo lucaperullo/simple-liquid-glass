@@ -23,8 +23,17 @@ export type GlassCanvas = HTMLCanvasElement | OffscreenCanvas;
 /** The most shapes one layer can hold. The shader's loop bound; see `shader/glass.ts`. */
 export const MAX_SHAPES = 16;
 
-/** Values per shape on the wire: centre x, centre y, half width, half height, corner radius. */
-export const SHAPE_STRIDE = 5;
+/** Values of a shape's box on the wire: centre x, centre y, half width, half height, corner radius. */
+export const SHAPE_BOX = 5;
+
+/**
+ * Free values per shape, for materials: a colour, a lift, a flag. They travel and spring with the box and
+ * reach the material's GLSL as two `vec4`s per shape.
+ */
+export const SHAPE_ATTRIBUTES = 8;
+
+/** Values per shape on the wire: its box, then its attributes. */
+export const SHAPE_STRIDE = SHAPE_BOX + SHAPE_ATTRIBUTES;
 
 /** Values per shape in `ShapeBatch.springs`: stiffness, damping. */
 export const SPRING_STRIDE = 2;
@@ -67,12 +76,13 @@ export function createShapeBatch(count: number): ShapeBatch {
   };
 }
 
-/** Writes shape `index` of a batch. `spring: null` sets the shape directly. */
+/** Writes shape `index` of a batch. Missing attributes are 0. `spring: null` sets the shape directly. */
 export function writeShape(
   batch: ShapeBatch,
   index: number,
   id: number,
   box: Readonly<ShapeBox>,
+  attributes: ArrayLike<number>,
   spring: SpringConfig | null,
 ): void {
   const halfWidth = box.width / 2;
@@ -82,6 +92,7 @@ export function writeShape(
     [box.x + halfWidth, box.y + halfHeight, halfWidth, halfHeight, box.radius],
     index * SHAPE_STRIDE,
   );
+  batch.values.set(Array.from(attributes).slice(0, SHAPE_ATTRIBUTES), index * SHAPE_STRIDE + SHAPE_BOX);
   batch.springs.set([spring?.stiffness ?? 0, spring?.damping ?? 0], index * SPRING_STRIDE);
 }
 
@@ -89,7 +100,7 @@ export function writeShape(
 export function readShape(
   batch: ShapeBatch,
   index: number,
-): { id: number; box: ShapeBox; spring: SpringConfig | null } {
+): { id: number; box: ShapeBox; attributes: number[]; spring: SpringConfig | null } {
   const [x = 0, y = 0, halfWidth = 0, halfHeight = 0, radius = 0] = batch.values.subarray(
     index * SHAPE_STRIDE,
     (index + 1) * SHAPE_STRIDE,
@@ -101,6 +112,9 @@ export function readShape(
   return {
     id: batch.ids[index] ?? 0,
     box: { x: x - halfWidth, y: y - halfHeight, width: halfWidth * 2, height: halfHeight * 2, radius },
+    attributes: Array.from(
+      batch.values.subarray(index * SHAPE_STRIDE + SHAPE_BOX, (index + 1) * SHAPE_STRIDE),
+    ),
     spring: stiffness > 0 ? { stiffness, damping } : null,
   };
 }

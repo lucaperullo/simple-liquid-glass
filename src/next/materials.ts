@@ -10,6 +10,11 @@
  * - `vec3 slg_roundedBox(vec2 p, vec2 halfSize, float radius)`: distance to a rounded box, with its gradient.
  * - `float slg_domeSlope(float d, float rim)`: slope of a domed edge `rim` px wide at distance `d`.
  * - `vec3 slg_studio(vec3 ray)` and `float slg_fresnel(float facing)`: a soft reflection and its weight.
+ * - `float slg_hasBackdrop()`: 1 once the layer has a picture behind it, 0 before.
+ * - the layer's shapes, for a material that writes its own `field`: `slg_count` of them, at most
+ *   `SLG_CAPACITY`; shape `i` is `slg_boxes[i]` (centre, half size), `slg_radii[i]`, and its eight attributes
+ *   `slg_attributesA[i]` and `slg_attributesB[i]`. GLSL ES 1.00 only lets a loop index them:
+ *   `for (int i = 0; i < SLG_CAPACITY; i++) { if (i >= slg_count) break; ... }`.
  * - `SLG_LEAN`: defined when the layer asked for the cheaper variant; use `#ifdef` to drop what it can spare.
  * - its own uniforms, declared for it from `uniforms`.
  *
@@ -34,7 +39,12 @@ export interface MaterialDefinition {
    * union, the nearer shape wins.
    */
   readonly combine?: string;
-  /** The uniforms `shade` and `combine` read, with their default values. */
+  /**
+   * GLSL defining `vec3 slg_field(vec2 p)` itself, for a material whose shapes do more than join pairwise
+   * (it can leave values in globals for `shade`). Replaces the engine's loop, and `combine` with it.
+   */
+  readonly field?: string;
+  /** The uniforms the material's GLSL reads, with their default values. */
   readonly uniforms?: Readonly<Record<string, UniformValue>>;
   /**
    * How far outside its shapes' boxes the material can paint, CSS px (a `combine` that bridges a gap, a
@@ -48,6 +58,7 @@ export interface MaterialSpec {
   readonly id: string;
   readonly shade: string;
   readonly combine: string | null;
+  readonly field: string | null;
   readonly uniforms: readonly { readonly name: string; readonly size: number; readonly offset: number }[];
   /** Floats in a parameter array for this material. */
   readonly length: number;
@@ -75,6 +86,7 @@ export function specOf(definition: MaterialDefinition): MaterialSpec {
     id: definition.id,
     shade: definition.shade,
     combine: definition.combine ?? null,
+    field: definition.field ?? null,
     uniforms,
     length: offset,
     bleed: Math.max(definition.bleed ?? 0, 0),

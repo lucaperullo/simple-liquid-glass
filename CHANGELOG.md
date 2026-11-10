@@ -14,6 +14,10 @@
     same way, with a dark tuning (default) and `GLASS_LIGHT`. The engine shades two triangles around each shape
     and clears the rest: on a 120 Hz Android phone at 3× resolution that holds 116–118 fps where shading the whole
     canvas gives 88–91.
+    Each shape also carries eight free attributes (a colour, a lift, a flag) that spring with its box and reach
+    the material as two `vec4`s, and a material may define the whole field itself (`field`) instead of a pairwise
+    `combine`. A layer draws before it has a backdrop (`slg_hasBackdrop()`); the built-in glass stays invisible
+    until then.
   - **Scroll.** A layer and its backdrop are each placed in the document (default) or in the viewport
     (`fixed: true`). When the two move against each other (a fixed bar over a scrolling page), the host reports
     the window's scroll position once per page frame and the renderer predicts it in between, so the glass is

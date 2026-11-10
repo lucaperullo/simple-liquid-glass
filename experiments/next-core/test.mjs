@@ -193,6 +193,23 @@ for (const [name, launch] of Object.entries(launchers)) {
   assert.deepEqual(second, [255, 0, 0, 255]);
   await last.close();
 
+  const own = await next('mode=worker&auto=0&scale=1&custom=field&cards=2&quiet');
+  const colours = [pixel(await shot(own), 0.5, 0.25), pixel(await shot(own), 0.5, 0.75)];
+  await own.evaluate(() =>
+    window.__next.layers[0].shapes[1].setAttributes([0, 1, 0, 0, 0, 0, 0], { jump: true }),
+  );
+  await rest(own);
+  const recoloured = pixel(await shot(own), 0.5, 0.75);
+  say(
+    `own field, colour from each shape's attributes: ${colours.join(' and ')}; second changed to ${recoloured}`,
+  );
+  assert.deepEqual(colours, [
+    [255, 0, 0, 255],
+    [0, 0, 255, 255],
+  ]);
+  assert.deepEqual(recoloured, [0, 255, 0, 255]);
+  await own.close();
+
   const broken = await open('next-core', 'mode=worker&auto=0&scale=1&custom=broken&quiet');
   await broken.waitForFunction(() => window.__next.statuses.at(-1) === 'unsupported');
   const report = await broken.evaluate(() => window.__next.details.at(-1));

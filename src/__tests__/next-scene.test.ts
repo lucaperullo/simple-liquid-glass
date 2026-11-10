@@ -15,8 +15,8 @@ const boxes: ShapeBox[] = [
 describe('next: scene protocol', () => {
   it('carries shapes across a thread boundary as typed arrays', () => {
     const batch = createShapeBatch(boxes.length);
-    writeShape(batch, 0, 7, boxes[0]!, { stiffness: 170, damping: 18 });
-    writeShape(batch, 1, 9, boxes[1]!, null);
+    writeShape(batch, 0, 7, boxes[0]!, [0.5, 1], { stiffness: 170, damping: 18 });
+    writeShape(batch, 1, 9, boxes[1]!, [], null);
     const message: HostMessage = { type: 'shapes-set', layer: 3, batch };
 
     // What postMessage does: a structured clone that moves the listed buffers.
@@ -31,9 +31,10 @@ describe('next: scene protocol', () => {
     expect(readShape(received.batch, 0)).toEqual({
       id: 7,
       box: boxes[0],
+      attributes: [0.5, 1, 0, 0, 0, 0, 0, 0],
       spring: { stiffness: 170, damping: 18 },
     });
-    expect(readShape(received.batch, 1)).toEqual({ id: 9, box: boxes[1], spring: null });
+    expect(readShape(received.batch, 1)).toMatchObject({ id: 9, box: boxes[1], spring: null });
     // Moved, not copied: the sender's buffers are empty now.
     expect(batch.values.byteLength).toBe(0);
     expect(batch.ids.byteLength).toBe(0);

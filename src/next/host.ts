@@ -41,6 +41,7 @@ import { connect, type Transport } from './transport';
 interface ShapeRecord {
   readonly id: number;
   readonly box: ShapeBox;
+  readonly attributes: number[];
   readonly spring: SpringConfig | null;
   jump: boolean;
 }
@@ -124,7 +125,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       const batch = createShapeBatch(layer.changed.size);
       let index = 0;
       for (const shape of layer.changed) {
-        writeShape(batch, index++, shape.id, shape.box, shape.jump ? null : shape.spring);
+        writeShape(batch, index++, shape.id, shape.box, shape.attributes, shape.jump ? null : shape.spring);
         shape.jump = false;
       }
       layer.changed.clear();
@@ -171,7 +172,13 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       throw new RangeError(`A glass layer holds at most ${MAX_SHAPES} shapes`);
     }
     const spring = shapeOptions.spring === undefined ? DEFAULT_SPRING : shapeOptions.spring;
-    const shape: ShapeRecord = { id: nextId++, box: { ...box }, spring, jump: false };
+    const shape: ShapeRecord = {
+      id: nextId++,
+      box: { ...box },
+      attributes: [...(shapeOptions.attributes ?? [])],
+      spring,
+      jump: false,
+    };
     layer.shapes.add(shape);
     layer.changed.add(shape);
     scheduleFlush();
@@ -179,6 +186,13 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       set(next, setOptions) {
         if (!layer.shapes.has(shape)) return;
         Object.assign(shape.box, next);
+        if (setOptions?.jump === true) shape.jump = true;
+        layer.changed.add(shape);
+        scheduleFlush();
+      },
+      setAttributes(values, setOptions) {
+        if (!layer.shapes.has(shape)) return;
+        values.forEach((value, index) => (shape.attributes[index] = value));
         if (setOptions?.jump === true) shape.jump = true;
         layer.changed.add(shape);
         scheduleFlush();

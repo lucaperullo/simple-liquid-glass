@@ -1,6 +1,8 @@
+import { buildProgram, type Program } from './glProgram';
 import type { MaterialSpec } from './materials';
 import {
   MAX_SHAPES,
+  SHAPE_BOX,
   SHAPE_STRIDE,
   SPRING_STRIDE,
   type BackdropFrame,
@@ -9,7 +11,6 @@ import {
   type Rect,
   type ShapeBatch,
 } from './scene';
-import { ENGINE_UNIFORMS, VERTEX, fragmentSource, type EngineUniform } from './shader';
 import { SpringBank } from './springs';
 
 /** Shape counts a program is compiled for; a layer uses the smallest that holds its shapes. */
@@ -27,20 +28,6 @@ const CONTEXT_OPTIONS: WebGLContextAttributes = {
 /** `getContext` as both kinds of canvas offer it; their overloads do not unify on the union. */
 interface ContextSource {
   getContext(kind: 'webgl', options: WebGLContextAttributes): WebGLRenderingContext | null;
-}
-
-interface Program {
-  readonly handle: WebGLProgram;
-  /** What it was built for. */
-  readonly material: MaterialSpec;
-  readonly capacity: number;
-  readonly lean: boolean;
-  readonly uniforms: Readonly<Record<EngineUniform, WebGLUniformLocation | null>>;
-  /** Where the material's own uniforms are, in the order its spec lists them. */
-  readonly parameters: readonly (WebGLUniformLocation | null)[];
-  /** Views of the layer's shape arrays, as long as this program's uniform arrays. */
-  readonly boxes: Float32Array;
-  readonly radii: Float32Array;
 }
 
 /** What a layer tells its renderer. */
@@ -74,8 +61,11 @@ export class GlassLayer {
   private backdropFixed = true;
   private readonly ids = new Uint32Array(MAX_SHAPES);
   private count = 0;
-  private readonly boxes = new Float32Array(MAX_SHAPES * 4);
-  private readonly radii = new Float32Array(MAX_SHAPES);
+  readonly boxes = new Float32Array(MAX_SHAPES * 4);
+  readonly radii = new Float32Array(MAX_SHAPES);
+  /** Each shape's eight attributes, as the two `vec4`s a material reads. */
+  readonly attributesA = new Float32Array(MAX_SHAPES * 4);
+  readonly attributesB = new Float32Array(MAX_SHAPES * 4);
   private usable = false;
 
   constructor(
@@ -179,10 +169,10 @@ export class GlassLayer {
     // Everything outside the shapes' rectangles is empty: cleared here, never shaded.
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    const program = this.count > 0 && this.texture ? this.program(gl) : null;
+    const program = this.count > 0 ? this.program(gl) : null;
     if (!program) return;
 
-    const { view, material, backdropRect, boxes, radii, corners } = this;
+    const { view, material, backdropRect, boxes, radii, attributesA, attributesB, corners } = this;
     const values = this.springs.value;
     // A rectangle reaches as far past its shape as the material can paint, plus the outline's antialiasing.
     const reach = material.bleed + Math.max(1, 1 / this.scale);
@@ -198,6 +188,10 @@ export class GlassLayer {
       boxes[to + 2] = halfWidth;
       boxes[to + 3] = halfHeight;
       radii[slot] = Math.min(Math.max(values[from + 4] ?? 0, 0), halfWidth, halfHeight);
+      for (let k = 0; k < 4; k++) {
+        attributesA[to + k] = values[from + SHAPE_BOX + k] ?? 0;
+        attributesB[to + k] = values[from + SHAPE_BOX + 4 + k] ?? 0;
+      }
 
       // The rectangle in clip space (y up), as two triangles.
       const left = ((x - halfWidth - reach) / view.width) * 2 - 1;
@@ -233,6 +227,10 @@ export class GlassLayer {
     gl.uniform1i(uniforms.uCount, this.count);
     gl.uniform4fv(uniforms.uBox, program.boxes);
     gl.uniform1fv(uniforms.uRadius, program.radii);
+    // (A material that reads no attributes has no such uniforms; setting a null location does nothing.)
+    gl.uniform4fv(uniforms.uAttributesA, program.attributesA);
+    gl.uniform4fv(uniforms.uAttributesB, program.attributesB);
+    gl.uniform1f(uniforms.uHasBackdrop, this.texture ? 1 : 0);
     gl.uniform4f(
       uniforms.uBackdropRect,
       this.backdropFixed ? backdropRect.left : backdropRect.left - scrollX,
@@ -337,7 +335,7 @@ export class GlassLayer {
     let program = this.programs.get(key);
     if (!program) {
       try {
-        program = this.build(gl, capacity);
+        program = buildProgram(gl, material, capacity, lean, this);
       } catch (error) {
         this.usable = false;
         this.events.status('unsupported', error instanceof Error ? error.message : String(error));
@@ -349,40 +347,5 @@ export class GlassLayer {
     gl.uniform1i(program.uniforms.uBackdrop, 0);
     this.current = program;
     return program;
-  }
-
-  private build(gl: WebGLRenderingContext, capacity: number): Program {
-    const handle = gl.createProgram();
-    for (const [type, source] of [
-      [gl.VERTEX_SHADER, VERTEX],
-      [gl.FRAGMENT_SHADER, fragmentSource(this.material, capacity, this.lean)],
-    ] as const) {
-      const shader = gl.createShader(type);
-      if (!shader) throw new Error('WebGL could not create a shader');
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) !== true) {
-        throw new Error(`Material shader failed to compile: ${gl.getShaderInfoLog(shader) ?? 'no log'}`);
-      }
-      gl.attachShader(handle, shader);
-    }
-    gl.bindAttribLocation(handle, 0, 'aCorner');
-    gl.linkProgram(handle);
-    if (gl.getProgramParameter(handle, gl.LINK_STATUS) !== true) {
-      throw new Error(`Material shader failed to link: ${gl.getProgramInfoLog(handle) ?? 'no log'}`);
-    }
-    const uniforms = Object.fromEntries(
-      ENGINE_UNIFORMS.map((name) => [name, gl.getUniformLocation(handle, name)]),
-    ) as Record<EngineUniform, WebGLUniformLocation | null>;
-    return {
-      handle,
-      material: this.material,
-      capacity,
-      lean: this.lean,
-      uniforms,
-      parameters: this.material.uniforms.map(({ name }) => gl.getUniformLocation(handle, name)),
-      boxes: this.boxes.subarray(0, capacity * 4),
-      radii: this.radii.subarray(0, capacity),
-    };
   }
 }

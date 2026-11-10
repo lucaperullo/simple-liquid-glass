@@ -13,6 +13,9 @@ export const ENGINE_UNIFORMS = [
   'uCount',
   'uBox',
   'uRadius',
+  'uAttributesA',
+  'uAttributesB',
+  'uHasBackdrop',
   'uBackdrop',
   'uBackdropRect',
 ] as const;
@@ -40,6 +43,14 @@ uniform float uScale;   // device px per CSS px
 uniform int uCount;
 uniform vec4 uBox[${capacity}];      // centre, half size
 uniform float uRadius[${capacity}];
+uniform vec4 uAttributesA[${capacity}];
+uniform vec4 uAttributesB[${capacity}];
+#define SLG_CAPACITY ${capacity}
+#define slg_count uCount
+#define slg_boxes uBox
+#define slg_radii uRadius
+#define slg_attributesA uAttributesA
+#define slg_attributesB uAttributesB
 ${uniforms}
 
 vec2 slg_screen(vec2 p) { return uView.xy + p; }
@@ -47,7 +58,9 @@ ${ROUNDED_BOX}
 ${DOME}
 ${BACKDROP}
 ${LIGHTING}
-${material.combine ?? UNION}
+${
+  material.field ??
+  `${material.combine ?? UNION}
 
 vec3 slg_field(vec2 p) {
   vec3 f = vec3(0.0, 0.0, 1e5);
@@ -56,6 +69,7 @@ vec3 slg_field(vec2 p) {
     f = slg_combine(f, slg_roundedBox(p - uBox[i].xy, uBox[i].zw, uRadius[i]));
   }
   return f;
+}`
 }
 
 ${material.shade}

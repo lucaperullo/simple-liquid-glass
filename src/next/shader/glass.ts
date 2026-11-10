@@ -25,6 +25,8 @@ export const GLASS_MATERIAL: MaterialDefinition = {
     contact: 0,
   },
   shade: `vec4 slg_shade(vec2 p, vec3 field) {
+  // Nothing to bend yet: stay invisible until the layer has its picture.
+  if (slg_hasBackdrop() < 0.5) return vec4(0.0);
   float d = field.z;
   vec3 normal = normalize(vec3(-field.xy * slg_domeSlope(d, rim) * 1.2, 1.15));
   vec2 screen = slg_screen(p);

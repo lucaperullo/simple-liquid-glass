@@ -158,6 +158,14 @@ export interface GlassLayer {
    * once, wherever its spring has it: for a canvas that grows or moves around glass that should stay put.
    */
   setOrigin?(x: number, y: number): void;
+  /**
+   * Only in `simple-liquid-glass/next/stack`, for a layer with a canvas of its own: the least time between
+   * two frames of that canvas, in milliseconds; null for none. A worker draws as often as the display allows,
+   * and on a phone glass that is expensive to shade then takes the GPU from the page's own scrolling: held to
+   * about the rate the page itself runs at, both keep theirs. What changes in between is drawn in the next
+   * frame. Springs keep their own time.
+   */
+  setPace?(interval: number | null): void;
   /** Test aid: loses the layer's WebGL context and restores it after `restoreAfter` ms. */
   simulateContextLoss(restoreAfter?: number): void;
   remove(): void;

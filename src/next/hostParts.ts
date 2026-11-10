@@ -52,7 +52,7 @@ export const stackedAdd = (
 export const stackedCalls = (
   post: (message: HostMessage) => void,
   layer: number,
-): Pick<GlassLayer, 'setClip' | 'setReach' | 'setOrigin'> => ({
+): Pick<GlassLayer, 'setClip' | 'setReach' | 'setOrigin' | 'setPace'> => ({
   setClip(clip) {
     post({ type: 'layer-clip', layer, clip });
   },
@@ -61,5 +61,8 @@ export const stackedCalls = (
   },
   setOrigin(x, y) {
     post({ type: 'layer-origin', layer, origin: [x, y] });
+  },
+  setPace(interval) {
+    post({ type: 'layer-pace', layer, pace: interval ?? 0 });
   },
 });

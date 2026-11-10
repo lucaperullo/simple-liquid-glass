@@ -3,7 +3,7 @@
 // draws from these messages is tested in real browsers (experiments/next-core/stack.test.mjs).
 import { createGlassHost } from '../next';
 import type { HostMessage, RendererMessage } from '../next/scene';
-import { writeAround } from '../next/stacked';
+import { told, waits, writeAround } from '../next/stacked';
 
 jest.mock('../next/stacking', () => ({ STACKING: true }));
 
@@ -70,6 +70,8 @@ describe('next/stack: host', () => {
     second?.addShape({ x: 0, y: 0, width: 10, height: 10, radius: 2 });
     base.setReach?.(24);
     base.setOrigin?.(48, 32);
+    base.setPace?.(24);
+    base.setPace?.(null);
     await tick();
 
     expect(canvas.transferred).toBe(1);
@@ -88,6 +90,8 @@ describe('next/stack: host', () => {
     });
     expect(worker.sent).toContainEqual({ type: 'layer-reach', layer: root?.layer, reach: 24 });
     expect(worker.sent).toContainEqual({ type: 'layer-origin', layer: root?.layer, origin: [48, 32] });
+    expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 24 });
+    expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 0 });
     expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(
       true,
     );
@@ -105,6 +109,26 @@ describe('next/stack: host', () => {
     await tick();
     expect(statuses).toEqual([]);
     host.destroy();
+  });
+});
+
+describe('next/stack: a canvas held to a pace', () => {
+  it('draws at once without one, and no sooner than its pace with one', () => {
+    const base = { dirty: false };
+    const layers = new Map([[1, base]]);
+    expect(waits(base, 100)).toBe(false);
+    expect(waits(base, 101)).toBe(false);
+    expect(told({ type: 'layer-pace', layer: 1, pace: 24 }, layers)).toBe(true);
+    // A pace is not something new to draw.
+    expect(base.dirty).toBe(false);
+    expect(waits(base, 117)).toBe(true);
+    expect(waits(base, 124.9)).toBe(true);
+    expect(waits(base, 125)).toBe(false);
+    // Counted from the frame that was drawn, not from the ones that waited.
+    expect(waits(base, 140)).toBe(true);
+    expect(waits(base, 149)).toBe(false);
+    told({ type: 'layer-pace', layer: 1, pace: 0 }, layers);
+    expect(waits(base, 150)).toBe(false);
   });
 });
 

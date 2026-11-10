@@ -28,6 +28,9 @@ export interface Stack<T> {
   origin: readonly [number, number];
   /** For a member: the names of its material's pictures that are its base's, not its own. */
   readonly borrowed: Set<string>;
+  /** For a base: the least time between two frames of its canvas, ms (`setPace`), and when the last was drawn. */
+  pace: number;
+  drawnAt: number;
 }
 
 const stacks = /* @__PURE__ */ new WeakMap<object, Stack<unknown>>();
@@ -45,6 +48,8 @@ export function stackOf<T extends object>(layer: T): Stack<T> {
       reach: null,
       origin: [0, 0],
       borrowed: new Set(),
+      pace: 0,
+      drawnAt: -Infinity,
     };
     stacks.set(layer, stack);
   }
@@ -207,22 +212,42 @@ export const reachOf = (layer: object, material: MaterialSpec): number =>
 export const originOf = (layer: object): readonly [number, number] => stackOf(layer).origin;
 
 /**
- * Takes a message only stacked builds know (a layer's clip, reach or origin) to its layer, and says whether
- * `message` was one.
+ * Takes a message only stacked builds know (a layer's clip, reach, origin or pace) to its layer, and says
+ * whether `message` was one.
  */
 export function told(message: HostMessage, layers: ReadonlyMap<number, { dirty: boolean }>): boolean {
-  if (message.type !== 'layer-clip' && message.type !== 'layer-reach' && message.type !== 'layer-origin') {
+  if (
+    message.type !== 'layer-clip' &&
+    message.type !== 'layer-reach' &&
+    message.type !== 'layer-origin' &&
+    message.type !== 'layer-pace'
+  ) {
     return false;
   }
   const layer = layers.get(message.layer);
   if (layer) {
     const stack = stackOf(layer);
-    if (message.type === 'layer-clip') stack.clip = message.clip;
-    else if (message.type === 'layer-reach') stack.reach = message.reach;
-    else stack.origin = message.origin;
-    layer.dirty = true;
+    // (A pace changes when the canvas is drawn, not what is drawn.)
+    if (message.type === 'layer-pace') stack.pace = message.pace;
+    else {
+      if (message.type === 'layer-clip') stack.clip = message.clip;
+      else if (message.type === 'layer-reach') stack.reach = message.reach;
+      else stack.origin = message.origin;
+      layer.dirty = true;
+    }
   }
   return true;
+}
+
+/**
+ * Whether a canvas with something new to draw waits for a later frame, its last one being less than its
+ * pace ago (`setPace`). When it does not, this frame is the one it is drawn in.
+ */
+export function waits(base: object, now: number): boolean {
+  const stack = stackOf(base);
+  if (now - stack.drawnAt < stack.pace) return true;
+  stack.drawnAt = now;
+  return false;
 }
 
 /** What of a layer its stacked layers can be lent: its backdrop, and its material's own pictures. */

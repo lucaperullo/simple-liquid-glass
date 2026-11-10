@@ -3,7 +3,7 @@ import { specOf, type MaterialSpec } from './materials';
 import type { HostMessage, LayerStatus, RendererMessage } from './scene';
 import { ScrollTracker } from './scroll';
 import { GLASS_MATERIAL } from './shader';
-import { lend, stackOf, told } from './stacked';
+import { lend, stackOf, told, waits } from './stacked';
 import { STACKING } from './stacking';
 import { FrameMeter } from './stats';
 
@@ -72,6 +72,11 @@ export function createRenderer(env: RendererEnv): Renderer {
           const changed = layer.springs.advanceTo(now + env.origin);
           if (changed || layer.dirty || layer.running || (scrolled && layer.followsScroll)) due = true;
           if (layer.springs.moving || layer.running || (scrolling && layer.followsScroll)) moving = true;
+        }
+        if (due && waits(base, now)) {
+          // Held to its pace: drawn in a later frame, with whatever has changed by then.
+          base.dirty = moving = true;
+          due = false;
         }
         if (due) for (const layer of all) layer.draw(scroll.x, scroll.y, now + env.origin);
         drew ||= due;

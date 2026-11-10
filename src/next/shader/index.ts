@@ -1,2 +1,9 @@
 export { GLASS_DARK, GLASS_LIGHT, GLASS_MATERIAL } from './glass';
-export { ENGINE_UNIFORMS, VERTEX, fragmentSource, type EngineUniform } from './program';
+export {
+  ATTRIBUTE_GROUPS,
+  ENGINE_UNIFORMS,
+  VERTEX,
+  attributeGroups,
+  fragmentSource,
+  type EngineUniform,
+} from './program';

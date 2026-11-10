@@ -12,9 +12,13 @@
  * - `vec3 slg_studio(vec3 ray)` and `float slg_fresnel(float facing)`: a soft reflection and its weight.
  * - `float slg_hasBackdrop()`: 1 once the layer has a picture behind it, 0 before.
  * - the layer's shapes, for a material that writes its own `field`: `slg_count` of them, at most
- *   `SLG_CAPACITY`; shape `i` is `slg_boxes[i]` (centre, half size), `slg_radii[i]`, and its eight attributes
- *   `slg_attributesA[i]` and `slg_attributesB[i]`. GLSL ES 1.00 only lets a loop index them:
+ *   `SLG_CAPACITY`; shape `i` is `slg_boxes[i]` (centre, half size), `slg_radii[i]`, and its 24 attributes,
+ *   four to a `vec4`: `slg_attributesA[i]` to `slg_attributesF[i]` (only the ones the material names exist in
+ *   its program). GLSL ES 1.00 only lets a loop index them:
  *   `for (int i = 0; i < SLG_CAPACITY; i++) { if (i >= slg_count) break; ... }`.
+ * - `float slg_time`: seconds since the layer was made. It only moves on while the layer is running
+ *   (`layer.setRunning(true)`): a layer otherwise draws when something changes, not every frame.
+ * - its own textures, declared for it from `textures` as `sampler2D`s and filled by `layer.setTexture()`.
  * - `SLG_LEAN`: defined when the layer asked for the cheaper variant; use `#ifdef` to drop what it can spare.
  * - its own uniforms, declared for it from `uniforms`.
  *
@@ -47,6 +51,12 @@ export interface MaterialDefinition {
   /** The uniforms the material's GLSL reads, with their default values. */
   readonly uniforms?: Readonly<Record<string, UniformValue>>;
   /**
+   * Pictures the material's GLSL reads besides the backdrop (a glyph atlas, a card's art), by the name of
+   * their `sampler2D`. At most `MAX_TEXTURES`. A layer gives each its picture with `layer.setTexture()`;
+   * until then it reads as transparent black.
+   */
+  readonly textures?: readonly string[];
+  /**
    * How far outside its shapes' boxes the material can paint, CSS px (a `combine` that bridges a gap, a
    * glow). The engine only draws that far around each shape. Default 0.
    */
@@ -60,19 +70,24 @@ export interface MaterialSpec {
   readonly combine: string | null;
   readonly field: string | null;
   readonly uniforms: readonly { readonly name: string; readonly size: number; readonly offset: number }[];
+  readonly textures: readonly string[];
   /** Floats in a parameter array for this material. */
   readonly length: number;
   readonly bleed: number;
 }
 
+/** The most textures a material can have of its own. */
+export const MAX_TEXTURES = 3;
+
 const sizeOf = (value: UniformValue): number => (typeof value === 'number' ? 1 : value.length);
+const usable = (name: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !/^(gl_|slg_)/.test(name);
 
 /** Lays a definition's uniforms out. Throws on a name GLSL would not accept or a vector of the wrong size. */
 export function specOf(definition: MaterialDefinition): MaterialSpec {
   let offset = 0;
   const uniforms = Object.entries(definition.uniforms ?? {}).map(([name, value]) => {
     const size = sizeOf(value);
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || /^(gl_|slg_)/.test(name)) {
+    if (!usable(name)) {
       throw new TypeError(`Material "${definition.id}": "${name}" is not a usable uniform name`);
     }
     if (size < 1 || size > 4) {
@@ -82,12 +97,22 @@ export function specOf(definition: MaterialDefinition): MaterialSpec {
     offset += size;
     return entry;
   });
+  const textures = [...(definition.textures ?? [])];
+  if (textures.length > MAX_TEXTURES) {
+    throw new TypeError(`Material "${definition.id}": at most ${MAX_TEXTURES} textures`);
+  }
+  for (const name of textures) {
+    if (!usable(name) || uniforms.some((uniform) => uniform.name === name)) {
+      throw new TypeError(`Material "${definition.id}": "${name}" is not a usable texture name`);
+    }
+  }
   return {
     id: definition.id,
     shade: definition.shade,
     combine: definition.combine ?? null,
     field: definition.field ?? null,
     uniforms,
+    textures,
     length: offset,
     bleed: Math.max(definition.bleed ?? 0, 0),
   };

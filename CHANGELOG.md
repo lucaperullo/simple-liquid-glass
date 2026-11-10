@@ -30,6 +30,10 @@
     without sending it again, for a backdrop element that moves or grows while its picture stays the same.
   - **Walls.** `layer.setBounds(rect)` gives a layer walls its shapes may not pass while they move: a spring that
     would carry a shape through one stops it there, and content given to the shape keeps to the same walls.
+  - **More for a material to work with.** A layer holds 24 shapes, each with 24 attributes (`slg_attributesA` to
+    `slg_attributesF`; only the groups a material names cost uniforms). A material can declare textures of its own
+    (`textures`, filled with `layer.setTexture()`) and read `slg_time`; `layer.setRunning(true)` draws every frame
+    for one that does.
   - **Four layers in a worker.** Browsers keep four WebGL contexts alive per worker and silently drop the oldest
     for a fifth. A fifth worker layer now comes back `'unsupported'` with its canvas untouched
     (`MAX_WORKER_LAYERS`), instead of blanking an earlier one.

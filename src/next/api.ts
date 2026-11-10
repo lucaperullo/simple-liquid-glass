@@ -69,7 +69,7 @@ export interface GlassShapeOptions {
    * that reaches into the shape's rounded corners shows there.
    */
   readonly contentClip?: HTMLElement;
-  /** Up to eight free values for the layer's material (a colour, a lift, a flag). Default: zeros. */
+  /** Up to 24 free values for the layer's material (a colour, a lift, a flag). Default: zeros. */
   readonly attributes?: readonly number[];
 }
 
@@ -94,6 +94,16 @@ export interface GlassLayer {
    * a new picture whenever what is behind the glass changes.
    */
   setBackdrop(frame: BackdropFrame, options?: BackdropOptions): void;
+  /**
+   * Gives one of the material's own textures (see `MaterialDefinition.textures`) its picture. The layer
+   * takes it: do not use or close it afterwards. Throws on a name the material does not declare.
+   */
+  setTexture(name: string, frame: BackdropFrame): void;
+  /**
+   * Draws the layer on every frame while on, for a material that reads `slg_time` (a shimmer, a flow). Off
+   * by default: a layer draws when something changes. Turn it off while the glass is out of sight.
+   */
+  setRunning(running: boolean): void;
   /**
    * Says where the picture already given is now, without sending it again: for a backdrop element that
    * moved or changed size while its picture stayed the same.

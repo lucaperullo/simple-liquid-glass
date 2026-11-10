@@ -15,6 +15,11 @@ export const ENGINE_UNIFORMS = [
   'uRadius',
   'uAttributesA',
   'uAttributesB',
+  'uAttributesC',
+  'uAttributesD',
+  'uAttributesE',
+  'uAttributesF',
+  'uTime',
   'uHasBackdrop',
   'uBackdrop',
   'uBackdropRect',
@@ -24,6 +29,18 @@ export type EngineUniform = (typeof ENGINE_UNIFORMS)[number];
 
 const TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 
+/** The groups of four attributes a shape has, by the letter a material calls them. */
+export const ATTRIBUTE_GROUPS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+
+/**
+ * The attribute groups a material's GLSL names. Only those become uniforms: each is a `vec4` per shape, and
+ * a phone's fragment shader has a few hundred uniform vectors in all.
+ */
+export function attributeGroups(material: MaterialSpec): boolean[] {
+  const source = `${material.field ?? ''}${material.combine ?? ''}${material.shade}`;
+  return ATTRIBUTE_GROUPS.map((letter) => source.includes(`slg_attributes${letter}`));
+}
+
 /**
  * The fragment shader for a material: the engine's part (where the pixel is, the shapes' field, the
  * outline's antialiasing) around the material's (`slg_combine`, `slg_shade`).
@@ -32,8 +49,17 @@ const TYPES = ['float', 'vec2', 'vec3', 'vec4'];
  * bound whether or not the loop exits early, so a layer compiles the smallest capacity that fits it.
  */
 export function fragmentSource(material: MaterialSpec, capacity: number, lean: boolean): string {
-  const uniforms = material.uniforms
-    .map(({ name, size }) => `uniform ${TYPES[size - 1] ?? 'float'} ${name};`)
+  const uniforms = [
+    ...material.uniforms.map(({ name, size }) => `uniform ${TYPES[size - 1] ?? 'float'} ${name};`),
+    ...material.textures.map((name) => `uniform sampler2D ${name};`),
+  ].join('\n');
+  const attributes = attributeGroups(material)
+    .map((used, group) => {
+      const letter = ATTRIBUTE_GROUPS[group] ?? 'A';
+      return used
+        ? `uniform vec4 uAttributes${letter}[${capacity}];\n#define slg_attributes${letter} uAttributes${letter}`
+        : '';
+    })
     .join('\n');
   return `${PRECISION}
 ${lean ? '#define SLG_LEAN 1' : ''}
@@ -43,14 +69,13 @@ uniform float uScale;   // device px per CSS px
 uniform int uCount;
 uniform vec4 uBox[${capacity}];      // centre, half size
 uniform float uRadius[${capacity}];
-uniform vec4 uAttributesA[${capacity}];
-uniform vec4 uAttributesB[${capacity}];
+uniform float uTime;    // seconds since the layer was made
+${attributes}
+#define slg_time uTime
 #define SLG_CAPACITY ${capacity}
 #define slg_count uCount
 #define slg_boxes uBox
 #define slg_radii uRadius
-#define slg_attributesA uAttributesA
-#define slg_attributesB uAttributesB
 ${uniforms}
 
 vec2 slg_screen(vec2 p) { return uView.xy + p; }

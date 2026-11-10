@@ -149,6 +149,7 @@ const params = {
 // `&custom`: materials an application could define, for test.mjs.
 //   flat: one colour, set by a uniform.  last: a `combine` that keeps only the last shape.  broken: bad GLSL.
 //   field: its own field loop; each card takes the colour in its attributes.
+//   extras: a texture of its own (red), a shape's last attribute (green), and `slg_time` (blue).
 const custom = query.get('custom');
 const FIELD = `vec3 nearestColour;
 vec3 slg_field(vec2 p) {
@@ -160,7 +161,25 @@ vec3 slg_field(vec2 p) {
   }
   return f;
 }`;
-if (custom === 'field') {
+const EXTRAS = `float nearestLast;
+vec3 slg_field(vec2 p) {
+  vec3 f = vec3(0.0, 0.0, 1e5);
+  for (int i = 0; i < SLG_CAPACITY; i++) {
+    if (i >= slg_count) break;
+    vec3 shape = slg_roundedBox(p - slg_boxes[i].xy, slg_boxes[i].zw, slg_radii[i]);
+    if (shape.z < f.z) { f = shape; nearestLast = slg_attributesF[i].a; }
+  }
+  return f;
+}`;
+if (custom === 'extras') {
+  host.defineMaterial({
+    id: custom,
+    textures: ['art'],
+    field: EXTRAS,
+    shade:
+      'vec4 slg_shade(vec2 p, vec3 field) { return vec4(texture2D(art, vec2(0.5)).r, nearestLast, fract(slg_time * 0.7), 1.0); }',
+  });
+} else if (custom === 'field') {
   host.defineMaterial({
     id: custom,
     field: FIELD,
@@ -179,8 +198,12 @@ if (custom === 'field') {
 }
 // For `field`: the first card red (in its first four attributes), the others blue (in its last four).
 // (A bench outside this repository can say what its material's shapes carry: `window.__benchAttributes`.)
+// For `extras`: the first card has its last (24th) attribute set.
 const attributesOf =
-  window.__benchAttributes ?? ((index) => (index === 0 ? [1, 0, 0] : [0, 0, 0, 0, 0, 0, 1]));
+  window.__benchAttributes ??
+  (custom === 'extras'
+    ? (index) => Array.from({ length: 24 }, (_, at) => (index === 0 && at === 23 ? 1 : 0))
+    : (index) => (index === 0 ? [1, 0, 0] : [0, 0, 0, 0, 0, 0, 1]));
 
 // `&material=<id>`: one of the materials a page put in `window.__benchMaterials` before this script ran, for
 // benches that live outside this repository.
@@ -238,6 +261,12 @@ for (let i = 0; i < views; i++) {
       ...(contentClip ? { contentClip } : {}),
     });
   });
+  if (custom === 'extras') {
+    const art = new OffscreenCanvas(2, 2).getContext('2d');
+    art.fillStyle = '#f00';
+    art.fillRect(0, 0, 2, 2);
+    layer.setTexture('art', await createImageBitmap(art.canvas));
+  }
   layers.push({ canvas, layer, shapes });
 }
 

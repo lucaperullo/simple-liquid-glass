@@ -63,11 +63,11 @@ export function createRenderer(env: RendererEnv): Renderer {
     let moving = false;
     for (const layer of order) {
       const changed = layer.springs.advanceTo(now + env.origin);
-      if (changed || layer.dirty || (scrolled && layer.followsScroll)) {
-        layer.draw(scroll.x, scroll.y);
+      if (changed || layer.dirty || layer.running || (scrolled && layer.followsScroll)) {
+        layer.draw(scroll.x, scroll.y, now + env.origin);
         drew = true;
       }
-      if (layer.springs.moving || (scrolling && layer.followsScroll)) moving = true;
+      if (layer.springs.moving || layer.running || (scrolling && layer.followsScroll)) moving = true;
     }
     if (drew) {
       meter.record(now - drawnAt < REST_GAP ? now - drawnAt : 0, env.now() - started);
@@ -108,6 +108,20 @@ export function createRenderer(env: RendererEnv): Renderer {
         case 'layer-view':
           layers.get(message.layer)?.setView(message.view, message.fixed, message.scale);
           break;
+        case 'layer-texture': {
+          const layer = layers.get(message.layer);
+          if (layer) layer.setTexture(message.name, message.frame);
+          else message.frame.close();
+          break;
+        }
+        case 'layer-running': {
+          const layer = layers.get(message.layer);
+          if (layer) {
+            layer.running = message.running;
+            layer.dirty = true;
+          }
+          break;
+        }
         case 'layer-bounds':
           layers.get(message.layer)?.setBounds(message.bounds, message.time);
           break;

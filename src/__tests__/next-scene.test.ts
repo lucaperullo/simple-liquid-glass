@@ -31,7 +31,7 @@ describe('next: scene protocol', () => {
     expect(readShape(received.batch, 0)).toEqual({
       id: 7,
       box: boxes[0],
-      attributes: [0.5, 1, 0, 0, 0, 0, 0, 0],
+      attributes: [0.5, 1, ...Array.from({ length: 22 }, () => 0)],
       spring: { stiffness: 170, damping: 18 },
     });
     expect(readShape(received.batch, 1)).toMatchObject({ id: 9, box: boxes[1], spring: null });

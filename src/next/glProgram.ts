@@ -1,5 +1,12 @@
 import type { MaterialSpec } from './materials';
-import { ENGINE_UNIFORMS, VERTEX, fragmentSource, type EngineUniform } from './shader';
+import {
+  ATTRIBUTE_GROUPS,
+  ENGINE_UNIFORMS,
+  VERTEX,
+  attributeGroups,
+  fragmentSource,
+  type EngineUniform,
+} from './shader';
 
 /** A material compiled for one context, one shape capacity and one variant. */
 export interface Program {
@@ -14,16 +21,21 @@ export interface Program {
   /** Views of the layer's shape arrays, as long as this program's uniform arrays. */
   readonly boxes: Float32Array;
   readonly radii: Float32Array;
-  readonly attributesA: Float32Array;
-  readonly attributesB: Float32Array;
+  /** One per attribute group the material names (see `attributeGroups`): where it goes, and its values. */
+  readonly attributes: readonly {
+    readonly location: WebGLUniformLocation | null;
+    readonly values: Float32Array;
+  }[];
+  /** Where the material's own textures are, in the order its spec lists them. */
+  readonly textures: readonly (WebGLUniformLocation | null)[];
 }
 
 /** A layer's per-shape arrays, each sized for the most shapes a layer can hold. */
 export interface ShapeArrays {
   readonly boxes: Float32Array;
   readonly radii: Float32Array;
-  readonly attributesA: Float32Array;
-  readonly attributesB: Float32Array;
+  /** One array per attribute group, four values a shape. */
+  readonly attributes: readonly Float32Array[];
 }
 
 /** Compiles and links a material. Throws with the compiler's message if its GLSL is wrong. */
@@ -65,7 +77,17 @@ export function buildProgram(
     parameters: material.uniforms.map(({ name }) => gl.getUniformLocation(handle, name)),
     boxes: arrays.boxes.subarray(0, capacity * 4),
     radii: arrays.radii.subarray(0, capacity),
-    attributesA: arrays.attributesA.subarray(0, capacity * 4),
-    attributesB: arrays.attributesB.subarray(0, capacity * 4),
+    attributes: attributeGroups(material).flatMap((used, group) => {
+      const values = arrays.attributes[group];
+      return used && values
+        ? [
+            {
+              location: uniforms[`uAttributes${ATTRIBUTE_GROUPS[group] ?? 'A'}`],
+              values: values.subarray(0, capacity * 4),
+            },
+          ]
+        : [];
+    }),
+    textures: material.textures.map((name) => gl.getUniformLocation(handle, name)),
   };
 }

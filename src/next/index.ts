@@ -16,7 +16,7 @@ export type {
   Placement,
 } from './api';
 export { createGlassHost } from './host';
-export type { MaterialDefinition, UniformValue } from './materials';
+export { MAX_TEXTURES, type MaterialDefinition, type UniformValue } from './materials';
 export {
   DEFAULT_SPRING,
   MAX_SHAPES,

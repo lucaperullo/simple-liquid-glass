@@ -54,6 +54,30 @@ describe('next: materials', () => {
     expect(source).not.toContain('a.z < b.z');
   });
 
+  it("declares a material's textures, the clock, and only the attribute groups it names", () => {
+    const own = specOf({
+      id: 'own',
+      textures: ['atlas', 'art'],
+      shade: 'vec4 slg_shade(vec2 p, vec3 field) { return texture2D(atlas, p) * slg_time; }',
+      field: 'vec3 slg_field(vec2 p) { return vec3(slg_attributesA[0].x, slg_attributesF[0].w, 0.0); }',
+    });
+    const source = fragmentSource(own, 24, false);
+    expect(source).toContain('uniform sampler2D atlas;');
+    expect(source).toContain('uniform sampler2D art;');
+    expect(source).toContain('#define slg_time uTime');
+    expect(source).toContain('uniform vec4 uAttributesA[24];');
+    expect(source).toContain('uniform vec4 uAttributesF[24];');
+    expect(source).not.toContain('uAttributesB');
+    // The built-in glass reads none: a phone's shader has few uniform vectors to spare.
+    expect(fragmentSource(specOf(GLASS_MATERIAL), 24, false)).not.toContain('uAttributes');
+  });
+
+  it('refuses too many textures, and a texture named like a uniform', () => {
+    expect(() => specOf({ id: 'x', shade: '', textures: ['a', 'b', 'c', 'd'] })).toThrow(TypeError);
+    expect(() => specOf({ id: 'x', shade: '', uniforms: { art: 1 }, textures: ['art'] })).toThrow(TypeError);
+    expect(() => specOf({ id: 'x', shade: '', textures: ['slg_art'] })).toThrow(TypeError);
+  });
+
   it('ships a glass whose light tuning only names uniforms the glass has', () => {
     const glass = specOf(GLASS_MATERIAL);
     expect(() => packParams(glass, GLASS_LIGHT)).not.toThrow();

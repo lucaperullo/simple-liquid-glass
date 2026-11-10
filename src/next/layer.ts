@@ -1,7 +1,9 @@
+import { fillTexture, writeRectangle } from './glHelpers';
 import { buildProgram, type Program } from './glProgram';
 import type { MaterialSpec } from './materials';
 import {
   MAX_SHAPES,
+  SHAPE_ATTRIBUTES,
   SHAPE_BOX,
   SHAPE_STRIDE,
   SPRING_STRIDE,
@@ -14,7 +16,7 @@ import {
 import { SpringBank, keepInside } from './springs';
 
 /** Shape counts a program is compiled for; a layer uses the smallest that holds its shapes. */
-const CAPACITIES = [4, 8, MAX_SHAPES] as const;
+const CAPACITIES = [4, 8, 16, MAX_SHAPES] as const;
 
 const CONTEXT_OPTIONS: WebGLContextAttributes = {
   alpha: true,
@@ -63,9 +65,14 @@ export class GlassLayer {
   private count = 0;
   readonly boxes = new Float32Array(MAX_SHAPES * 4);
   readonly radii = new Float32Array(MAX_SHAPES);
-  /** Each shape's eight attributes, as the two `vec4`s a material reads. */
-  readonly attributesA = new Float32Array(MAX_SHAPES * 4);
-  readonly attributesB = new Float32Array(MAX_SHAPES * 4);
+  /** Each shape's attributes, in the groups of four (`vec4`s) a material reads. */
+  readonly attributes = Array.from({ length: SHAPE_ATTRIBUTES / 4 }, () => new Float32Array(MAX_SHAPES * 4));
+  /** Draws every frame, for a material that reads `slg_time`. */
+  running = false;
+  /** The material's own textures by name. Each picture is kept so its texture can be rebuilt after a lost context. */
+  private readonly pictures = new Map<string, { frame: BackdropFrame; texture: WebGLTexture | null }>();
+  /** When the layer was made, ms on the caller's clock: `slg_time` counts from here. */
+  private born: number | null = null;
   private usable = false;
 
   constructor(
@@ -114,6 +121,16 @@ export class GlassLayer {
   }
 
   /** Takes ownership of `frame`. */
+  /** Gives one of the material's own textures its picture. Takes ownership of `frame`. */
+  setTexture(name: string, frame: BackdropFrame): void {
+    const picture = this.pictures.get(name);
+    picture?.frame.close();
+    const next = { frame, texture: picture?.texture ?? null };
+    this.pictures.set(name, next);
+    if (this.gl && this.usable) next.texture = fillTexture(this.gl, next.texture, frame);
+    this.dirty = true;
+  }
+
   /** A new picture and where it is; or, with no picture, a new place for the one already here. */
   setBackdrop(frame: BackdropFrame | null, rect: Rect, fixed: boolean): void {
     this.backdropRect = rect;
@@ -122,7 +139,7 @@ export class GlassLayer {
     if (!frame) return;
     this.frame?.close();
     this.frame = frame;
-    if (this.gl && this.usable) this.upload(this.gl, frame);
+    if (this.gl && this.usable) this.texture = fillTexture(this.gl, this.texture, frame);
   }
 
   /** Walls the shapes may not pass while they move, as of `time`. Null: none. */
@@ -184,9 +201,10 @@ export class GlassLayer {
     this.dirty = true;
   }
 
-  /** Draws the layer with the page scrolled to (`scrollX`, `scrollY`). */
-  draw(scrollX: number, scrollY: number): void {
+  /** Draws the layer with the page scrolled to (`scrollX`, `scrollY`), at `time` (ms on the caller's clock). */
+  draw(scrollX: number, scrollY: number, time: number): void {
     this.dirty = false;
+    this.born ??= time;
     const gl = this.gl;
     if (!gl || !this.usable) return;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -196,7 +214,7 @@ export class GlassLayer {
     const program = this.count > 0 ? this.program(gl) : null;
     if (!program) return;
 
-    const { view, material, backdropRect, boxes, radii, attributesA, attributesB, corners } = this;
+    const { view, material, backdropRect, boxes, radii, attributes, corners } = this;
     const values = this.springs.value;
     // A rectangle reaches as far past its shape as the material can paint, plus the outline's antialiasing.
     const reach = material.bleed + Math.max(1, 1 / this.scale);
@@ -212,29 +230,13 @@ export class GlassLayer {
       boxes[to + 2] = halfWidth;
       boxes[to + 3] = halfHeight;
       radii[slot] = Math.min(Math.max(values[from + 4] ?? 0, 0), halfWidth, halfHeight);
-      for (let k = 0; k < 4; k++) {
-        attributesA[to + k] = values[from + SHAPE_BOX + k] ?? 0;
-        attributesB[to + k] = values[from + SHAPE_BOX + 4 + k] ?? 0;
+      for (let group = 0; group < attributes.length; group++) {
+        const into = attributes[group];
+        if (!into) continue;
+        for (let k = 0; k < 4; k++) into[to + k] = values[from + SHAPE_BOX + group * 4 + k] ?? 0;
       }
 
-      // The rectangle in clip space (y up), as two triangles.
-      const left = ((x - halfWidth - reach) / view.width) * 2 - 1;
-      const right = ((x + halfWidth + reach) / view.width) * 2 - 1;
-      const top = 1 - ((y - halfHeight - reach) / view.height) * 2;
-      const bottom = 1 - ((y + halfHeight + reach) / view.height) * 2;
-      const at = slot * 12;
-      corners[at] = left;
-      corners[at + 1] = top;
-      corners[at + 2] = right;
-      corners[at + 3] = top;
-      corners[at + 4] = left;
-      corners[at + 5] = bottom;
-      corners[at + 6] = left;
-      corners[at + 7] = bottom;
-      corners[at + 8] = right;
-      corners[at + 9] = top;
-      corners[at + 10] = right;
-      corners[at + 11] = bottom;
+      writeRectangle(corners, slot, x, y, halfWidth + reach, halfHeight + reach, view);
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, corners);
 
@@ -251,9 +253,17 @@ export class GlassLayer {
     gl.uniform1i(uniforms.uCount, this.count);
     gl.uniform4fv(uniforms.uBox, program.boxes);
     gl.uniform1fv(uniforms.uRadius, program.radii);
-    // (A material that reads no attributes has no such uniforms; setting a null location does nothing.)
-    gl.uniform4fv(uniforms.uAttributesA, program.attributesA);
-    gl.uniform4fv(uniforms.uAttributesB, program.attributesB);
+    // Only the attribute groups the material names are uniforms of its program.
+    for (const group of program.attributes) gl.uniform4fv(group.location, group.values);
+    gl.uniform1f(uniforms.uTime, (time - this.born) / 1000);
+    // The backdrop is texture 0; the material's own follow, in the order its spec lists them.
+    material.textures.forEach((name, index) => {
+      gl.activeTexture(gl.TEXTURE1 + index);
+      gl.bindTexture(gl.TEXTURE_2D, this.pictures.get(name)?.texture ?? null);
+      gl.uniform1i(program.textures[index] ?? null, index + 1);
+    });
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.uniform1f(uniforms.uHasBackdrop, this.texture ? 1 : 0);
     gl.uniform4f(
       uniforms.uBackdropRect,
@@ -290,6 +300,8 @@ export class GlassLayer {
     this.usable = false;
     this.frame?.close();
     this.frame = null;
+    for (const { frame } of this.pictures.values()) frame.close();
+    this.pictures.clear();
     // Frees the GPU memory now instead of when the canvas is collected.
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
@@ -307,7 +319,8 @@ export class GlassLayer {
     this.current = null;
     this.texture = null;
     this.prepare(this.gl);
-    if (this.frame) this.upload(this.gl, this.frame);
+    if (this.frame) this.texture = fillTexture(this.gl, null, this.frame);
+    for (const picture of this.pictures.values()) picture.texture = fillTexture(this.gl, null, picture.frame);
     this.usable = true;
     this.dirty = true;
     this.events.status('drawing', '');
@@ -327,19 +340,6 @@ export class GlassLayer {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     // The shader writes premultiplied colour for every pixel; nothing is blended inside the canvas.
     gl.disable(gl.BLEND);
-  }
-
-  private upload(gl: WebGLRenderingContext, frame: BackdropFrame): void {
-    // One texture for the layer's life: a stream of frames refills it instead of making a new one each time.
-    if (!this.texture) {
-      this.texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, this.texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    }
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frame);
   }
 
   private cutParams(): void {

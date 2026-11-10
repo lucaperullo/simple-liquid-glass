@@ -28,7 +28,7 @@ export type GlassCanvas = HTMLCanvasElement | OffscreenCanvas;
 export const MAX_WORKER_LAYERS = 4;
 
 /** The most shapes one layer can hold. The shader's loop bound; see `shader/glass.ts`. */
-export const MAX_SHAPES = 16;
+export const MAX_SHAPES = 24;
 
 /** Values of a shape's box on the wire: centre x, centre y, half width, half height, corner radius. */
 export const SHAPE_BOX = 5;
@@ -37,7 +37,7 @@ export const SHAPE_BOX = 5;
  * Free values per shape, for materials: a colour, a lift, a flag. They travel and spring with the box and
  * reach the material's GLSL as two `vec4`s per shape.
  */
-export const SHAPE_ATTRIBUTES = 8;
+export const SHAPE_ATTRIBUTES = 24;
 
 /** Values per shape on the wire: its box, then its attributes. */
 export const SHAPE_STRIDE = SHAPE_BOX + SHAPE_ATTRIBUTES;
@@ -194,6 +194,15 @@ export type HostMessage =
       readonly params: Float32Array;
       readonly lean: boolean;
     }
+  /** A picture for one of the material's own textures. The layer takes it. */
+  | {
+      readonly type: 'layer-texture';
+      readonly layer: number;
+      readonly name: string;
+      readonly frame: BackdropFrame;
+    }
+  /** Whether the layer draws every frame, for a material that reads `slg_time`. */
+  | { readonly type: 'layer-running'; readonly layer: number; readonly running: boolean }
   | {
       readonly type: 'layer-backdrop';
       readonly layer: number;
@@ -252,6 +261,8 @@ export function transferables(message: HostMessage): Transferable[] {
         : [];
     case 'layer-backdrop':
       return message.frame ? [message.frame] : [];
+    case 'layer-texture':
+      return [message.frame];
     case 'shapes-set':
       return [message.batch.ids.buffer, message.batch.values.buffer, message.batch.springs.buffer];
     case 'shapes-remove':

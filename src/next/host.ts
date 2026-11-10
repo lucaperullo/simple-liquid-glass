@@ -308,6 +308,15 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
           return layer.status;
         },
         setBackdrop,
+        setTexture(name, frame) {
+          if (!material.spec.textures.includes(name)) {
+            throw new TypeError(`Material "${material.spec.id}" has no texture "${name}"`);
+          }
+          post({ type: 'layer-texture', layer: layer.id, name, frame });
+        },
+        setRunning(running) {
+          post({ type: 'layer-running', layer: layer.id, running });
+        },
         moveBackdrop(backdrop) {
           sendBackdrop(null, backdrop);
         },

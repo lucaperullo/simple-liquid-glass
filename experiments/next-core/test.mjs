@@ -211,6 +211,42 @@ for (const [name, launch] of Object.entries(launchers)) {
   assert.deepEqual(recoloured, [0, 255, 0, 255]);
   await own.close();
 
+  // A texture of its own (red), a shape's 24th attribute (green: the first card's is set), and the clock
+  // (blue), which only runs while the layer is told to.
+  const extras = await next('mode=worker&auto=0&scale=1&custom=extras&cards=2&quiet');
+  const [one, two] = [pixel(await shot(extras), 0.5, 0.25), pixel(await shot(extras), 0.5, 0.75)];
+  await extras.waitForTimeout(300);
+  const still = pixel(await shot(extras), 0.5, 0.25);
+  await extras.evaluate(() => window.__next.layers[0].layer.setRunning(true));
+  await extras.waitForTimeout(400);
+  await sample(extras);
+  await extras.waitForTimeout(500);
+  const ran = (await sample(extras)).glass.n;
+  const later = pixel(await shot(extras), 0.5, 0.25);
+  await extras.evaluate(() => window.__next.layers[0].layer.setRunning(false));
+  await rest(extras);
+  say(
+    `own texture, 24th attribute and clock: ${one} and ${two}; running, ${ran} frames in 0.5 s and ${later}`,
+  );
+  assert.deepEqual(
+    [one.slice(0, 2), two.slice(0, 2)],
+    [
+      [255, 255],
+      [255, 0],
+    ],
+  );
+  assert.deepEqual(still, one, 'the clock moved on while the layer was not running');
+  assert.ok(ran >= 10, `a running layer should draw every frame (drew ${ran} in 0.5 s)`);
+  assert.notEqual(later[2], one[2], 'the clock did not move on while the layer was running');
+  await extras.close();
+
+  // As many shapes as a layer holds.
+  const full = await next('mode=worker&auto=0&scale=1&custom=flat&cards=24&quiet');
+  const lowest = pixel(await shot(full), 0.5, 0.97);
+  say(`24 shapes in a layer: the last is ${lowest}`);
+  assert.deepEqual(lowest, [255, 0, 0, 255]);
+  await full.close();
+
   const broken = await open('next-core', 'mode=worker&auto=0&scale=1&custom=broken&quiet');
   await broken.waitForFunction(() => window.__next.statuses.at(-1) === 'unsupported');
   const report = await broken.evaluate(() => window.__next.details.at(-1));

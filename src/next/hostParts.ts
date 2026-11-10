@@ -1,5 +1,6 @@
 /** Small pieces of host.ts. */
 import { scrollPosition } from './pageSources';
+import type { GlassLayer } from './api';
 import type { FrameStats, HostMessage, Rect } from './scene';
 
 export const NO_STATS: FrameStats = {
@@ -45,4 +46,20 @@ export const stackedAdd = (
   material,
   params,
   lean,
+});
+
+/** Stacking: the calls a layer has only there, apart from `stack()`. */
+export const stackedCalls = (
+  post: (message: HostMessage) => void,
+  layer: number,
+): Pick<GlassLayer, 'setClip' | 'setReach' | 'setOrigin'> => ({
+  setClip(clip) {
+    post({ type: 'layer-clip', layer, clip });
+  },
+  setReach(reach) {
+    post({ type: 'layer-reach', layer, reach });
+  },
+  setOrigin(x, y) {
+    post({ type: 'layer-origin', layer, origin: [x, y] });
+  },
 });

@@ -108,6 +108,15 @@ for (const [name, launch] of Object.entries(launchers)) {
     expect(picture, 170, 100, OVER_GLASS, 'after a lost context: the probe over the base');
     expect(picture, 260, 165, BLUE, 'after a lost context: the clipped layer');
 
+    // The base measured from 60 px lower: its box moves, and the probe over it reads the glass where it is now.
+    await page.evaluate(() => window.__stack.lower());
+    await rest();
+    picture = await pixels();
+    expect(picture, 50, 50, BLACK, 'the base moved down: where its box was');
+    expect(picture, 50, 150, RED, 'the base moved down: its box');
+    expect(picture, 170, 70, OVER_NOTHING, 'the base moved down: the probe above it');
+    expect(picture, 170, 100, OVER_GLASS, 'the base moved down: the probe over it');
+
     await page.evaluate(() => window.__stack.removeBlue());
     await rest();
     picture = await pixels();

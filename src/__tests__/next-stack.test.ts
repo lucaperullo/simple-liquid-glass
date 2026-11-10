@@ -3,6 +3,7 @@
 // draws from these messages is tested in real browsers (experiments/next-core/stack.test.mjs).
 import { createGlassHost } from '../next';
 import type { HostMessage, RendererMessage } from '../next/scene';
+import { writeAround } from '../next/stacked';
 
 jest.mock('../next/stacking', () => ({ STACKING: true }));
 
@@ -67,6 +68,8 @@ describe('next/stack: host', () => {
     const second = first?.stack?.({ lean: true });
     second?.setClip?.({ left: 4, top: 8, width: 30, height: 20 });
     second?.addShape({ x: 0, y: 0, width: 10, height: 10, radius: 2 });
+    base.setReach?.(24);
+    base.setOrigin?.(48, 32);
     await tick();
 
     expect(canvas.transferred).toBe(1);
@@ -83,6 +86,8 @@ describe('next/stack: host', () => {
       layer: two?.layer,
       clip: { left: 4, top: 8, width: 30, height: 20 },
     });
+    expect(worker.sent).toContainEqual({ type: 'layer-reach', layer: root?.layer, reach: 24 });
+    expect(worker.sent).toContainEqual({ type: 'layer-origin', layer: root?.layer, origin: [48, 32] });
     expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(
       true,
     );
@@ -100,5 +105,35 @@ describe('next/stack: host', () => {
     await tick();
     expect(statuses).toEqual([]);
     host.destroy();
+  });
+});
+
+describe('next/stack: one rectangle for shapes whose rectangles overlap', () => {
+  const view = { left: 0, top: 0, width: 200, height: 100 };
+  // Two shapes (centre and half size), 20 px a side, 100 px apart.
+  const boxes = Float32Array.of(40, 50, 10, 10, 140, 50, 10, 10);
+
+  it('keeps a rectangle a shape while those are fewer pixels', () => {
+    const corners = new Float32Array(24).fill(9);
+    expect(writeAround(corners, boxes, 2, 5, view, false)).toBe(false);
+    expect([...corners]).toEqual(new Array(24).fill(9));
+  });
+
+  it('draws one where the material reaches far past its shapes, kept to the view', () => {
+    const corners = new Float32Array(24).fill(9);
+    expect(writeAround(corners, boxes, 2, 4000, view, false)).toBe(true);
+    // The whole view, in clip space: two triangles.
+    expect([...corners.subarray(0, 12)]).toEqual([-1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, -1]);
+    expect([...corners.subarray(12)]).toEqual(new Array(12).fill(9));
+  });
+
+  it('always draws one for a layer blended over others', () => {
+    const corners = new Float32Array(24);
+    expect(writeAround(corners, boxes, 2, 5, view, true)).toBe(true);
+    // From 25 to 155 across, 35 to 65 down.
+    expect(corners[0]).toBeCloseTo(-0.75);
+    expect(corners[2]).toBeCloseTo(0.55);
+    expect(corners[1]).toBeCloseTo(0.3);
+    expect(corners[5]).toBeCloseTo(-0.3);
   });
 });

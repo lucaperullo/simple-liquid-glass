@@ -197,6 +197,10 @@ export type HostMessage =
     }
   /** Stacking: where a stacked layer may draw, CSS px from the canvas's top-left corner. Null: anywhere. */
   | { readonly type: 'layer-clip'; readonly layer: number; readonly clip: Rect | null }
+  /** Stacking: how far past its shapes a layer paints, CSS px, in place of its material's `bleed`. Null: that. */
+  | { readonly type: 'layer-reach'; readonly layer: number; readonly reach: number | null }
+  /** Stacking: where a layer's shapes are measured from, CSS px from the canvas's top-left corner. */
+  | { readonly type: 'layer-origin'; readonly layer: number; readonly origin: readonly [number, number] }
   | { readonly type: 'material-define'; readonly material: MaterialSpec }
   | {
       readonly type: 'layer-material';

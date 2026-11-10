@@ -44,6 +44,8 @@ window.__stack = {
   // The probe springs 60 px to the right (it stays over the red box's edge).
   move: () => probed.set({ x: (probed.at = probed.at === 160 ? 100 : 160) }),
   lose: () => base.simulateContextLoss(50),
+  // The base's shapes are measured from 60 px lower.
+  lower: () => base.setOrigin(0, 60),
   removeBlue: () => blue.remove(),
   removeBase: () => base.remove(),
 };

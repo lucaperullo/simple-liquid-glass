@@ -14,7 +14,7 @@ import {
 } from './scene';
 import { CAPACITIES, CONTEXT_OPTIONS, type ContextSource, type LayerEvents } from './layerParts';
 import { SpringBank, keepInside } from './springs';
-import { beginOver, endOver, forget, leave, sharedProgram, stackOf, writeAround } from './stacked';
+import * as stacks from './stacked';
 import { STACKING } from './stacking';
 
 /**
@@ -67,8 +67,8 @@ export class GlassLayer {
   ) {
     this.cutParams();
     if (STACKING && base) {
-      stackOf<GlassLayer>(this).base = base;
-      stackOf(base).members.push(this);
+      stacks.stackOf<GlassLayer>(this).base = base;
+      stacks.stackOf(base).members.push(this);
       this.gl = base.gl;
       this.usable = true;
       events.status('drawing', '');
@@ -192,7 +192,7 @@ export class GlassLayer {
     const gl = this.gl;
     if (!gl || !this.usable) return;
     // Stacking: a layer drawn into another's canvas leaves what is there.
-    const over = STACKING && stackOf<GlassLayer>(this).base;
+    const over = STACKING && stacks.stackOf<GlassLayer>(this).base;
     if (!over) {
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       // Everything outside the shapes' rectangles is empty: cleared here, never shaded.
@@ -205,11 +205,11 @@ export class GlassLayer {
     const { view, material, backdropRect, boxes, radii, attributes, corners } = this;
     const values = this.springs.value;
     // A rectangle reaches as far past its shape as the material can paint, plus the outline's antialiasing.
-    const reach = material.bleed + Math.max(1, 1 / this.scale);
+    const reach = (STACKING ? stacks.reachOf(this, material) : material.bleed) + Math.max(1, 1 / this.scale);
     for (let slot = 0; slot < this.count; slot++) {
       const from = slot * SHAPE_STRIDE;
-      const x = values[from] ?? 0;
-      const y = values[from + 1] ?? 0;
+      const x = STACKING ? (values[from] ?? 0) + stacks.originOf(this)[0] : (values[from] ?? 0);
+      const y = STACKING ? (values[from + 1] ?? 0) + stacks.originOf(this)[1] : (values[from + 1] ?? 0);
       const halfWidth = Math.max(values[from + 2] ?? 0, 0);
       const halfHeight = Math.max(values[from + 3] ?? 0, 0);
       const to = slot * 4;
@@ -227,12 +227,12 @@ export class GlassLayer {
       writeRectangle(corners, slot, x, y, halfWidth + reach, halfHeight + reach, view);
     }
     const { uniforms } = program;
+    const once = STACKING && stacks.writeAround(corners, boxes, this.count, reach, view, !!over);
     if (STACKING && over) {
-      writeAround(corners, boxes, this.count, reach, view);
-      beginOver(
+      stacks.beginOver(
         gl,
-        stackOf(over),
-        stackOf<GlassLayer>(this).clip,
+        stacks.stackOf(over),
+        stacks.stackOf<GlassLayer>(this).clip,
         this.scale,
         program.below ?? null,
         material.textures.length + 1,
@@ -280,8 +280,8 @@ export class GlassLayer {
       else if (value.length === 3) gl.uniform3fv(location, value);
       else gl.uniform4fv(location, value);
     }
-    gl.drawArrays(gl.TRIANGLES, 0, STACKING && over ? 6 : this.count * 6);
-    if (STACKING && over) endOver(gl);
+    gl.drawArrays(gl.TRIANGLES, 0, once ? 6 : this.count * 6);
+    if (STACKING && over) stacks.endOver(gl);
   }
 
   /** Test aid: loses the context, and restores it `restoreAfter` ms later. */
@@ -295,7 +295,7 @@ export class GlassLayer {
   }
 
   dispose(): void {
-    const base = STACKING && stackOf<GlassLayer>(this).base;
+    const base = STACKING && stacks.stackOf<GlassLayer>(this).base;
     if (!base) {
       this.canvas.removeEventListener('webglcontextlost', this.onLost);
       this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
@@ -306,7 +306,7 @@ export class GlassLayer {
     for (const { frame } of this.pictures.values()) frame.close();
     this.pictures.clear();
     // Stacking: the canvas and its context are the base's.
-    if (base) leave(stackOf(base), this);
+    if (base) stacks.leave(stacks.stackOf(base), this);
     // Frees the GPU memory now instead of when the canvas is collected.
     else this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
@@ -331,13 +331,13 @@ export class GlassLayer {
     this.events.status('drawing', '');
     this.events.wake();
     if (STACKING) {
-      forget(stackOf<GlassLayer>(this));
-      for (const member of stackOf<GlassLayer>(this).members) member.onRestored();
+      stacks.forget(stacks.stackOf<GlassLayer>(this));
+      for (const member of stacks.stackOf<GlassLayer>(this).members) member.onRestored();
     }
   };
 
   private sizeCanvas(): void {
-    if (STACKING && stackOf<GlassLayer>(this).base) return;
+    if (STACKING && stacks.stackOf<GlassLayer>(this).base) return;
     this.canvas.width = Math.max(Math.round(this.view.width * this.scale), 1);
     this.canvas.height = Math.max(Math.round(this.view.height * this.scale), 1);
   }
@@ -363,8 +363,7 @@ export class GlassLayer {
     const capacity = CAPACITIES.find((size) => size >= this.count) ?? MAX_SHAPES;
     const { material, lean, current } = this;
     if (current?.material === material && current.capacity === capacity && current.lean === lean) {
-      // Stacking: another layer of this canvas may have left its own program in use.
-      if (STACKING) gl.useProgram(current.handle);
+      if (STACKING) gl.useProgram(current.handle); // another layer of the canvas may have left its own in use
       return current;
     }
 
@@ -373,9 +372,9 @@ export class GlassLayer {
     if (!program) {
       try {
         program = STACKING
-          ? sharedProgram(
+          ? stacks.sharedProgram(
               gl,
-              stackOf(stackOf<GlassLayer>(this).base ?? this).compiled,
+              stacks.stackOf(stacks.stackOf<GlassLayer>(this).base ?? this).compiled,
               key,
               material,
               capacity,

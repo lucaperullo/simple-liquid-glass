@@ -141,6 +141,19 @@ export interface GlassLayer {
    * from the canvas's top-left corner, or null for the whole canvas.
    */
   setClip?(clip: Rect | null): void;
+  /**
+   * Only in `simple-liquid-glass/next/stack`. How far past its shapes this layer's material paints right now,
+   * in CSS pixels, in place of the material's own `bleed`; null goes back to that. For a material whose reach
+   * depends on its uniforms or its shapes' attributes (a merge radius, a stretch): a layer shades only that
+   * far around each shape, so a reach no larger than it needs is drawn faster. Too small cuts the glass off.
+   */
+  setReach?(reach: number | null): void;
+  /**
+   * Only in `simple-liquid-glass/next/stack`. Where this layer's shapes are measured from: a point in CSS
+   * pixels from the canvas's top-left corner (the corner itself by default). Moving it moves every shape at
+   * once, wherever its spring has it: for a canvas that grows or moves around glass that should stay put.
+   */
+  setOrigin?(x: number, y: number): void;
   /** Test aid: loses the layer's WebGL context and restores it after `restoreAfter` ms. */
   simulateContextLoss(restoreAfter?: number): void;
   remove(): void;

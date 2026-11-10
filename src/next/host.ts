@@ -35,7 +35,7 @@ import type {
   GlassStats,
 } from './api';
 import { ContentFollower } from './content';
-import { NO_STATS, boxOf, place, stackedAdd } from './hostParts';
+import { NO_STATS, boxOf, place, stackedAdd, stackedCalls } from './hostParts';
 import { packParams, specOf, type MaterialSpec } from './materials';
 import { watchScroll, watchVideo } from './pageSources';
 import { GLASS_MATERIAL } from './shader';
@@ -290,7 +290,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       if (to.thread === 'worker') workerLayers.add(layer.id);
     });
 
-    const api: GlassLayer = {
+    return {
       get status() {
         return layer.status;
       },
@@ -344,15 +344,14 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
         layer.changed.clear();
         post({ type: 'layer-remove', layer: layer.id });
       },
+      // Stacking. One canvas, one scale, one place: a stacked layer takes them from the layer it is over.
+      ...(STACKING
+        ? {
+            stack: (stacked = {}) => addLayer(canvas, { ...stacked, fixed, scale }, over ?? layer),
+            ...stackedCalls(post, layer.id),
+          }
+        : null),
     };
-    if (STACKING) {
-      // One canvas, one scale, one place: a stacked layer takes them from the layer it is over.
-      api.stack = (stacked = {}) => addLayer(canvas, { ...stacked, fixed, scale }, over ?? layer);
-      api.setClip = (clip) => {
-        post({ type: 'layer-clip', layer: layer.id, clip });
-      };
-    }
-    return api;
   }
 
   return {

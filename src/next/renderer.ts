@@ -3,7 +3,7 @@ import { specOf, type MaterialSpec } from './materials';
 import type { HostMessage, LayerStatus, RendererMessage } from './scene';
 import { ScrollTracker } from './scroll';
 import { GLASS_MATERIAL } from './shader';
-import { stackOf } from './stacked';
+import { stackOf, told } from './stacked';
 import { STACKING } from './stacking';
 import { FrameMeter } from './stats';
 
@@ -112,6 +112,11 @@ export function createRenderer(env: RendererEnv): Renderer {
 
   return {
     handle(message) {
+      // Stacking: what a layer is told only there (the core's switch below does not know these).
+      if (STACKING && told(message, layers)) {
+        wake();
+        return;
+      }
       switch (message.type) {
         case 'layer-add': {
           const id = message.layer;
@@ -162,14 +167,6 @@ export function createRenderer(env: RendererEnv): Renderer {
           if (STACKING && layer)
             for (const member of stackOf(layer).members)
               member.setView(message.view, message.fixed, message.scale);
-          break;
-        }
-        case 'layer-clip': {
-          const layer = STACKING && layers.get(message.layer);
-          if (layer) {
-            stackOf(layer).clip = message.clip;
-            layer.dirty = true;
-          }
           break;
         }
         case 'layer-texture': {

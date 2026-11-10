@@ -6,7 +6,7 @@
 import { buildProgram, type Program, type ShapeArrays } from './glProgram';
 import type { MaterialSpec } from './materials';
 import { writeRectangle } from './glHelpers';
-import type { Rect } from './scene';
+import type { HostMessage, Rect } from './scene';
 import { ATTRIBUTE_GROUPS, attributeGroups } from './shader';
 
 /** What stacking adds to a layer. `T` is the layer's own type. */
@@ -22,14 +22,27 @@ export interface Stack<T> {
   belowSize: string;
   /** For a base: each material compiled once, however many of its layers use it. */
   readonly compiled: Map<string, Program>;
+  /** How far past its shapes this layer paints, CSS px, in place of its material's `bleed`. Null: the material's. */
+  reach: number | null;
+  /** Where the shapes' space starts, CSS px from the canvas's top-left corner. */
+  origin: readonly [number, number];
 }
 
-const stacks = new WeakMap<object, Stack<unknown>>();
+const stacks = /* @__PURE__ */ new WeakMap<object, Stack<unknown>>();
 
 export function stackOf<T extends object>(layer: T): Stack<T> {
   let stack = stacks.get(layer) as Stack<T> | undefined;
   if (!stack) {
-    stack = { base: null, members: [], clip: null, below: null, belowSize: '', compiled: new Map() };
+    stack = {
+      base: null,
+      members: [],
+      clip: null,
+      below: null,
+      belowSize: '',
+      compiled: new Map(),
+      reach: null,
+      origin: [0, 0],
+    };
     stacks.set(layer, stack);
   }
   return stack;
@@ -139,8 +152,10 @@ export function leave<T>(base: Stack<T>, member: T): void {
 
 /**
  * One rectangle around every shape (`boxes`: centre and half size, four values a shape) and `reach` past
- * them, kept to the view, as the first rectangle of `corners`. A stacked layer's pixels are blended over the
- * canvas's, so none may be drawn twice.
+ * them, kept to the view, as the first rectangle of `corners`; and whether it was written. `always`: for a
+ * stacked layer, whose pixels are blended over the canvas's, so none may be drawn twice. Otherwise only where
+ * that one rectangle is fewer pixels than a rectangle a shape: shapes whose rectangles overlap (a material
+ * that paints far past its shapes) are shaded once a rectangle, however many cover a pixel.
  */
 export function writeAround(
   corners: Float32Array,
@@ -148,22 +163,27 @@ export function writeAround(
   count: number,
   reach: number,
   view: Rect,
-): void {
+  always: boolean,
+): boolean {
   let left = Infinity;
   let top = Infinity;
   let right = -Infinity;
   let bottom = -Infinity;
+  /** The pixels a rectangle a shape would shade, each kept to the view. */
+  let apart = 0;
   for (let slot = 0; slot < count; slot++) {
     const [x = 0, y = 0, halfWidth = 0, halfHeight = 0] = boxes.subarray(slot * 4);
-    left = Math.min(left, x - halfWidth - reach);
-    top = Math.min(top, y - halfHeight - reach);
-    right = Math.max(right, x + halfWidth + reach);
-    bottom = Math.max(bottom, y + halfHeight + reach);
+    const x0 = Math.max(x - halfWidth - reach, 0);
+    const y0 = Math.max(y - halfHeight - reach, 0);
+    const x1 = Math.min(x + halfWidth + reach, view.width);
+    const y1 = Math.min(y + halfHeight + reach, view.height);
+    apart += Math.max(x1 - x0, 0) * Math.max(y1 - y0, 0);
+    left = Math.min(left, x0);
+    top = Math.min(top, y0);
+    right = Math.max(right, x1);
+    bottom = Math.max(bottom, y1);
   }
-  left = Math.max(left, 0);
-  top = Math.max(top, 0);
-  right = Math.min(right, view.width);
-  bottom = Math.min(bottom, view.height);
+  if (!always && (right - left) * (bottom - top) >= apart) return false;
   writeRectangle(
     corners,
     0,
@@ -173,4 +193,31 @@ export function writeAround(
     (bottom - top) / 2,
     view,
   );
+  return true;
+}
+
+/** How far past its shapes a layer paints: what it was told (`setReach`), else its material's `bleed`. */
+export const reachOf = (layer: object, material: MaterialSpec): number =>
+  stackOf(layer).reach ?? material.bleed;
+
+/** Where a layer's shapes are measured from (`setOrigin`). */
+export const originOf = (layer: object): readonly [number, number] => stackOf(layer).origin;
+
+/**
+ * Takes a message only stacked builds know (a layer's clip, reach or origin) to its layer, and says whether
+ * `message` was one.
+ */
+export function told(message: HostMessage, layers: ReadonlyMap<number, { dirty: boolean }>): boolean {
+  if (message.type !== 'layer-clip' && message.type !== 'layer-reach' && message.type !== 'layer-origin') {
+    return false;
+  }
+  const layer = layers.get(message.layer);
+  if (layer) {
+    const stack = stackOf(layer);
+    if (message.type === 'layer-clip') stack.clip = message.clip;
+    else if (message.type === 'layer-reach') stack.reach = message.reach;
+    else stack.origin = message.origin;
+    layer.dirty = true;
+  }
+  return true;
 }

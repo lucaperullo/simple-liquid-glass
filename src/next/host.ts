@@ -34,6 +34,7 @@ import type {
   GlassShapeOptions,
   GlassStats,
 } from './api';
+import { ContentFollower } from './content';
 import { packParams, specOf, type MaterialSpec } from './materials';
 import { scrollPosition, watchScroll, watchVideo } from './pageSources';
 import { GLASS_MATERIAL } from './shader';
@@ -44,6 +45,7 @@ interface ShapeRecord {
   readonly box: ShapeBox;
   readonly attributes: number[];
   readonly spring: SpringConfig | null;
+  readonly content: ContentFollower | null;
   jump: boolean;
 }
 
@@ -126,13 +128,17 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
     for (const layer of layers.values()) {
       if (layer.changed.size === 0) continue;
       const batch = createShapeBatch(layer.changed.size);
+      // One moment for the whole batch: the renderer's springs and the content's start from it together.
+      const time = performance.timeOrigin + performance.now();
       let index = 0;
       for (const shape of layer.changed) {
-        writeShape(batch, index++, shape.id, shape.box, shape.attributes, shape.jump ? null : shape.spring);
+        const spring = shape.jump ? null : shape.spring;
+        writeShape(batch, index++, shape.id, shape.box, shape.attributes, spring);
+        shape.content?.moveTo(shape.box.x, shape.box.y, time, reducedMotion() ? null : spring, contentLead);
         shape.jump = false;
       }
       layer.changed.clear();
-      post({ type: 'shapes-set', layer: layer.id, batch });
+      post({ type: 'shapes-set', layer: layer.id, batch, time });
     }
   };
   // Changes made in one task leave together, so a layout pass that moves ten shapes costs one message.
@@ -146,8 +152,10 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
     options.reducedMotion === undefined && typeof matchMedia === 'function'
       ? matchMedia('(prefers-reduced-motion: reduce)')
       : null;
+  const reducedMotion = (): boolean => options.reducedMotion ?? media?.matches ?? false;
+  const contentLead = options.contentLead ?? 0;
   const sendMotion = (): void => {
-    post({ type: 'motion', reduced: options.reducedMotion ?? media?.matches ?? false });
+    post({ type: 'motion', reduced: reducedMotion() });
   };
   media?.addEventListener('change', sendMotion);
   sendMotion();
@@ -179,6 +187,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       id: nextId++,
       box: { ...box },
       attributes: [...(shapeOptions.attributes ?? [])],
+      content: shapeOptions.content ? new ContentFollower(shapeOptions.content) : null,
       spring,
       jump: false,
     };
@@ -202,6 +211,7 @@ export function createGlassHost(options: GlassHostOptions = {}): GlassHost {
       },
       remove() {
         if (!layer.shapes.delete(shape)) return;
+        shape.content?.stop();
         // What was already said about the shape goes first, so the renderer sees one consistent order.
         flush();
         post({ type: 'shapes-remove', layer: layer.id, ids: Uint32Array.of(shape.id) });

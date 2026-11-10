@@ -24,9 +24,6 @@ export interface Renderer {
   handle(message: HostMessage): void;
 }
 
-/** The step a spring takes on the first frame after a rest, when there is no previous frame to measure from. */
-const FIRST_FRAME = 1 / 120;
-
 /** Two drawn frames further apart than this (ms) had a rest between them; the gap is not a slow frame. */
 const REST_GAP = 100;
 
@@ -45,8 +42,6 @@ export function createRenderer(env: RendererEnv): Renderer {
   let drawnX = 0;
   let drawnY = 0;
   let scheduled = false;
-  /** When the previous frame ran, if something was still moving then: the springs' clock. 0 after a rest. */
-  let previous = 0;
   /** When a frame was last drawn: the meter's clock. Frames driven by messages (a video) count as a run too. */
   let drawnAt = 0;
   let reducedMotion = false;
@@ -59,7 +54,6 @@ export function createRenderer(env: RendererEnv): Renderer {
 
   const frame = (now: number): void => {
     scheduled = false;
-    const elapsed = previous > 0 ? (now - previous) / 1000 : FIRST_FRAME;
     const started = env.now();
     const scrolling = scroll.predict(now + env.origin);
     const scrolled = scroll.x !== drawnX || scroll.y !== drawnY;
@@ -68,7 +62,7 @@ export function createRenderer(env: RendererEnv): Renderer {
     let drew = false;
     let moving = false;
     for (const layer of order) {
-      const changed = layer.springs.step(elapsed);
+      const changed = layer.springs.advanceTo(now + env.origin);
       if (changed || layer.dirty || (scrolled && layer.followsScroll)) {
         layer.draw(scroll.x, scroll.y);
         drew = true;
@@ -79,12 +73,7 @@ export function createRenderer(env: RendererEnv): Renderer {
       meter.record(now - drawnAt < REST_GAP ? now - drawnAt : 0, env.now() - started);
       drawnAt = now;
     }
-    if (moving) {
-      previous = now;
-      wake();
-    } else {
-      previous = 0;
-    }
+    if (moving) wake();
   };
 
   const remove = (id: number): void => {
@@ -137,7 +126,7 @@ export function createRenderer(env: RendererEnv): Renderer {
           remove(message.layer);
           break;
         case 'shapes-set':
-          layers.get(message.layer)?.setShapes(message.batch, reducedMotion);
+          layers.get(message.layer)?.setShapes(message.batch, reducedMotion, message.time);
           break;
         case 'shapes-remove':
           layers.get(message.layer)?.removeShapes(message.ids);

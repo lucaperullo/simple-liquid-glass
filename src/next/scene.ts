@@ -203,7 +203,13 @@ export type HostMessage =
       readonly lead: number;
     }
   | { readonly type: 'layer-remove'; readonly layer: number }
-  | { readonly type: 'shapes-set'; readonly layer: number; readonly batch: ShapeBatch }
+  /** `time`: when the change was made, ms on the clock all threads share. Springs start from then. */
+  | {
+      readonly type: 'shapes-set';
+      readonly layer: number;
+      readonly batch: ShapeBatch;
+      readonly time: number;
+    }
   | { readonly type: 'shapes-remove'; readonly layer: number; readonly ids: Uint32Array }
   /** Reduced motion: while on, every change lands at once. */
   | { readonly type: 'motion'; readonly reduced: boolean }

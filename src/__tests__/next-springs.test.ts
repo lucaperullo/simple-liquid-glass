@@ -56,11 +56,63 @@ describe('next: springs', () => {
     expect(bank.moving).toBe(false);
   });
 
-  it('resumes after a long gap instead of leaping', () => {
+  it('has finished after a long gap', () => {
     const bank = new SpringBank(1);
     bank.aim(0, 100, 170, 18);
     bank.step(5);
-    expect(bank.value[0]).toBeLessThan(50);
+    expect(bank.value[0]).toBe(100);
+    expect(bank.moving).toBe(false);
+  });
+
+  it('is where the time says, however the time was cut into calls', () => {
+    // A renderer's frames on one thread, a page's on another: same aims at the same times, same springs.
+    const start = 1_000_000;
+    const run = (times: number[]): number[] => {
+      const bank = new SpringBank(2);
+      bank.advanceTo(start);
+      bank.aim(0, 300, 170, 18);
+      const seen: number[] = [];
+      let retargeted = false;
+      for (const time of times) {
+        if (!retargeted && time > start + 120) {
+          bank.advanceTo(start + 120);
+          bank.aim(0, 40, 170, 18);
+          bank.aim(1, 90, 220, 20);
+          retargeted = true;
+        }
+        bank.advanceTo(time);
+        seen.push(bank.value[0] ?? 0, bank.value[1] ?? 0);
+      }
+      return seen.slice(-2);
+    };
+    const at = start + 260;
+    const worker = run([
+      start + 7.1,
+      start + 15.4,
+      start + 23.8,
+      start + 57,
+      start + 131.3,
+      start + 139.6,
+      start + 200.2,
+      at,
+    ]);
+    const page = run([start + 16.7, start + 33.3, start + 150, at]);
+    expect(worker[0]).toBeCloseTo(page[0] ?? 0, 9);
+    expect(worker[1]).toBeCloseTo(page[1] ?? 0, 9);
+    expect(worker[0]).not.toBe(40);
+  });
+
+  it('copies another bank exactly', () => {
+    const bank = new SpringBank(1);
+    bank.advanceTo(500);
+    bank.aim(0, 100, 170, 18);
+    bank.advanceTo(590);
+    const copy = new SpringBank(1);
+    copy.copyFrom(bank);
+    bank.advanceTo(700);
+    copy.advanceTo(700);
+    expect(copy.value[0]).toBe(bank.value[0]);
+    expect(copy.moving).toBe(true);
   });
 
   it('stays stable at the stiffest spring it accepts', () => {

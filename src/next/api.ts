@@ -15,6 +15,11 @@ export interface GlassHostOptions {
    * refracts scrolling content. Default 0.
    */
   readonly scrollLead?: number;
+  /**
+   * Milliseconds to start a shape's `content` ahead of its glass, for a browser that shows the two a
+   * constant time apart. Default 0.
+   */
+  readonly contentLead?: number;
 }
 
 /** Where a rectangle lives. */
@@ -47,6 +52,13 @@ export interface GlassLayerOptions extends Placement {
 export interface GlassShapeOptions {
   /** How the shape moves when `set()` changes it. Default: stiffness 170, damping 18. `null`: it jumps. */
   readonly spring?: SpringConfig | null;
+  /**
+   * An element to keep on the shape: its top-left corner follows the shape's, moved by the browser's
+   * compositor in step with the glass, at the display's rate even where the page's own frames are slower.
+   * Put it at the layer canvas's top-left corner (same containing block, `position: absolute; left: 0;
+   * top: 0`): the engine sets its `transform`, nothing else.
+   */
+  readonly content?: HTMLElement;
   /** Up to eight free values for the layer's material (a colour, a lift, a flag). Default: zeros. */
   readonly attributes?: readonly number[];
 }

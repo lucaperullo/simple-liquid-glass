@@ -667,6 +667,10 @@ A layer and its backdrop each either move with the document (the default) or sta
 the position once per frame and the renderer carries it forward, so the glass is redrawn for every frame of the
 display.
 
+Text and pictures that belong on a piece of glass are page content, and the glass is animated elsewhere. Pass
+the element as a shape's `content` and the engine keeps its corner on the shape, moved by the browser's
+compositor along the same spring, at the display's rate.
+
 What glass looks like is a material: GLSL that shades one pixel, plus the uniforms it reads. The built-in `glass`
 has a dark tuning (its defaults) and a light one (`params: GLASS_LIGHT`); `layer.setParams()` changes any of its
 uniforms, and `lean: true` compiles its cheaper variant. `host.defineMaterial()` adds your own, or one derived

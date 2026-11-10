@@ -1,0 +1,5 @@
+{"cfg": "mode=worker", "thread": "worker", "glassFps": 120, "shots": 28, "midFlight": 6, "contentAheadMs": [0.0, 3.4, 0.0, 0.0, 0.0, 0.0], "median": 0.0, "worstAbs": 3.4, "travelPx": 904}
+{"cfg": "mode=worker&contentLead=4", "thread": "worker", "glassFps": 120, "shots": 31, "midFlight": 6, "contentAheadMs": [-3.6, 3.3, 6.9, 0.0, 3.7, 3.8], "median": 3.5, "worstAbs": 6.9, "travelPx": 912}
+{"cfg": "mode=main", "thread": "page", "glassFps": 60, "shots": 31, "midFlight": 6, "contentAheadMs": [6.5, 7.5, 0.0, 7.1, 0.0, 7.1], "median": 6.8, "worstAbs": 7.5, "travelPx": 911}
+{"cfg": "mode=worker", "thread": "worker", "glassFps": 120, "shots": 71, "midFlight": 12, "contentAheadMs": [0.0, 0.0, 3.6, 0.0, 0.2, 0.0, 0.2, 0.0, 3.6, 3.6, 0.0, 0.0], "median": 0.0, "worstAbs": 3.6, "travelPx": 914}
+{"cfg": "mode=main", "thread": "page", "glassFps": 120, "shots": 70, "midFlight": 12, "contentAheadMs": [-0.3, 6.5, 6.7, 6.3, 6.9, 7.1, 7.4, 6.5, 7.3, 7.5, 7.5, 7.4], "median": 7.0, "worstAbs": 7.5, "travelPx": 914}

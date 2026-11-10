@@ -6,6 +6,8 @@
 //   &light (the glass's light tuning)  &lean (its cheaper variant)  &custom=flat|last|broken (see below)
 //   &material=<id> (a material from window.__benchMaterials)
 //   &plain (no words in the picture)
+//   &content (an element on every card, kept there by the engine)  &contentLead=0 (ms it starts early)
+//   &slide (one card travelling the height of the view)
 //   &quiet (no on-screen readout)  &hold (the page takes touches itself)  &bend=18 (0: the glass does not displace)
 //   &scroll (the picture is three viewports tall and scrolls under the glass)  &at=500 (start scrolled there)
 //   &lead=0 (ms the renderer predicts the scroll ahead)
@@ -98,6 +100,10 @@ if (video !== null) {
 
 // Where the cards of one view go: `open` 0 = at rest, 1 = the first card open.
 function layout(view, open) {
+  // `&slide`: one card that travels the height of its view.
+  if (query.has('slide')) {
+    return [{ x: 16, y: open ? view.height - 176 : 40, width: view.width - 32, height: 136, radius: 22 }];
+  }
   const gap = 14;
   const pad = 16;
   const width = view.width - pad * 2;
@@ -120,6 +126,7 @@ const host = createGlassHost({
   thread: mode === 'main' ? 'page' : 'auto',
   reducedMotion: false,
   scrollLead: +query.get('lead') || 0,
+  contentLead: +query.get('contentLead') || 0,
 });
 const params = {
   ...(query.has('light') ? GLASS_LIGHT : {}),
@@ -188,9 +195,21 @@ for (let i = 0; i < views; i++) {
   else if (scrolls)
     layer.setBackdrop(await createImageBitmap(backdrop), { rect: backdrop.getBoundingClientRect() });
   else layer.setBackdrop(await createImageBitmap(backdrop), { fixed: true });
-  const shapes = layout(canvas.getBoundingClientRect(), open).map((box, index) =>
-    layer.addShape(box, { attributes: attributesOf(index) }),
-  );
+  // `&content`: every card carries an element (a rule and a label) that the engine keeps on it. The rule
+  // sits 40 px below the card's top edge, so a screenshot shows whether the two travel together.
+  const board = query.has('content') ? stage.appendChild(document.createElement('div')) : null;
+  if (board) board.style.cssText = 'position: absolute; inset: 0; pointer-events: none';
+  const shapes = layout(canvas.getBoundingClientRect(), open).map((box, index) => {
+    let content;
+    if (board) {
+      content = board.appendChild(document.createElement('div'));
+      content.className = 'card-content';
+      content.style.cssText = `position: absolute; left: 0; top: 0; width: ${box.width}px; will-change: transform`;
+      content.innerHTML = `<div style="position: absolute; top: 40px; left: 0; right: 0; height: 2px; background: #fff"></div>
+        <div style="position: absolute; top: 48px; left: 14px; font: 600 15px system-ui">card ${index + 1}</div>`;
+    }
+    return layer.addShape(box, { attributes: attributesOf(index), ...(content ? { content } : {}) });
+  });
   layers.push({ canvas, layer, shapes });
 }
 
@@ -202,7 +221,8 @@ function toggle() {
 }
 
 // (A touch that scrolls the page is not a tap on the cards.)
-if (!scrolls) addEventListener('pointerdown', toggle);
+// (Nor is one on the `&slide` page, which a harness keeps a finger on to hold the display at its top rate.)
+if (!scrolls && !query.has('slide')) addEventListener('pointerdown', toggle);
 // `&hold`: Chrome on Android runs the page's frames at the display's rate while a finger is down on a page
 // that takes the touch, which shows what the page thread could do without its 60 Hz cap.
 if (query.has('hold')) {
@@ -257,7 +277,7 @@ window.__proof = {
   },
 };
 // For test.mjs.
-window.__next = { host, layers, statuses, details, toggle, paintFilm };
+window.__next = { host, layers, statuses, details, toggle, paintFilm, isOpen: () => open };
 
 // The readout drains the same counters a harness samples: `&quiet` leaves them to the harness.
 if (!query.has('quiet')) {

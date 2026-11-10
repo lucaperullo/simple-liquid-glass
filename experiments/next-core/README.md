@@ -109,3 +109,30 @@ canvas is empty: a material whose `bleed` makes the rectangles overlap gets less
 
 `phone.py` now reads the newest of Chrome's surfaces: Chrome can leave an old one listed with its last frames,
 which an earlier version of the harness sometimes read instead (a row of identical 58.2 fps gave it away).
+
+## Page content on moving glass: ZTE Z2357N, Chrome 156, 2026-11-10
+
+A card's text and pictures are page content; the card's glass is animated by the renderer. Given
+`content: element`, the engine runs the card's spring on the page thread ahead of time and hands its path to
+the browser's compositor as a keyframe animation that starts at the same moment as the glass's, so both move
+at the display's rate. `content-lag.py` measures how well they stay together: one flat card travels 457 CSS px
+once a second, its content carries a rule 40 px below the card's edge, and screenshots taken mid-flight show
+how far the rule is from where it belongs. The distance is turned into time along the spring's known path.
+Raw rows: `results-zte-content-2026-11-10.jsonl`.
+
+    python3 experiments/next-core/content-lag.py experiments/next-core --shots 140 --configs "mode=worker" "mode=main"
+
+| Glass drawn             | Mid-flight screenshots | Content ahead of its glass, ms |
+| ----------------------- | ---------------------- | ------------------------------ |
+| worker                  | 18                     | 0.0–0.2 in 14, 3.4–3.6 in 4    |
+| worker, `contentLead=4` | 6                      | −3.6 to 6.9, median 3.5        |
+| page thread             | 18                     | 6.3–7.5 in 15, 0 in 3          |
+
+From the worker the content sits on its glass in three screenshots of four and is under half a frame (3.6 ms)
+ahead in the rest. With the glass drawn on the page thread the content runs about 7 ms ahead of it.
+
+What this does not show: a card that changes size (the content's box is not animated, only its corner's
+position), a card sent somewhere else mid-flight, several cards starting at different moments, and Safari
+(WebKit under test, with software rendering, showed the content 38 px from its card mid-flight; on a real
+device that is unmeasured). The finger the harness rests on the page to keep the display at 120 Hz also
+raises the page thread's own frames to 120, so the page-thread row is kinder than a page left alone.

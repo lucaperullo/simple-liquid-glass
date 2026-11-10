@@ -123,8 +123,13 @@ export class GlassLayer {
     this.dirty = true;
   }
 
-  /** Adds the batch's new shapes where they are, and moves its known shapes towards their new boxes. */
-  setShapes(batch: ShapeBatch, reducedMotion: boolean): void {
+  /**
+   * Adds the batch's new shapes where they are, and moves its known shapes towards their new boxes, as of
+   * `time` (ms on the clock all threads share).
+   */
+  setShapes(batch: ShapeBatch, reducedMotion: boolean, time: number): void {
+    // The change happened at `time`, not whenever this message got here: bring the springs to that moment first.
+    this.springs.advanceTo(time);
     for (let i = 0; i < batch.ids.length; i++) {
       const id = batch.ids[i] ?? 0;
       let slot = this.ids.subarray(0, this.count).indexOf(id);

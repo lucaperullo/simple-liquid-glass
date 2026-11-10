@@ -4,7 +4,7 @@
 // (and the built-in glass matches its approved pictures); an application's own material works; a spring
 // reaches its target; the renderer asks for no frames at rest; a lost context comes back; a busy page
 // thread does not slow glass drawn from the worker; glass over a scrolling page shows what is behind it;
-// and a playing video reaches the glass.
+// a playing video reaches the glass; and page content given to a card stays on it.
 import { chromium, webkit } from 'playwright';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -294,7 +294,47 @@ for (const [name, launch] of Object.entries(launchers)) {
   assert.ok(playing.n >= 10, `the glass should follow the video (drew ${playing.n} frames in a second)`);
   await film.close();
 
-  // 8. A page thread that burns 40 ms every frame: glass drawn there crawls with it, glass in a worker does not.
+  // 8. Page content kept on a card: it ends exactly on the card, with no animation left running, and
+  // travels with it (a screenshot mid-flight shows its rule 40 px below the card's edge, give or take).
+  const carried = await next('mode=worker&auto=0&scale=1&content&slide&custom=flat&plain&quiet');
+  const offBy = async () => {
+    const png = PNG.sync.read(await carried.screenshot());
+    const x = png.width >> 1;
+    const at = (y) => png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 3);
+    let top = 0;
+    while (top < png.height - 1 && !(at(top)[0] > 180 && at(top)[1] < 90)) top++;
+    let rule = top + 8;
+    while (rule < png.height - 1 && Math.min(...at(rule)) < 215) rule++;
+    return (rule - top) / 2 - 40;
+  };
+  assert.ok(Math.abs(await offBy()) <= 1, 'the content does not start on its card');
+  await carried.evaluate(() => window.__next.toggle());
+  await carried.waitForTimeout(90);
+  const midFlight = await offBy();
+  await rest(carried);
+  const settled = await carried.evaluate(() => {
+    const content = document.querySelector('.card-content').getBoundingClientRect();
+    const stage = document.querySelector('#stage canvas').getBoundingClientRect();
+    return {
+      y: content.top - stage.top,
+      expected: stage.height - 176,
+      running: document.getAnimations().length,
+    };
+  });
+  say(
+    `content on a moving card: ${midFlight.toFixed(1)} px off mid-flight, ${(settled.y - settled.expected).toFixed(2)} px off at rest`,
+  );
+  assert.ok(
+    Math.abs(settled.y - settled.expected) < 0.01,
+    `the content ended ${settled.y - settled.expected} px off its card`,
+  );
+  assert.equal(settled.running, 0, 'an animation was left running after the card came to rest');
+  assert.ok(Math.abs(await offBy()) <= 1, 'the content is not on its card after the move');
+  // Loose: the test machine's software renderer does not show the two in step as a display does.
+  assert.ok(Math.abs(midFlight) < 60, `the content is far from its card mid-flight (${midFlight} px)`);
+  await carried.close();
+
+  // 9. A page thread that burns 40 ms every frame: glass drawn there crawls with it, glass in a worker does not.
   const cadence = async (query) => {
     const page = await open('next-core', `${query}&busy=40&scale=1&auto=300&quiet`);
     await page.waitForTimeout(1000);

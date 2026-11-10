@@ -18,6 +18,11 @@
     the material as two `vec4`s, and a material may define the whole field itself (`field`) instead of a pairwise
     `combine`. A layer draws before it has a backdrop (`slg_hasBackdrop()`); the built-in glass stays invisible
     until then.
+  - **Content that stays on its glass.** `addShape(box, { content: element })` keeps an element's corner on the
+    shape. Springs now run on absolute time, so the page thread can run the same spring ahead and hand its path
+    to the compositor as a keyframe animation that starts when the glass's does. On a 120 Hz Android phone the
+    content sits on worker-drawn glass in three mid-flight screenshots of four and is under half a frame ahead
+    in the rest. A spring is now where the time says it is: after a long gap it has finished, not resumed.
   - **Four layers in a worker.** Browsers keep four WebGL contexts alive per worker and silently drop the oldest
     for a fifth. A fifth worker layer now comes back `'unsupported'` with its canvas untouched
     (`MAX_WORKER_LAYERS`), instead of blanking an earlier one.

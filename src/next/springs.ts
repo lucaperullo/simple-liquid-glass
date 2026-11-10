@@ -10,8 +10,8 @@ export const SPRING_STEP = 1 / 240;
 /** Stiffer springs are clamped: past this the fixed step would start to ring. */
 export const MAX_STIFFNESS = 20000;
 
-/** The longest frame a spring will follow. A longer gap (a hidden tab) resumes instead of leaping. */
-const MAX_FRAME = 1 / 15;
+/** The most time one call catches up on, seconds. Every spring has long come to rest by then. */
+const MAX_CATCH_UP = 10;
 
 /** A spring this close to its target (CSS px) and this slow (CSS px/s) stops there. */
 const REST_DISTANCE = 0.02;
@@ -30,6 +30,8 @@ export class SpringBank {
   private readonly live: Uint8Array;
   private liveCount = 0;
   private remainder = 0;
+  /** The time `advanceTo` has brought the springs to, ms. */
+  private clock = 0;
 
   constructor(readonly size: number) {
     this.value = new Float64Array(size);
@@ -99,12 +101,45 @@ export class SpringBank {
   }
 
   /**
+   * Advances to `time`, in ms on a clock of the caller's choosing (the same one in every call). Springs at
+   * rest only take note of the time, so a spring aimed afterwards starts from exactly then.
+   *
+   * Where a spring is depends only on when it was aimed and what time it is now, not on how many calls it
+   * took to get here. Two banks given the same aims at the same times therefore agree, on any thread: that
+   * is what lets page content follow glass that a worker animates.
+   */
+  advanceTo(time: number): boolean {
+    const elapsed = time - this.clock;
+    if (this.liveCount === 0) {
+      this.clock = time;
+      return false;
+    }
+    if (elapsed <= 0) return false;
+    this.clock = time;
+    return this.step(elapsed / 1000);
+  }
+
+  /** Makes this bank an exact copy of `other`, which must be the same size. */
+  copyFrom(other: SpringBank): void {
+    this.value.set(other.value);
+    this.position.set(other.position);
+    this.velocity.set(other.velocity);
+    this.target.set(other.target);
+    this.stiffness.set(other.stiffness);
+    this.damping.set(other.damping);
+    this.live.set(other.live);
+    this.liveCount = other.liveCount;
+    this.remainder = other.remainder;
+    this.clock = other.clock;
+  }
+
+  /**
    * Advances by `seconds`. Returns whether any value changed, which is one frame longer than `moving`:
    * the step that brings the last spring to rest still has something new to draw.
    */
   step(seconds: number): boolean {
     if (this.liveCount === 0) return false;
-    this.remainder += Math.min(Math.max(seconds, 0), MAX_FRAME);
+    this.remainder += Math.min(Math.max(seconds, 0), MAX_CATCH_UP);
     // The small bias keeps a frame of exactly n sub-steps from rounding down to n - 1.
     const steps = Math.floor(this.remainder / SPRING_STEP + 1e-6);
     this.remainder = Math.max(this.remainder - steps * SPRING_STEP, 0);

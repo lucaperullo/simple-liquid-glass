@@ -29,6 +29,9 @@ Peer deps: `react` and `react-dom` (16.8 – 19). The web component needs no Rea
   element. Also exports `defineLiquidGlass(tag?)` and `LiquidGlassElement`.
 - `simple-liquid-glass/engine` (public since 5.7.0, `@experimental`, `ENGINE_API = 1`) → `getGlassEngine()`, a
   framework-agnostic custom-material API. See "Engine API (experimental)" below.
+- `simple-liquid-glass/next` (6.0) → `createGlassHost()`: glass drawn from a worker, the scene as data, springs in
+  the renderer. `simple-liquid-glass/next/stack` → the same API plus layers stacked in one canvas. See "Worker
+  renderer (6.0)" below.
 
 ## How refraction works — and the #1 thing to get right
 
@@ -252,3 +255,34 @@ marks surfaces dirty; engine.stats() reports { contexts, layers, surfaces, visib
 uploadBytes, frameMs }.
 Not implemented in this release: a frost input (no slg_frost) and pointer input (no slg_pointer) — there is no
 pointer field anywhere in this API. An MIT example material is at tests/engine/tint-material.ts.
+
+## Worker renderer (6.0)
+import { createGlassHost } from 'simple-liquid-glass/next'. No React import; call it in the browser (an effect),
+never on the server. The page describes glass as data and a renderer draws it: from a worker on canvases handed
+over with transferControlToOffscreen where the browser supports WebGL there, on the page thread otherwise
+({ thread: 'page' } forces that). Use it where glass must keep the display's rate while the page is busy or capped
+(Chrome on Android gives a page 60 frames a second on a 120 Hz screen; a worker canvas gets 120), or for your own
+GLSL material. The built entry's whole surface is in api/next.api.md in the repository.
+const host = createGlassHost(); const layer = host.addLayer(canvas, { scale: 2 }) (the canvas's box is the layer:
+size it with CSS, never width/height, and do not ask it for a context); layer.setBackdrop(await
+createImageBitmap(picture), { rect?, fixed? }) hands over what the glass bends (the layer takes the bitmap);
+layer.streamBackdrop(video) follows a playing video; layer.moveBackdrop({ rect, fixed }) moves the picture
+without sending it again. const shape = layer.addShape({ x, y, width, height, radius }, { spring?, content?,
+contentClip?, attributes? }); shape.set(box) springs there in the renderer, shape.set(box, { jump: true }) puts
+it there; shape.setAttributes(values); shape.remove(). MAX_SHAPES is 24 per layer, each with up to 24 attributes.
+A layer and its backdrop each move with the document (default) or stay in the viewport (fixed: true); glass
+fixed over a scrolling page follows the scroll by itself. layer.status / onStatus(status, detail): 'unsupported'
+means show your CSS fallback. A worker keeps MAX_WORKER_LAYERS (4) canvases; a fifth comes back 'unsupported'.
+Materials: the built-in 'glass' (params: GLASS_LIGHT for the light tuning; lean: true for the cheaper variant) or
+host.defineMaterial({ id, shade, field?, combine?, uniforms, textures?, bleed? }): GLSL defining vec4
+slg_shade(vec2 p, vec3 field) with slg_screen(p), slg_backdrop(screen), slg_hasBackdrop(), slg_scale, slg_time,
+slg_count, slg_boxes, slg_radii, slg_attributesA..F. layer.setParams({ name: value }) changes uniforms,
+layer.setTexture(name, bitmap) fills a material texture, layer.setRunning(true) draws every frame for a material
+that reads slg_time, layer.setBounds(rect) gives shapes walls. host.settle(), host.stats(), host.destroy().
+reducedMotion is followed by default. A site whose CSP forbids blob: workers hosts simple-liquid-glass/next/worker
+and passes workerUrl.
+import { createGlassHost } from 'simple-liquid-glass/next/stack' adds: layer.stack(options) (another layer drawn
+in the same canvas after the ones before it; its material reads the glass already there with vec4
+slg_below(screen)), setClip(rect), setReach(px), setOrigin(x, y), setBare(true), setPace(ms), notify(redraw?)
+and host.draw(). Its worker file is simple-liquid-glass/next/stack/worker.
+Coming from 5.x: docs/migration.md ("v5.x → v6.0"). <LiquidGlass> and every other 5.x entry are unchanged.

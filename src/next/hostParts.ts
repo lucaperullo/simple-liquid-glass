@@ -49,7 +49,10 @@ export const stackedAdd = (
 });
 
 /** Stacking: the call a host has only there. `flush` sends what the scene has not sent yet. */
-export const hostCalls = (flush: () => void, post: (message: HostMessage) => void): Pick<GlassHost, 'draw'> => ({
+export const hostCalls = (
+  flush: () => void,
+  post: (message: HostMessage) => void,
+): Pick<GlassHost, 'draw'> => ({
   draw() {
     flush();
     post({ type: 'draw' });

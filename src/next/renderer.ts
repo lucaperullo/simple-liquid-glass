@@ -83,7 +83,8 @@ export function createRenderer(env: RendererEnv): Renderer {
           // Its host asked to hear of this frame (a canvas shows what it was sent a frame or more later).
           if (asked(base)) {
             for (const [id, each] of layers) {
-              if (each === base) env.post({ type: 'layer-status', layer: id, status: 'drawing', detail: 'frame' });
+              if (each === base)
+                env.post({ type: 'layer-status', layer: id, status: 'drawing', detail: 'frame' });
             }
           }
         }

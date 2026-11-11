@@ -98,7 +98,9 @@ describe('next/stack: host', () => {
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 0 });
     // `draw` sends what the scene had not sent yet, then asks for the frame.
     expect(worker.sent[worker.sent.length - 1]).toEqual({ type: 'draw' });
-    expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(true);
+    expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(
+      true,
+    );
     expect(worker.sent.some((message) => message.type === 'shapes-set' && message.layer === two?.layer)).toBe(
       true,
     );
@@ -120,7 +122,14 @@ describe('next/stack: host', () => {
 });
 
 describe('next/stack: a canvas asked to say when it is drawn', () => {
-  const lendable = () => ({ dirty: false, frame: null, texture: null, backdropRect: { left: 0, top: 0, width: 0, height: 0 }, backdropFixed: false, pictures: new Map() });
+  const lendable = () => ({
+    dirty: false,
+    frame: null,
+    texture: null,
+    backdropRect: { left: 0, top: 0, width: 0, height: 0 },
+    backdropFixed: false,
+    pictures: new Map(),
+  });
 
   it('says so once for each time it was asked, and draws a frame only if asked to', () => {
     const base = lendable();

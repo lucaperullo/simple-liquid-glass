@@ -221,7 +221,10 @@ export const originOf = (layer: object): readonly [number, number] => stackOf(la
  * Takes a message only stacked builds know (a layer's clip, reach, origin or pace) to its layer, and says
  * whether `message` was one.
  */
-export function told(message: HostMessage, layers: ReadonlyMap<number, Lendable & { dirty: boolean }>): boolean {
+export function told(
+  message: HostMessage,
+  layers: ReadonlyMap<number, Lendable & { dirty: boolean }>,
+): boolean {
   if (
     message.type !== 'layer-bare' &&
     message.type !== 'layer-notify' &&

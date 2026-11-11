@@ -159,6 +159,15 @@ export interface GlassLayer {
    */
   setOrigin?(x: number, y: number): void;
   /**
+   * Only in `simple-liquid-glass/next/stack`, for a layer with a canvas of its own. Asks to hear when the next
+   * frame of that canvas has been drawn: its `onStatus` is then called once with `'drawing'` and the detail
+   * `'frame'`. A canvas a worker draws shows what the page sent a frame or more later, and the page cannot see
+   * when: this is for whatever copies the canvas (glass floating over it, in a canvas of its own). `redraw`:
+   * also draws a frame, though nothing changed (on the page thread a canvas can only be copied in the frame it
+   * was drawn in).
+   */
+  notify?(redraw?: boolean): void;
+  /**
    * Only in `simple-liquid-glass/next/stack`, for a stacked layer that has no backdrop of its own: `true` draws
    * it with none (`slg_hasBackdrop()` is 0), where it would otherwise draw with the backdrop of the layer whose
    * canvas it shares. For glass that is meant to show only the glass beneath it.

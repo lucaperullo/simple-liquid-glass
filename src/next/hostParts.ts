@@ -60,7 +60,10 @@ export const hostCalls = (flush: () => void, post: (message: HostMessage) => voi
 export const stackedCalls = (
   post: (message: HostMessage) => void,
   layer: number,
-): Pick<GlassLayer, 'setBare' | 'setClip' | 'setReach' | 'setOrigin' | 'setPace'> => ({
+): Pick<GlassLayer, 'notify' | 'setBare' | 'setClip' | 'setReach' | 'setOrigin' | 'setPace'> => ({
+  notify(redraw = false) {
+    post({ type: 'layer-notify', layer, redraw });
+  },
   setBare(bare) {
     post({ type: 'layer-bare', layer, bare });
   },

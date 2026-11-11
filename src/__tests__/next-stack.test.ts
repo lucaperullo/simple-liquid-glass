@@ -3,7 +3,7 @@
 // draws from these messages is tested in real browsers (experiments/next-core/stack.test.mjs).
 import { createGlassHost } from '../next';
 import type { HostMessage, RendererMessage } from '../next/scene';
-import { told, waits, writeAround } from '../next/stacked';
+import { asked, told, waits, writeAround } from '../next/stacked';
 
 jest.mock('../next/stacking', () => ({ STACKING: true }));
 
@@ -71,6 +71,7 @@ describe('next/stack: host', () => {
     base.setReach?.(24);
     base.setOrigin?.(48, 32);
     second?.setBare?.(true);
+    base.notify?.(true);
     base.setPace?.(24);
     base.setPace?.(null);
     host.draw?.();
@@ -93,6 +94,7 @@ describe('next/stack: host', () => {
     expect(worker.sent).toContainEqual({ type: 'layer-origin', layer: root?.layer, origin: [48, 32] });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 24 });
     expect(worker.sent).toContainEqual({ type: 'layer-bare', layer: two?.layer, bare: true });
+    expect(worker.sent).toContainEqual({ type: 'layer-notify', layer: root?.layer, redraw: true });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 0 });
     // `draw` sends what the scene had not sent yet, then asks for the frame.
     expect(worker.sent[worker.sent.length - 1]).toEqual({ type: 'draw' });
@@ -114,6 +116,23 @@ describe('next/stack: host', () => {
     await tick();
     expect(statuses).toEqual([]);
     host.destroy();
+  });
+});
+
+describe('next/stack: a canvas asked to say when it is drawn', () => {
+  const lendable = () => ({ dirty: false, frame: null, texture: null, backdropRect: { left: 0, top: 0, width: 0, height: 0 }, backdropFixed: false, pictures: new Map() });
+
+  it('says so once for each time it was asked, and draws a frame only if asked to', () => {
+    const base = lendable();
+    const layers = new Map([[1, base]]);
+    expect(asked(base)).toBe(false);
+    expect(told({ type: 'layer-notify', layer: 1, redraw: false }, layers)).toBe(true);
+    expect(base.dirty).toBe(false);
+    expect(asked(base)).toBe(true);
+    expect(asked(base)).toBe(false);
+    told({ type: 'layer-notify', layer: 1, redraw: true }, layers);
+    expect(base.dirty).toBe(true);
+    expect(asked(base)).toBe(true);
   });
 });
 

@@ -201,6 +201,8 @@ export type HostMessage =
   | { readonly type: 'layer-reach'; readonly layer: number; readonly reach: number | null }
   /** Stacking: where a layer's shapes are measured from, CSS px from the canvas's top-left corner. */
   | { readonly type: 'layer-origin'; readonly layer: number; readonly origin: readonly [number, number] }
+  /** Stacking: say when the next frame of a layer's canvas has been drawn. `redraw`: and draw one. */
+  | { readonly type: 'layer-notify'; readonly layer: number; readonly redraw: boolean }
   /** Stacking: a stacked layer draws with no backdrop, not its base's. */
   | { readonly type: 'layer-bare'; readonly layer: number; readonly bare: boolean }
   /** Stacking: draw what has changed now, not in the next frame (see `GlassHost.draw`). */

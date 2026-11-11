@@ -28,6 +28,8 @@ export interface Stack<T> {
   origin: readonly [number, number];
   /** For a member: the names of its material's pictures that are its base's, not its own. */
   readonly borrowed: Set<string>;
+  /** For a base: its host wants to hear when its canvas's next frame has been drawn (`notify`). */
+  notify: boolean;
   /** For a member: it draws with no backdrop, not its base's (`setBare`). */
   bare: boolean;
   /** For a base: the least time between two frames of its canvas, ms (`setPace`), and when the last was drawn. */
@@ -50,6 +52,7 @@ export function stackOf<T extends object>(layer: T): Stack<T> {
       reach: null,
       origin: [0, 0],
       borrowed: new Set(),
+      notify: false,
       bare: false,
       pace: 0,
       drawnAt: -Infinity,
@@ -221,6 +224,7 @@ export const originOf = (layer: object): readonly [number, number] => stackOf(la
 export function told(message: HostMessage, layers: ReadonlyMap<number, Lendable & { dirty: boolean }>): boolean {
   if (
     message.type !== 'layer-bare' &&
+    message.type !== 'layer-notify' &&
     message.type !== 'layer-clip' &&
     message.type !== 'layer-reach' &&
     message.type !== 'layer-origin' &&
@@ -233,7 +237,10 @@ export function told(message: HostMessage, layers: ReadonlyMap<number, Lendable 
     const stack = stackOf(layer);
     // (A pace changes when the canvas is drawn, not what is drawn.)
     if (message.type === 'layer-pace') stack.pace = message.pace;
-    else {
+    else if (message.type === 'layer-notify') {
+      stack.notify = true;
+      layer.dirty ||= message.redraw;
+    } else {
       if (message.type === 'layer-bare') {
         stack.bare = message.bare;
         lend(layer);
@@ -244,6 +251,14 @@ export function told(message: HostMessage, layers: ReadonlyMap<number, Lendable 
     }
   }
   return true;
+}
+
+/** Whether a canvas just drawn was asked to say so (`notify`): once for each time it was asked. */
+export function asked(base: object): boolean {
+  const stack = stackOf(base);
+  const was = stack.notify;
+  stack.notify = false;
+  return was;
 }
 
 /**

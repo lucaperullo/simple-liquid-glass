@@ -3,7 +3,7 @@ import { specOf, type MaterialSpec } from './materials';
 import type { HostMessage, LayerStatus, RendererMessage } from './scene';
 import { ScrollTracker } from './scroll';
 import { GLASS_MATERIAL } from './shader';
-import { lend, stackOf, told, waits } from './stacked';
+import { asked, lend, stackOf, told, waits } from './stacked';
 import { STACKING } from './stacking';
 import { FrameMeter } from './stats';
 
@@ -78,7 +78,15 @@ export function createRenderer(env: RendererEnv): Renderer {
           base.dirty = moving = true;
           due = false;
         }
-        if (due) for (const layer of all) layer.draw(scroll.x, scroll.y, now + env.origin);
+        if (due) {
+          for (const layer of all) layer.draw(scroll.x, scroll.y, now + env.origin);
+          // Its host asked to hear of this frame (a canvas shows what it was sent a frame or more later).
+          if (asked(base)) {
+            for (const [id, each] of layers) {
+              if (each === base) env.post({ type: 'layer-status', layer: id, status: 'drawing', detail: 'frame' });
+            }
+          }
+        }
         drew ||= due;
       }
     } else

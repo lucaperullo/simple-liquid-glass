@@ -159,6 +159,12 @@ export interface GlassLayer {
    */
   setOrigin?(x: number, y: number): void;
   /**
+   * Only in `simple-liquid-glass/next/stack`, for a stacked layer that has no backdrop of its own: `true` draws
+   * it with none (`slg_hasBackdrop()` is 0), where it would otherwise draw with the backdrop of the layer whose
+   * canvas it shares. For glass that is meant to show only the glass beneath it.
+   */
+  setBare?(bare: boolean): void;
+  /**
    * Only in `simple-liquid-glass/next/stack`, for a layer with a canvas of its own: the least time between
    * two frames of that canvas, in milliseconds; null for none. A worker draws as often as the display allows,
    * and on a phone glass that is expensive to shade then takes the GPU from the page's own scrolling: held to

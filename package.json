@@ -144,7 +144,7 @@
     {
       "name": "next/stack — the same, with layers stacked in one canvas (Brotli; an entry of its own, so the core does not carry it)",
       "path": "dist/next-stack.esm.js",
-      "limit": "18.6 KB"
+      "limit": "18.8 KB"
     }
   ],
   "repository": {

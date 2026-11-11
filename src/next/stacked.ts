@@ -28,6 +28,8 @@ export interface Stack<T> {
   origin: readonly [number, number];
   /** For a member: the names of its material's pictures that are its base's, not its own. */
   readonly borrowed: Set<string>;
+  /** For a member: it draws with no backdrop, not its base's (`setBare`). */
+  bare: boolean;
   /** For a base: the least time between two frames of its canvas, ms (`setPace`), and when the last was drawn. */
   pace: number;
   drawnAt: number;
@@ -48,6 +50,7 @@ export function stackOf<T extends object>(layer: T): Stack<T> {
       reach: null,
       origin: [0, 0],
       borrowed: new Set(),
+      bare: false,
       pace: 0,
       drawnAt: -Infinity,
     };
@@ -215,8 +218,9 @@ export const originOf = (layer: object): readonly [number, number] => stackOf(la
  * Takes a message only stacked builds know (a layer's clip, reach, origin or pace) to its layer, and says
  * whether `message` was one.
  */
-export function told(message: HostMessage, layers: ReadonlyMap<number, { dirty: boolean }>): boolean {
+export function told(message: HostMessage, layers: ReadonlyMap<number, Lendable & { dirty: boolean }>): boolean {
   if (
+    message.type !== 'layer-bare' &&
     message.type !== 'layer-clip' &&
     message.type !== 'layer-reach' &&
     message.type !== 'layer-origin' &&
@@ -230,7 +234,10 @@ export function told(message: HostMessage, layers: ReadonlyMap<number, { dirty: 
     // (A pace changes when the canvas is drawn, not what is drawn.)
     if (message.type === 'layer-pace') stack.pace = message.pace;
     else {
-      if (message.type === 'layer-clip') stack.clip = message.clip;
+      if (message.type === 'layer-bare') {
+        stack.bare = message.bare;
+        lend(layer);
+      } else if (message.type === 'layer-clip') stack.clip = message.clip;
       else if (message.type === 'layer-reach') stack.reach = message.reach;
       else stack.origin = message.origin;
       layer.dirty = true;
@@ -267,7 +274,7 @@ export function lend(layer: Lendable): void {
   const base = stackOf(layer).base ?? layer;
   for (const member of stackOf(base).members) {
     if (!member.frame) {
-      member.texture = base.texture;
+      member.texture = stackOf(member).bare ? null : base.texture;
       member.backdropRect = base.backdropRect;
       member.backdropFixed = base.backdropFixed;
     }

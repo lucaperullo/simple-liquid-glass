@@ -70,6 +70,7 @@ describe('next/stack: host', () => {
     second?.addShape({ x: 0, y: 0, width: 10, height: 10, radius: 2 });
     base.setReach?.(24);
     base.setOrigin?.(48, 32);
+    second?.setBare?.(true);
     base.setPace?.(24);
     base.setPace?.(null);
     host.draw?.();
@@ -91,6 +92,7 @@ describe('next/stack: host', () => {
     expect(worker.sent).toContainEqual({ type: 'layer-reach', layer: root?.layer, reach: 24 });
     expect(worker.sent).toContainEqual({ type: 'layer-origin', layer: root?.layer, origin: [48, 32] });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 24 });
+    expect(worker.sent).toContainEqual({ type: 'layer-bare', layer: two?.layer, bare: true });
     expect(worker.sent).toContainEqual({ type: 'layer-pace', layer: root?.layer, pace: 0 });
     // `draw` sends what the scene had not sent yet, then asks for the frame.
     expect(worker.sent[worker.sent.length - 1]).toEqual({ type: 'draw' });

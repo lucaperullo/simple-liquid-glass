@@ -675,8 +675,18 @@ content is also cut off at the shape's right and bottom edges while the shape ch
 What glass looks like is a material: GLSL that shades one pixel, plus the uniforms it reads. The built-in `glass`
 has a dark tuning (its defaults) and a light one (`params: GLASS_LIGHT`); `layer.setParams()` changes any of its
 uniforms, and `lean: true` compiles its cheaper variant. `host.defineMaterial()` adds your own, or one derived
-from `GLASS_MATERIAL`. The engine shades only a rectangle around each shape, so empty canvas costs nothing. So far
-shapes are rounded boxes, and a layer holds up to 16.
+from `GLASS_MATERIAL`. The engine shades only a rectangle around each shape, so empty canvas costs nothing. Shapes
+are rounded boxes; a layer holds up to 24, each with up to 24 free attributes for its material. A material can also
+declare textures of its own (`layer.setTexture()`) and read a clock (`slg_time`, with `layer.setRunning(true)`).
+
+A worker keeps four canvases (`MAX_WORKER_LAYERS`); a fifth comes back `'unsupported'`. To put more glass in one
+canvas, and glass over glass, import the same API from `simple-liquid-glass/next/stack`: `layer.stack()` adds a
+layer drawn in the same canvas after the ones before it, and its material can read the glass already there with
+`slg_below(screen)`. That entry also has `setClip()`, `setReach()`, `setOrigin()`, `setBare()`, `setPace()`,
+`notify()` and `host.draw()`; the core entry does not carry their code.
+
+The entry's whole surface is in [`api/next.api.md`](api/next.api.md), which CI holds to the built types. Coming from
+5.x: [`docs/migration.md`](docs/migration.md).
 
 ## License
 

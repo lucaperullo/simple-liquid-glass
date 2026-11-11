@@ -45,6 +45,18 @@
   - **Changing backdrops.** `setBackdrop()` takes an `ImageBitmap` or a `VideoFrame` and refills the layer's one
     texture; `streamBackdrop(video)` follows a playing video frame by frame without copying. A 720p 60 fps video
     behind animating glass is presented at 118–120 fps on the same phone.
+  - **Layers stacked in one canvas** (`simple-liquid-glass/next/stack`, a second entry with the same types; the
+    core does not carry this code). `layer.stack()` adds a layer drawn in the same canvas after the ones before
+    it, with its own shapes, material, uniforms, textures and backdrop; its material reads the glass already
+    drawn there with `slg_below(screen)`, to bend it as it bends the backdrop. `setClip()` bounds where it draws,
+    `setReach()` how far around its shapes it is shaded, `setOrigin()` moves all its shapes at once, and
+    `setBare(true)` draws it with no backdrop instead of its canvas's. For a canvas the page moves itself:
+    `host.draw()` draws now instead of in the next frame (on the page thread, before it returns), `setPace()`
+    holds a canvas to a least time between frames, and `notify()` reports when the canvas's next frame has been
+    drawn, for whatever copies it. `onStatus` is also called with `'drawing'` when a material has been compiled
+    for a layer. The worker for this entry is `simple-liquid-glass/next/stack/worker`.
+- **A public API report.** `api/next.api.md` is the built declaration of `simple-liquid-glass/next`; `npm run
+  api:check` fails in CI and before publishing when the entry exports something the report does not say.
 - New code under `src/next` is linted (ESLint, `typescript-eslint` strict, type-checked) and formatted
   (Prettier) in CI, and compiled with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 

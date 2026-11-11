@@ -73,7 +73,7 @@
     "dev": "rollup -c -w",
     "test": "jest",
     "size": "size-limit",
-    "prepublishOnly": "npm run typecheck && npm test -- --runInBand && npm run build && npm run test:types && npm run size",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm test -- --runInBand && npm run build && npm run test:types && npm run api:check && npm run size",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.next.json",
@@ -83,6 +83,8 @@
     "test:compat": "node scripts/check-compat.cjs",
     "test:types": "tsc -p tests/types/tsconfig.json",
     "test:webgl": "node experiments/library-webgl/test.mjs && node experiments/library-webgl/upload-reuse.test.mjs && node experiments/library-webgl/video-frames.test.mjs && node experiments/canvas-backdrop/test.mjs && node experiments/engine/test.mjs && node experiments/next-core/test.mjs && node experiments/next-core/stack.test.mjs",
+    "api:check": "node scripts/api-report.mjs",
+    "api:update": "node scripts/api-report.mjs --update",
     "test:scene": "node experiments/scene/test.mjs"
   },
   "size-limit": [

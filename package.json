@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "5.7.3",
+  "version": "6.0.0",
   "type": "module",
   "description": "Liquid glass for React 16.8–19 and web components, with automatic iOS WebGL refraction, optional Android WebGL, SVG optics, and explicit backdrop capture.",
   "main": "dist/index.cjs",
@@ -139,7 +139,7 @@
       ]
     },
     {
-      "name": "next — import { createGlassHost } (Brotli, experimental 6.0 core, no React; includes the worker as text)",
+      "name": "next — import { createGlassHost } (Brotli, the 6.0 core, no React; includes the worker as text)",
       "path": "dist/next.esm.js",
       "limit": "15.8 KB"
     },

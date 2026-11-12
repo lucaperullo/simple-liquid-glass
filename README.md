@@ -640,12 +640,12 @@ view, so `ctx.draw(rects)` can never reach further than that — `bleed` is how 
 no `slg_frost`/`slg_pointer` and no pointer field anywhere in this API. See the CHANGELOG's "Engine API" entry for
 the full list, every `slg_*` prelude function, and an MIT example material at `tests/engine/tint-material.ts`.
 
-## Experimental: `simple-liquid-glass/next`
+## The 6.0 renderer: `simple-liquid-glass/next`
 
-The renderer core of the coming 6.0, to try out. The page describes a scene as data; a renderer draws it from a
+The renderer core new in 6.0. The page describes a scene as data; a renderer draws it from a
 worker when the browser can (and on the page thread otherwise), and animates it with springs on its own clock, so
-glass keeps the display's full frame rate where the page's own frames are capped or busy. Everything in this entry
-may change before 6.0, and it does not replace any 5.x API yet.
+glass keeps the display's full frame rate where the page's own frames are capped or busy. It does not replace any 5.x
+API: `<LiquidGlass>` and the other 5.x entries draw as they did.
 
 ```ts
 import { createGlassHost } from 'simple-liquid-glass/next';

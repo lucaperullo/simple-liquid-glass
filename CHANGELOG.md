@@ -1,6 +1,6 @@
-## 5.7.3
+## 6.0.0: a renderer that draws from a worker
 
-- **`simple-liquid-glass/next`** (new, experimental): the first slice of the 6.0 renderer core. `createGlassHost()`
+- **`simple-liquid-glass/next`** (new): the 6.0 renderer core. `createGlassHost()`
   takes a scene as data (layers, rounded-box shapes, a material and a backdrop picture per layer) and a renderer
   draws it: from a worker on canvases handed over with `transferControlToOffscreen` where the browser supports
   WebGL there, on the page thread otherwise, with the same code and the same picture. Springs run on the
@@ -59,6 +59,8 @@
   api:check` fails in CI and before publishing when the entry exports something the report does not say.
 - New code under `src/next` is linted (ESLint, `typescript-eslint` strict, type-checked) and formatted
   (Prettier) in CI, and compiled with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
+
+## 5.7.3
 
 - **Android refracts by default.** `renderer="auto"` now uses WebGL on Android Chromium, as it already did on iOS,
   instead of the CSS blur that did not refract. Glass with a `backdropRef`, `backdropSelector` or `LiquidGlassScene`

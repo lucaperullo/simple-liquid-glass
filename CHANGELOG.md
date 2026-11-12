@@ -1,4 +1,4 @@
-## Unreleased
+## 5.7.3
 
 - **`simple-liquid-glass/next`** (new, experimental): the first slice of the 6.0 renderer core. `createGlassHost()`
   takes a scene as data (layers, rounded-box shapes, a material and a backdrop picture per layer) and a renderer

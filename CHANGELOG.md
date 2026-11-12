@@ -1,3 +1,7 @@
+## 6.0.1
+
+- README: the Performance section now carries the measurements of 2026-11-12 (the 6.0 renderer beside 5.7 and eight other libraries, on four desktop browsers and an Android phone). No code changes.
+
 ## 6.0.0: a renderer that draws from a worker
 
 - **`simple-liquid-glass/next`** (new): the 6.0 renderer core. `createGlassHost()`

@@ -22,11 +22,36 @@ An Apple-style glass effect with displacement, chromatic aberration, gradient bo
 - React 16.8–19 compatibility checked with server rendering, hydration, and unmount tests.
 - A separate web component for other frameworks, with the same iOS WebGL engine.
 - Enforced bundle budgets and browser integration tests in Chromium, Firefox, and WebKit.
-- 60 fps with 104 scrolling panes in Chrome: sibling panes share one WebGL canvas, using less CPU than liquidGL WebGPU (see [Performance](#performance)).
+- A 6.0 renderer that draws from a worker: 48 scrolling panels at the display's rate in Chrome, Firefox and Safari, and 105 fps with real refraction on a mid-range Android phone (see [Performance](#performance)).
 
 ## Performance
 
-5.6 renders a page full of glass at display rate. With the library's default look, 104 scrolling panes hold 60 fps in Chrome while using less CPU than liquidGL's WebGPU renderer. In 5.5.1 they ran at 35 fps through SVG and 12 fps through WebGL.
+Measured on 2026-11-12 with the 6.0 renderer (`simple-liquid-glass/next`) beside 5.7 and eight other liquid-glass libraries from npm, each at its own defaults. The full tables, the screenshots and the harness are at [simpleliquidglass.xyz/#benchmarks](https://simpleliquidglass.xyz/#benchmarks).
+
+| Library | Score | Chrome | Firefox | Safari | Phone, 5 surfaces | Phone, 48 surfaces | gzip kB |
+|---|---|---|---|---|---|---|---|
+| **simple-liquid-glass 6.0** (`/next`) | **84.8** | 119 | 120 | 60 | 105 fps · 5/5 | 58 fps · 22/48 | 21.9 |
+| liquid-glass-react 1.1.1 | 79.9 | 34 | 41 | 60 | 16 fps · 5/5 | 2 fps · 48/48 | 32.3 |
+| @ybouane/liquidglass 1.0.3 | 78.6 | 119 | 120 | 60 | 18 fps · 3/5 | 2 fps · 42/48 | 16.6 |
+| @samasante/liquid-glass 0.1.1 | 76.5 | 9 | 120 | 60 | 110 fps · 3/5 | 92 fps · 23/48 | 15.5 |
+| liquid-glass-web-react 0.1.1 ¹ | 72.4 | 6 | 2 | 60 | 4 fps · 4/5 | 0 fps · 43/48 | 5.0 |
+| glisse 0.5.0 | 71.0 | 13 | 120 | 60 | 9 fps · 5/5 | 4 fps · 16/48 | 15.4 |
+| simple-liquid-glass 5.7 (`<LiquidGlass>`) | 59.5 | 120 | 42 | 59 | 102 fps · 1/5 | 19 fps · 0/48 | 54.1 |
+| @mawtech/glass-ui 0.2.2 | 56.5 | 119 | 120 | 60 | 85 fps · 0/5 | 13 fps · 0/48 | 96.4 |
+| liquid-gl 3.0.0 | 52.2 | 120 | 68 | 60 | 109 fps · 0/5 | 57 fps · 0/48 | 44.4 |
+| @specy/liquid-glass-react 1.0.2 | 47.3 | 120 | 44 | 60 | 32 fps · 0/5 | 37 fps · 0/48 | 216.7 |
+
+- **Chrome, Firefox, Safari:** frames a second while a page of 48 glass panels (200×120) scrolls over a photograph. MacBook Pro M5, 1440×900 at DPR 2, headless production builds; Chrome and Firefox on a 120 Hz display, Safari (Playwright WebKit) at 60 Hz. One 5-second sample a cell.
+- **Phone:** a ZTE Z2357N (Android 14, Chrome 156) over a backdrop that moves every frame. The second number is how many surfaces really bend that backdrop and follow it; a surface that only blurs counts as 0. The phone presents about 110 frames a second.
+- **gzip kB:** what the library adds to a production bundle, JS and CSS.
+- **Score:** 0 to 100, a number of this project's own making and not a standard: refraction 30, smoothness in the desktop browsers 30, CPU cost 15, phone frame rate 10, weight 10, browsers without errors 5. The script is `scripts/bench_score.py` in the benchmark harness.
+- ¹ Scored but not ranked: its documentation shows one lens over content, and the scene here had to nest one lens per surface.
+
+Two things the table does not flatter. At 48 surfaces on the phone, 6.0 bends 22 of them at 58 fps, while `@samasante/liquid-glass` holds 92 fps and `liquid-glass-react` bends all 48 at 2 fps. And the 5.x `<LiquidGlass>` row is its automatic renderer; with `renderer="webgl"` and a `LiquidGlassScene` it refracts 5 of 5 at 104 fps and 46 of 48 at 72 fps on the same phone. Numbers vary with backdrop, surface size and GPU: reproduce them with your own content before relying on them.
+
+### The 5.x renderers, measured at 5.6
+
+`<LiquidGlass>` and the other 5.x entries draw as they did in 5.7. With the library's default look, 104 scrolling panes hold 60 fps in Chrome while using less CPU than liquidGL's WebGPU renderer. In 5.5.1 they ran at 35 fps through SVG and 12 fps through WebGL.
 
 Chrome 156, MacBook Pro M5, Retina (DPR 2), 60 Hz display. Each library uses its own default look. Panes scroll over an image backdrop. Values are frame rate and CPU of the whole Chrome process tree (ms per second), median of four Latin-rotated runs in fresh browsers (two for 5.5.1 WebGL and for 5.6 at 24 panes):
 

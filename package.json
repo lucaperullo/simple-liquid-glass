@@ -1,6 +1,6 @@
 {
   "name": "simple-liquid-glass",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "type": "module",
   "description": "Liquid glass for React 16.8–19 and web components, with automatic iOS WebGL refraction, optional Android WebGL, SVG optics, and explicit backdrop capture.",
   "main": "dist/index.cjs",
